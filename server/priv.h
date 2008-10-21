@@ -20,7 +20,12 @@
  */
 #ident "$Id:$"
 
-extern void service_init(unsigned server_port);
+# include  <stdio.h>
+
+/* Parse the config file. */
+extern int config_file(FILE*cfg);
+
+extern void service_init(void);
 extern void service_run(void);
 
 /*

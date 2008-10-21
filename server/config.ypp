@@ -1,0 +1,50 @@
+
+
+%{
+# include  <iostream>
+using namespace std;
+
+extern "C" int configlex(void);
+static void yyerror(const char*msg);
+%}
+
+%token K_bus K_device K_port
+%token INTEGER STRING
+
+%%
+
+config_file
+  : config_file config_item
+  | config_item
+  ;
+
+config_item : bus ;
+
+bus : K_bus INTEGER '{' bus_item_list '}' ;
+
+bus_item_list
+  : bus_item_list bus_item
+  | bus_item
+  ;
+
+bus_item
+  : K_port   '=' INTEGER ';'
+  | K_device '=' STRING ';'
+  ;
+
+%%
+
+static void yyerror(const char*txt)
+{
+	cerr << txt << endl;
+}
+
+extern "C" void configrestart(FILE*fd);
+
+int config_file(FILE*cfg)
+{
+	configrestart(cfg);
+	int rc = yyparse();
+	if (rc != 0)
+	return -1;
+}

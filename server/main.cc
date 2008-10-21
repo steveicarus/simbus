@@ -18,14 +18,52 @@
  */
 #ident "$Id:$"
 
-# include  "priv.h"
+# include  <iostream>
 
-# define SERVER_PORT 11000
+using namespace std;
+
+# include  <stdlib.h>
+# include  <stdio.h>
+# include  <unistd.h>
+# include  "priv.h"
+# include  <assert.h>
+
+# define SERVER_PORT_DEFAULT 11000
 
 int main(int argc, char*argv[])
 {
-      service_init(SERVER_PORT);
+      const char*config_path = 0;
+      int opt;
+
+      while ( (opt = getopt(argc, argv, "c:")) != -1 ) {
+	    switch (opt) {
+		case 'c':
+		  config_path = optarg;
+		  break;
+		default:
+		  assert(0);
+		  break;
+	    }
+      }
+
+      if (config_path == 0) {
+	    cerr << "Need a config file. Use -c <file> to specify." << endl;
+	    return 1;
+      }
+
+      FILE*cfg = fopen(config_path, "r");
+      if (cfg == 0) {
+	    cerr << "Unable to open " << config_path << endl;
+	    return 2;
+      }
+
+      int rc = config_file(cfg);
+      if (rc != 0)
+	    return 3;
+
+      service_init();
       service_run();
+      return 0;
 }
 
 /*

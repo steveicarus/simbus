@@ -32,38 +32,51 @@
 
 using namespace std;
 
-static int service_fd;
-static bool running_flag;
+struct bus_state {
+      int fd;
+      unsigned port;
+      bool running_flag;
+};
+map <string, struct bus_state> bus_map;
+
+typedef map<string, bus_state>::iterator bus_map_idx_t;
 
 struct client_state {
-      int fd;
+      string bus;
       char buffer[4096];
       size_t buffer_fill;
 };
 
 map<int,struct client_state> client_map;
 
-void service_init(unsigned server_port)
+typedef map<int, struct client_state>::iterator client_map_idx_t;
+
+void service_init(void)
 {
       int rc;
 
-	// Create the server socket..
-      service_fd = socket(PF_INET, SOCK_STREAM, 0);
-      assert(service_fd >= 0);
+      for (bus_map_idx_t cur = bus_map.begin() ; cur != bus_map.end(); cur++) {
 
-	// Bind the service port address to the socket.
-      struct sockaddr_in server_socket;
-      memset(&server_socket, 0, sizeof server_socket);
-      server_socket.sin_family = AF_INET;
-      server_socket.sin_port = htons(server_port);
-      server_socket.sin_addr.s_addr = INADDR_ANY;
+	      // Create the server socket..
+	    cur->second.fd = socket(PF_INET, SOCK_STREAM, 0);
+	    assert(cur->second.fd >= 0);
 
-      rc = bind(service_fd, (const sockaddr*)&server_socket, sizeof(server_socket));
-      assert(rc >= 0);
+	      // Bind the service port address to the socket.
+	    struct sockaddr_in server_socket;
+	    memset(&server_socket, 0, sizeof server_socket);
+	    server_socket.sin_family = AF_INET;
+	    server_socket.sin_port = htons(cur->second.port);
+	    server_socket.sin_addr.s_addr = INADDR_ANY;
 
-	// Put the socket into listen mode.
-      rc = listen(service_fd, 2);
-      assert(rc >= 0);
+	    rc = bind(cur->second.fd,
+		      (const sockaddr*)&server_socket,
+		      sizeof(server_socket));
+	    assert(rc >= 0);
+
+	      // Put the socket into listen mode.
+	    rc = listen(cur->second.fd, 2);
+	    assert(rc >= 0);
+      }
 }
 
 /*
@@ -71,36 +84,36 @@ void service_init(unsigned server_port)
  * socket is ready. The only thing that can happen on that fd is a
  * client is attempting a connect. Accept the connection.
  */
-static void listen_ready(void)
+static void listen_ready(bus_map_idx_t&cur)
 {
       struct sockaddr remote_addr;
       socklen_t remote_addr_len;
 
-      int rc = accept(service_fd, &remote_addr, &remote_addr_len);
-      assert(rc >= 0);
+      int use_fd = accept(cur->second.fd, &remote_addr, &remote_addr_len);
+      assert(use_fd >= 0);
 
       struct client_state tmp;
-      tmp.fd = rc;
+      tmp.bus = cur->first;
       tmp.buffer_fill = 0;
 
-      client_map[tmp.fd] = tmp;
+      client_map[use_fd] = tmp;
 }
 
 /*
  * A client connection is ready. Read the data from the connection and
  * process it.
  */
-static void client_ready(struct client_state&client)
+static void client_ready(client_map_idx_t&client)
 {
-      size_t trans = sizeof client.buffer - client.buffer_fill - 1;
+      size_t trans = sizeof client->second.buffer - client->second.buffer_fill - 1;
       assert(trans > 0);
 
-      int rc = read(client.fd, client.buffer + client.buffer_fill, trans);
+      int rc = read(client->first, client->second.buffer + client->second.buffer_fill, trans);
       assert(rc >= 0);
       if (rc == 0)
 	    return;
 
-      *(client.buffer+client.buffer_fill+rc) = 0;
+      *(client->second.buffer+client->second.buffer_fill+rc) = 0;
 }
 
 
@@ -108,22 +121,27 @@ void service_run(void)
 {
       int rc;
 
-      running_flag = true;
-      while (running_flag) {
+      while (true) {
 	    int nfds = 0;
 	    fd_set rfds;
 	    FD_ZERO(&rfds);
 
-	      // Add the server port to the fd list.
-	    FD_SET(service_fd, &rfds);
-	    if (service_fd >= nfds)
-		  nfds = service_fd + 1;
+	      // Add the server ports to the fd list.
+	    for (bus_map_idx_t idx = bus_map.begin()
+		       ; idx != bus_map.end(); idx++) {
+		  int fd = idx->second.fd;
+		  FD_SET(fd, &rfds);
+		  if (fd >= nfds)
+			nfds = fd + 1;
+	    }
 
-	    for (map<int,struct client_state>::iterator idx = client_map.begin()
+	      // Add the client ports to the fd list.
+	    for (client_map_idx_t idx = client_map.begin()
 		       ; idx != client_map.end() ; idx ++) {
-		  FD_SET(idx->second.fd, &rfds);
-		  if (idx->second.fd >= nfds)
-			nfds = idx->second.fd + 1;
+		  int fd = idx->first;
+		  FD_SET(fd, &rfds);
+		  if (fd >= nfds)
+			nfds = fd + 1;
 	    }
 
 	    rc = select(nfds, &rfds, 0, 0, 0);
@@ -132,13 +150,18 @@ void service_run(void)
 
 	    assert(rc >= 0);
 
-	    if (FD_ISSET(service_fd, &rfds))
-		  listen_ready();
+	    for (bus_map_idx_t idx = bus_map.begin()
+		       ; idx != bus_map.end(); idx++) {
+		  int fd = idx->second.fd;
+		  if (FD_ISSET(fd, &rfds))
+			listen_ready(idx);
+	    }
 
-	    for (map<int,struct client_state>::iterator idx = client_map.begin()
+	    for (client_map_idx_t idx = client_map.begin()
 		       ; idx != client_map.end() ; idx ++) {
-		  if (FD_ISSET(idx->second.fd, &rfds))
-			client_ready(idx->second);
+		  int fd = idx->first;
+		  if (FD_ISSET(fd, &rfds))
+			client_ready(idx);
 	    }
       }
 }
