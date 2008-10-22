@@ -28,28 +28,58 @@
 # include  <iostream>
 # include  <map>
 
+# include  "priv.h"
 # include  <assert.h>
 
 using namespace std;
 
+/*
+ * The bus_state describes a bus. The fd is the posix file-descriptor
+ * for the server port, and the name is the configured bus name. The
+ * TCP port is the map key.
+ */
 struct bus_state {
+	// Human-readable name for the bus.
+      string name;
+	// posix fd for the bus.
       int fd;
-      unsigned port;
-      bool running_flag;
+	// List uf unbound devices
+      bus_device_map_t device_map;
 };
-map <string, struct bus_state> bus_map;
+map <unsigned, struct bus_state> bus_map;
+typedef map<unsigned, bus_state>::iterator bus_map_idx_t;
 
-typedef map<string, bus_state>::iterator bus_map_idx_t;
-
+/*
+ * A client is mapped using its file descriptor as the key. The client
+ * contains the "bus", which is the number of the bus that it belongs
+ * to, and can be used to look up the port.
+ */
 struct client_state {
-      string bus;
+	// Key for the bus that client belongs to
+      unsigned bus;
+	// Device name and ident.
+      string dev_name;
+      unsigned dev_ident;
+	// Keep an input buffer of data read from the connection.
       char buffer[4096];
       size_t buffer_fill;
 };
 
 map<int,struct client_state> client_map;
-
 typedef map<int, struct client_state>::iterator client_map_idx_t;
+
+void process_client_command(client_map_idx_t&client, int argc, char*argv[]);
+
+void service_add_bus(unsigned port, const std::string&name,
+		     const bus_device_map_t&dev)
+{
+      bus_state tmp;
+      tmp.name = name;
+      tmp.fd = -1;
+      tmp.device_map = dev;
+
+      bus_map[port] = tmp;
+}
 
 void service_init(void)
 {
@@ -65,7 +95,8 @@ void service_init(void)
 	    struct sockaddr_in server_socket;
 	    memset(&server_socket, 0, sizeof server_socket);
 	    server_socket.sin_family = AF_INET;
-	    server_socket.sin_port = htons(cur->second.port);
+	      // The port is the map key.
+	    server_socket.sin_port = htons(cur->first);
 	    server_socket.sin_addr.s_addr = INADDR_ANY;
 
 	    rc = bind(cur->second.fd,
@@ -94,10 +125,14 @@ static void listen_ready(bus_map_idx_t&cur)
 
       struct client_state tmp;
       tmp.bus = cur->first;
+      tmp.dev_name = "";
+      tmp.dev_ident = 0;
       tmp.buffer_fill = 0;
 
       client_map[use_fd] = tmp;
 }
+
+const char white_space[] = " \r";
 
 /*
  * A client connection is ready. Read the data from the connection and
@@ -113,9 +148,76 @@ static void client_ready(client_map_idx_t&client)
       if (rc == 0)
 	    return;
 
-      *(client->second.buffer+client->second.buffer_fill+rc) = 0;
+      client->second.buffer_fill += rc;
+      *(client->second.buffer+client->second.buffer_fill) = 0;
+
+      if (char*eol = strchr(client->second.buffer, '\n')) {
+	      // Remote the new-line.
+	    *eol++ = 0;
+	    int argc = 0;
+	    char*argv[2048];
+
+	    char*cp = client->second.buffer;
+	    while (*cp != 0) {
+		  argv[argc++] = cp;
+		  cp += strcspn(cp, white_space);
+		  if (*cp) {
+			*cp++ = 0;
+			cp += strspn(cp, white_space);
+		  }
+	    }
+	    argv[argc] = 0;
+
+	      // Process the client command.
+	    process_client_command(client, argc, argv);
+
+	      // Remove the command line from the input buffer
+	    client->second.buffer_fill -= eol - client->second.buffer;
+	    memmove(client->second.buffer, eol, client->second.buffer_fill);
+      }
 }
 
+void process_client_command(client_map_idx_t&client, int argc, char*argv[])
+{
+      char outbuf[4096];
+
+      if (client->second.dev_name == "") {
+	    if (strcmp(argv[0], "HELLO") != 0) {
+		  fprintf(stderr, "Expecting HELLO from client, got %s\n", argv[0]);
+		  return;
+	    }
+
+	    assert(argc > 1);
+	    string use_name = argv[1];
+
+	    bus_map_idx_t bus_info = bus_map.find(client->second.bus);
+	    assert(bus_info != bus_map.end());
+
+	    bus_device_map_t::iterator cur = bus_info->second.device_map.find(use_name);
+	    if (cur == bus_info->second.device_map.end()) {
+		  write(client->first, "NAK\n", 4);
+		  cerr << "Device " << use_name
+		       << " not found in bus " << bus_info->second.name
+		       << endl;
+		  return;
+	    }
+
+	    client->second.dev_name = use_name;
+	    client->second.dev_ident = cur->second.ident;
+
+	    snprintf(outbuf, sizeof outbuf, "YOU-ARE %u\n", client->second.dev_ident);
+	    int rc = write(client->first, outbuf, strlen(outbuf));
+	    assert(rc == strlen(outbuf));
+	    return;
+      }
+
+      if (strcmp(argv[0],"HELLO") == 0) {
+	    cerr << "Extra HELLO from " << client->second.dev_name << endl;
+      } else {
+	    cerr << "Unknown command " << argv[0]
+		 << " from client " << client->second.dev_name << endl;
+      }
+}
 
 void service_run(void)
 {

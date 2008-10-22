@@ -14,5 +14,5 @@ lex.config.c: config.lex
 
 main.o: main.cc priv.h
 service.o: service.cc priv.h
-config.tab.o: config.tab.cpp lex.config.c
+config.tab.o: config.tab.cpp lex.config.c priv.h
 lex.config.o: lex.config.c config.tab.hpp

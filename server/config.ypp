@@ -1,15 +1,50 @@
 
 
 %{
+# include  <map>
 # include  <iostream>
+# include  "priv.h"
+
 using namespace std;
 
 extern "C" int configlex(void);
 static void yyerror(const char*msg);
+
+static unsigned use_bus_port;
+static string use_bus_name;
+static bus_device_map_t use_bus_devices;
+
+static void start_new_bus(void)
+{
+      use_bus_port = 0;
+      use_bus_name = "";
+      use_bus_devices.clear();
+}
+
+static void add_device_to_bus(unsigned devid, char*devname)
+{
+      string tmp_name (devname);
+      struct service_bus_device_config tmp;
+      tmp.ident = devid;
+      use_bus_devices[tmp_name] = tmp;
+      free(devname);
+}
+
+static void wrap_up_new_bus(void)
+{
+      service_add_bus(use_bus_port, use_bus_name, use_bus_devices);
+}
+
 %}
 
-%token K_bus K_device K_port
-%token INTEGER STRING
+%union {
+      unsigned integer;
+      char*    text;
+}
+
+%token K_bus K_device K_name K_port
+%token <integer> INTEGER
+%token <text>    STRING
 
 %%
 
@@ -20,7 +55,12 @@ config_file
 
 config_item : bus ;
 
-bus : K_bus INTEGER '{' bus_item_list '}' ;
+bus
+  : K_bus
+      { start_new_bus(); }
+    '{' bus_item_list '}'
+      { wrap_up_new_bus(); }
+  ;
 
 bus_item_list
   : bus_item_list bus_item
@@ -28,8 +68,9 @@ bus_item_list
   ;
 
 bus_item
-  : K_port   '=' INTEGER ';'
-  | K_device '=' STRING ';'
+  : K_port   '=' INTEGER ';'    { use_bus_port = $3; }
+  | K_name   '=' STRING ';'     { use_bus_name = string($3); free($3); }
+  | K_device INTEGER STRING ';' { add_device_to_bus($2, $3); }
   ;
 
 %%

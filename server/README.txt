@@ -9,15 +9,27 @@ are described in the configuration file.
 
 CONFIGURATION
 
-bus <N> {
+# There can be any number of busses in this server, and in this
+# configuration file. Just include a bus section for each bus you want
+# to define. Note that the port must be unique.
+bus {
+  # Give the bus a symbolic name. This is used for human readable
+  # messages. The name is optional, a default will be chosen if needed.
+  name = "<bus name>";
+
   # Specify the TCP network port to use. The server listens on this
   # port, and the clients connects to this port to attach to the bus.
-  tcp_port = <n>;
+  port = <n>;
 
   # List all the devices that are expected. The simulation does not
   # start until all the listed devices attach and identify themselves.
+  #
   # The <n> is used to assign IDSEL, REQ/GNT and interrupts to the
   # device.
+  #
+  # The <name> is used to match an incoming client with this
+  # device. The client knows its name and includes it in the "hello"
+  # message it sends.
   device <n> "<name>";
 }
 

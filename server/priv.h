@@ -21,12 +21,22 @@
 #ident "$Id:$"
 
 # include  <stdio.h>
+# include  <map>
+# include  <string>
 
 /* Parse the config file. */
 extern int config_file(FILE*cfg);
 
 extern void service_init(void);
 extern void service_run(void);
+
+struct service_bus_device_config {
+      unsigned ident;
+};
+typedef std::map<std::string,struct service_bus_device_config> bus_device_map_t;
+
+extern void service_add_bus(unsigned port, const std::string&name,
+			    const bus_device_map_t&dev);
 
 /*
  * $Log: $
