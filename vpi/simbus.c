@@ -19,15 +19,314 @@
 #ident "$Id:$"
 
 # include  <vpi_user.h>
+# include  <sys/types.h>
+# include  <sys/socket.h>
+# include  <netdb.h>
+# include  <unistd.h>
+# include  <stdlib.h>
+# include  <string.h>
+# include  <assert.h>
+
+# define MAX_INSTANCES 32
+
+struct port_instance {
+      char*name;
+      int fd;
+} instance_table[MAX_INSTANCES];
+
+
+/*
+ * This routine returns 1 if the argument supports a valid string value,
+ * otherwise it returns 0.
+ */
+static int is_string_obj(vpiHandle obj)
+{
+    int rtn = 0;
+
+    assert(obj);
+
+    switch(vpi_get(vpiType, obj)) {
+      case vpiConstant:
+      case vpiParameter: {
+	  /* These must be a string or binary constant. */
+	PLI_INT32 ctype = vpi_get(vpiConstType, obj);
+	if (ctype == vpiStringConst || ctype == vpiBinaryConst) rtn = 1;
+	break;
+      }
+    }
+
+    return rtn;
+}
+
+static PLI_INT32 simbus_connect_compiletf(char*my_name)
+{
+      vpiHandle callh = vpi_handle(vpiSysTfCall, 0);
+      vpiHandle argv = vpi_iterate(vpiArgument, callh);
+
+      /* Check that there is an argument and that it is a string. */
+      if (argv == 0) {
+            vpi_printf("ERROR: %s line %d: ", vpi_get_str(vpiFile, callh),
+                       (int)vpi_get(vpiLineNo, callh));
+            vpi_printf("%s requires a single string argument.\n", my_name);
+            vpi_control(vpiFinish, 1);
+            return 0;
+      }
+
+      if (! is_string_obj(vpi_scan(argv))) {
+            vpi_printf("ERROR: %s line %d: ", vpi_get_str(vpiFile, callh),
+                       (int)vpi_get(vpiLineNo, callh));
+            vpi_printf("%s's argument must be a constant string.\n", my_name);
+            vpi_control(vpiFinish, 1);
+      }
+
+      /* Make sure there are no extra arguments. */
+      if (vpi_scan(argv) != 0) {
+	    char msg [64];
+	    unsigned argc;
+
+	    snprintf(msg, 64, "ERROR: %s line %d:",
+	             vpi_get_str(vpiFile, callh),
+	             (int)vpi_get(vpiLineNo, callh));
+
+	    argc = 1;
+	    while (vpi_scan(argv)) argc += 1;
+
+            vpi_printf("%s %s takes a single string argument.\n", msg, my_name);
+            vpi_printf("%*s Found %u extra argument%s.\n",
+	               (int) strlen(msg), " ", argc, argc == 1 ? "" : "s");
+            vpi_control(vpiFinish, 1);
+      }
+
+      return 0;
+}
+
+static PLI_INT32 simbus_connect_calltf(char*my_name)
+{
+      int idx;
+      char buf[1024];
+      s_vpi_value value;
+      s_vpi_vlog_info vlog;
+
+      vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
+      vpiHandle argv = vpi_iterate(vpiArgument, sys);
+      vpiHandle arg;
+      assert(argv);
+
+	/* Get the one and only argument, and get its string value. */
+      arg = vpi_scan(argv);
+      assert(arg);
+
+      value.format = vpiStringVal;
+      vpi_get_value(arg, &value);
+      char*dev_name = strdup(value.value.str);
+      vpi_free_object(argv);
+
+	/* Synthesize a bus server argument string and search for it
+	   on the command line. That string will have the host and
+	   port number (or just port number) for the bus that we are
+	   supposed to connect to. */
+      snprintf(buf, sizeof buf,
+	       "+simbus-%s-bus=", dev_name);
+
+      vpi_get_vlog_info(&vlog);
+      char*host_string = 0;
+      for (idx = 0 ; idx < vlog.argc ; idx += 1) {
+	    if (strncmp(vlog.argv[idx], buf, strlen(buf)) == 0) {
+		  host_string = strdup(vlog.argv[idx]+strlen(buf));
+		  break;
+	    }
+      }
+
+      if (host_string == 0) {
+	    vpi_printf("%s:%d: %s(%s) cannot find %s<server> on command line\n",
+		       vpi_get_str(vpiFile, sys),
+		       (int)vpi_get(vpiLineNo, sys),
+		       my_name, dev_name, buf);
+
+	    free(dev_name);
+	    value.format = vpiIntVal;
+	    value.value.integer = -1;
+	    vpi_put_value(sys, &value, 0, vpiNoDelay);
+	    return 0;
+      }
+
+	/* Split the string into a host name and a port number. If
+	   there is no host name, then use "localhost". */
+      char*host_name = 0;
+      char*host_port = 0;
+      char*cp = strchr(host_string, ':');
+      if (cp != 0) {
+	    *cp++ = 0;
+	    host_name = host_string;
+	    host_port = cp;
+      } else {
+	    host_name = "localhost";
+	    host_port = host_string;
+      }
+
+	/* Given the host string from the command line, look it up and
+	   get the address and port numbers. */
+      struct addrinfo hints, *res;
+      memset(&hints, 0, sizeof(struct addrinfo));
+      hints.ai_family = AF_UNSPEC;
+      hints.ai_socktype = SOCK_STREAM;
+      int rc = getaddrinfo(host_name, host_port, &hints, &res);
+      if (rc != 0) {
+	    vpi_printf("%s:%d: %s(%s) cannot find host %s:%s\n",
+		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		       my_name, dev_name, host_name, host_port);
+
+	    free(dev_name);
+	    free(host_string);
+	    value.format = vpiIntVal;
+	    value.value.integer = -1;
+	    vpi_put_value(sys, &value, 0, vpiNoDelay);
+	    return 0;
+      }
+
+	/* Connect to the server. */
+      int server_fd = -1;
+      struct addrinfo *rp;
+      for (rp = res ; rp != 0 ; rp = rp->ai_next) {
+	    server_fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+	    if (server_fd < 0)
+		  continue;
+
+	    if (connect(server_fd, rp->ai_addr, rp->ai_addrlen) < 0) {
+		  close(server_fd);
+		  server_fd = -1;
+		  continue;
+	    }
+
+	    break;
+      }
+
+      freeaddrinfo(res);
+
+      if (server_fd == -1) {
+	    vpi_printf("%s:%d: %s(%s) cannot connect to server %s:%s\n",
+		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		       my_name, dev_name, host_name, host_port);
+
+	    free(dev_name);
+	    free(host_string);
+	    value.format = vpiIntVal;
+	    value.value.integer = -1;
+	    vpi_put_value(sys, &value, 0, vpiNoDelay);
+	    return 0;
+      }
+
+	/* Send HELLO message to the server. */
+      snprintf(buf, sizeof buf, "HELLO %s\n", dev_name);
+
+      rc = write(server_fd, buf, strlen(buf));
+      assert(rc == strlen(buf));
+
+	/* Read response from server. */
+      rc = read(server_fd, buf, sizeof buf);
+      assert(rc > 0);
+      assert(strchr(buf, '\n'));
+
+      if (strcmp(buf, "NAK\n") == 0) {
+	    vpi_printf("%s:%d: %s(%s) Server %s:%s doesn't want me.\n",
+		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		       my_name, host_name, host_port, dev_name);
+
+	    free(dev_name);
+	    free(host_string);
+	    close(server_fd);
+	    value.format = vpiIntVal;
+	    value.value.integer = -1;
+	    vpi_put_value(sys, &value, 0, vpiNoDelay);
+	    return 0;
+      }
+
+      unsigned ident = 0;
+      if (strncmp(buf, "YOU-ARE ", 8) == 0) {
+	    sscanf(buf, "YOU-ARE %u", &ident);
+      } else {
+	    vpi_printf("%s:%d: %s(%s) Server %s:%s protocol error.\n",
+		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		       my_name, dev_name, host_name, host_port);
+
+	    free(dev_name);
+	    free(host_string);
+	    close(server_fd);
+	    value.format = vpiIntVal;
+	    value.value.integer = -1;
+	    vpi_put_value(sys, &value, 0, vpiNoDelay);
+	    return 0;
+      }
+
+	/* Create an instance for this connection. */
+      idx = 0;
+      while (instance_table[idx].name && idx < MAX_INSTANCES) {
+	    idx += 1;
+      }
+
+      assert(idx < MAX_INSTANCES);
+      instance_table[idx].name = dev_name;
+      instance_table[idx].fd = server_fd;
+
+      vpi_printf("%s:%d: %s(%s) Bus server %s:%s ready.\n",
+		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		 my_name, dev_name, host_name, host_port);
+
+      value.format = vpiIntVal;
+      value.value.integer = idx;
+      vpi_put_value(sys, &value, 0, vpiNoDelay);
+      return 0;
+}
+
+static PLI_INT32 simbus_ready_compiletf(char*my_name)
+{
+      vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
+
+      vpi_printf("%s:%d: %s() STUB compiletf\n",
+		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		 my_name);
+      return 0;
+}
+
+static PLI_INT32 simbus_ready_calltf(char*my_name)
+{
+      vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
+
+      vpi_printf("%s:%d: %s() STUB calltf\n",
+		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		 my_name);
+      return 0;
+}
+
+static PLI_INT32 simbus_until_compiletf(char*my_name)
+{
+      vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
+
+      vpi_printf("%s:%d: %s() STUB compiletf\n",
+		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		 my_name);
+      return 0;
+}
+
+static PLI_INT32 simbus_until_calltf(char*my_name)
+{
+      vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
+
+      vpi_printf("%s:%d: %s() STUB calltf\n",
+		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		 my_name);
+      return 0;
+}
+
 
 static struct t_vpi_systf_data simbus_connect_tf = {
       vpiSysFunc,
       vpiSysFuncInt,
       "$simbus_connect",
-      simbus_hello_calltf,
-      simbus_hello_compiletf,
+      simbus_connect_calltf,
+      simbus_connect_compiletf,
       0 /* sizetf */,
-      "$simbus_hello"
+      "$simbus_connect"
 };
 
 static struct t_vpi_systf_data simbus_ready_tf = {

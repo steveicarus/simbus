@@ -1,0 +1,4 @@
+
+# This gives the output types for the system functions.
+
+$simbus_connect	vpiSysFuncInt

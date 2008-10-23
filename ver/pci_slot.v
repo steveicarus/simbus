@@ -91,6 +91,10 @@ module pci_slot(// The bus supplies the clock and reset
       // this device during run-time. The returned bus integer is a cookie
       // that must be passed to the other $simbus functions.
       bus = $simbus_connect(name);
+      if (bus < 0) begin
+	 $display("ERROR: Unable to connect");
+	 $finish;
+      end
 
       deltatime = 1;
       forever begin
@@ -107,10 +111,10 @@ module pci_slot(// The bus supplies the clock and reset
 	 // along with the current time. Report the time in ps.
 	 $simbus_ready(bus, $time,
 		       "REQ#",   REQ_n,
-		       "INTA#",  INTA_n
-		       "INTB#",  INTB_n
-		       "INTC#",  INTC_n
-		       "INTD#",  INTD_n
+		       "INTA#",  INTA_n,
+		       "INTB#",  INTB_n,
+		       "INTC#",  INTC_n,
+		       "INTD#",  INTD_n,
 		       "FRAME#", FRAME_n,
 		       "IRDY#",  IRDY_n,
 		       "TRDY#",  TRDY_n,
