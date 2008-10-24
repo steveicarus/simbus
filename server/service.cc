@@ -208,6 +208,10 @@ void process_client_command(client_map_idx_t&client, int argc, char*argv[])
 	    snprintf(outbuf, sizeof outbuf, "YOU-ARE %u\n", client->second.dev_ident);
 	    int rc = write(client->first, outbuf, strlen(outbuf));
 	    assert(rc == strlen(outbuf));
+
+	    cerr << "Device " << use_name
+		 << " is attached to bus " << bus_info->second.name
+		 << "." << endl;
 	    return;
       }
 
