@@ -29,11 +29,64 @@
 # include  <assert.h>
 
 # define MAX_INSTANCES 32
+/* Largest message length, including the newline. */
+# define MAX_MESSAGE 4096
 
 struct port_instance {
+	/* This is the name that I want to be. Use it for
+	   human-readable messages, and also as a key when connecting
+	   to the server. */
       char*name;
+
+	/* This fd is the socket that is connected to the bus server. */
       int fd;
+
+	/* this is the identifier that I get back from the bus when I
+	   connect. This is used to select the correct instance of
+	   non-shared bus signals. */
+      unsigned ident;
+
+	/* Use these buffers to manage data received from the server. */
+      char   read_buf[MAX_MESSAGE+1];
+      size_t read_fil;
+
 } instance_table[MAX_INSTANCES];
+
+static int read_message(int idx, char*buf, size_t nbuf)
+{
+      assert(idx < MAX_INSTANCES);
+      struct port_instance*inst = instance_table + idx;
+      assert(inst->name != 0);
+
+      for (;;) {
+	    char*cp;
+	      /* If there is a line in the buffer now, then pull that
+		 line out of the read buffer and give it to the
+		 caller. */
+	    if ( (cp = strchr(inst->read_buf, '\n')) != 0 ) {
+		  size_t len = cp - inst->read_buf;
+		  assert(len < nbuf);
+
+		  *cp++ = 0;
+		  strcpy(buf, inst->read_buf);
+		  assert(len < inst->read_fil);
+		  inst->read_fil -= len+1;
+		  if (inst->read_fil > 0)
+			memmove(inst->read_buf, cp, inst->read_fil);
+
+		  inst->read_buf[inst->read_fil] = 0;
+		  return len;
+	    }
+
+	      /* Read more data from the remote. */
+	    size_t trans = sizeof inst->read_buf - inst->read_fil - 1;
+	    int rc = read(inst->fd, inst->read_buf+inst->read_fil, trans);
+	    if (rc < 0) return rc;
+	    assert(rc > 0);
+	    inst->read_fil += rc;
+	    inst->read_buf[inst->read_fil] = 0;
+      }
+}
 
 
 /*
@@ -268,6 +321,9 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
       assert(idx < MAX_INSTANCES);
       instance_table[idx].name = dev_name;
       instance_table[idx].fd = server_fd;
+	/* Empty the read buffer. */
+      instance_table[idx].read_buf[0] = 0;
+      instance_table[idx].read_fil = 0;
 
       vpi_printf("%s:%d: %s(%s) Bus server %s:%s ready.\n",
 		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
@@ -301,21 +357,41 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
 
 static PLI_INT32 simbus_until_compiletf(char*my_name)
 {
-      vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
-
-      vpi_printf("%s:%d: %s() STUB compiletf\n",
-		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
-		 my_name);
+      vpiHandle sys  = vpi_handle(vpiSysTfCall, 0);
       return 0;
 }
 
 static PLI_INT32 simbus_until_calltf(char*my_name)
 {
-      vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
+      s_vpi_value value;
 
-      vpi_printf("%s:%d: %s() STUB calltf\n",
+      vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
+      vpiHandle argv = vpi_iterate(vpiArgument, sys);
+
+      vpiHandle bus_h = vpi_scan(argv);
+      assert(bus_h);
+
+      value.format = vpiIntVal;
+      vpi_get_value(bus_h, &value);
+
+      int bus = value.value.integer;
+      assert(bus >= 0 && bus < MAX_INSTANCES);
+
+      char buf[MAX_MESSAGE+1];
+      int rc = read_message(bus, buf, sizeof buf);
+      assert(rc > 0);
+
+      vpi_printf("%s:%d: %s() STUB calltf message:%s\n",
 		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
-		 my_name);
+		 my_name, buf);
+
+      uint64_t deltatime = 1; /* XXXX STUB */
+
+	/* Set the return value and return. */
+      value.format = vpiIntVal;
+      value.value.integer = deltatime;
+      vpi_put_value(sys, &value, 0, vpiNoDelay);
+
       return 0;
 }
 

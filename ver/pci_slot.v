@@ -109,7 +109,7 @@ module pci_slot(// The bus supplies the clock and reset
 
 	 // Report the current state of the pins at the connector,
 	 // along with the current time. Report the time in ps.
-	 $simbus_ready(bus, $time,
+	 $simbus_ready(bus,
 		       "REQ#",   REQ_n,
 		       "INTA#",  INTA_n,
 		       "INTB#",  INTB_n,
@@ -130,19 +130,19 @@ module pci_slot(// The bus supplies the clock and reset
 	 // values to drive to the various signals that I indicate.
 	 // When the server responds, this task assigns those values
 	 // to the arguments, and returns.
-	 $simbus_until(bus, deltatime,
-		       "PCI CLK",PCI_CLK,
-		       "RESET#", RESET_n,
-		       "GNT#",   GNT_n,
-		       "IDSEL",  IDSEL,
-		       "FRAME#", frame_n_drv,
-		       "IRDY#",  irdy_n_drv,
-		       "TRDY#",  trdy_n_drv,
-		       "STOP#",  stop_n_drv,
-		       "DEVSEL#",devsel_n_drv,
-		       "C_BE",   c_be_drv,
-		       "AD",     ad_drv,
-		       "PAR",    par_drv);
+	 deltatime = $simbus_until(bus,
+				   "PCI CLK",PCI_CLK,
+				   "RESET#", RESET_n,
+				   "GNT#",   GNT_n,
+				   "IDSEL",  IDSEL,
+				   "FRAME#", frame_n_drv,
+				   "IRDY#",  irdy_n_drv,
+				   "TRDY#",  trdy_n_drv,
+				   "STOP#",  stop_n_drv,
+				   "DEVSEL#",devsel_n_drv,
+				   "C_BE",   c_be_drv,
+				   "AD",     ad_drv,
+				   "PAR",    par_drv);
       end
 
    end

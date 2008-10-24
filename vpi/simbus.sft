@@ -2,5 +2,6 @@
 # This gives the output types for the system functions.
 
 $simbus_connect	 vpiSysFuncInt
+$simbus_until    vpiSysFuncSized 64 unsigned
 $simbus_mem_open vpiSysFuncInt
-$simbus_mem_peek vpiSysFuncSized 31 0
+$simbus_mem_peek vpiSysFuncSized 32 unsigned
