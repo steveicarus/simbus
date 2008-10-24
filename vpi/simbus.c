@@ -25,6 +25,7 @@
 # include  <unistd.h>
 # include  <stdlib.h>
 # include  <string.h>
+# include  "priv.h"
 # include  <assert.h>
 
 # define MAX_INSTANCES 32
@@ -358,6 +359,7 @@ static void simbus_register(void)
 
 void (*vlog_startup_routines[])(void) = {
       simbus_register,
+      simbus_mem_register,
       0
 };
 
