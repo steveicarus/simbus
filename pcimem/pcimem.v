@@ -429,7 +429,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
 	 AD_en  <= 1;
 
 	 // Read the addressed value,
-	 read_tmp = $pci_memory_peek(memory_fd, masked_address, bar_flag);
+	 read_tmp = $simbus_mem_peek(memory_fd, masked_address, bar_flag);
 	 AD_reg  <= read_tmp;
 	 parity_bit <= ^{read_tmp, C_BE};
 
@@ -448,7 +448,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
 	      PAR_reg <= parity_bit;
 	      PAR_en  <= 1;
 	      // Read the next value
-	      read_tmp = $pci_memory_peek(memory_fd, masked_address, bar_flag);
+	      read_tmp = $simbus_mem_peek(memory_fd, masked_address, bar_flag);
 	      AD_reg  <= read_tmp;
 	      parity_bit <= ^{read_tmp, C_BE};
 	      // Linear addressing.
@@ -523,11 +523,11 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
 	   @(posedge CLK) if ((IRDY == 0) && (TRDY == 0)) begin
 	      write_mask = { {8{C_BE[3]}}, {8{C_BE[2]}},
 			     {8{C_BE[1]}}, {8{C_BE[0]}}};
-	      write_val = $pci_memory_peek(memory_fd, masked_address, bar_flag);
+	      write_val = $simbus_mem_peek(memory_fd, masked_address, bar_flag);
 	      write_val = (write_val&write_mask) | (AD&~write_mask);
 
 	      // Store the next value
-	      $pci_memory_poke(memory_fd, masked_address, write_val, bar_flag);
+	      $simbus_mem_poke(memory_fd, masked_address, write_val, bar_flag);
 	      // Linear addressing.
 	      masked_address <= (masked_address + 4) & ~BAR0_MASK;
 
@@ -704,7 +704,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
 	 if ((IRDY == 0) && (TRDY == 0)) begin
 	    write_val = AD;	//data to write to memory
 	    // Store the next value
-	    $pci_memory_poke(memory_fd, dma_memory, write_val, 0);
+	    $simbus_mem_poke(memory_fd, dma_memory, write_val, 0);
 	    // Linear addressing of memory
 	    dma_memory <= dma_memory + 4;
 	    dma_count <= dma_count - 4;
@@ -720,7 +720,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
               if ((IRDY == 0) && (TRDY == 0)) begin
 		 write_val = AD;
 		 // Store the next value
-		 $pci_memory_poke(memory_fd, dma_memory, write_val, 0);
+		 $simbus_mem_poke(memory_fd, dma_memory, write_val, 0);
 		 // Linear addressing.
 		 dma_memory <= dma_memory + 4;
 		 dma_count <= dma_count - 4;
@@ -821,7 +821,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
 
    initial begin
       // Open the memory image.
-      memory_fd = $pci_memory_open(IMAGE, 1 + ~BAR0_MASK);
+      memory_fd = $simbus_mem_open(IMAGE, 1 + ~BAR0_MASK);
       $display("%m: Open file %s as memory store. (fd=%0d)", IMAGE, memory_fd);
 
       // Get a retry rate from the command line. If there is none
