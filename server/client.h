@@ -1,0 +1,54 @@
+#ifndef __client_H
+#define __client_H
+/*
+ * Copyright (c) 2008 Stephen Williams (steve@icarus.com)
+ *
+ *    This source code is free software; you can redistribute it
+ *    and/or modify it in source code form under the terms of the GNU
+ *    General Public License as published by the Free Software
+ *    Foundation; either version 2 of the License, or (at your option)
+ *    any later version.
+ *
+ *    This program is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU General Public License for more details.
+ *
+ *    You should have received a copy of the GNU General Public License
+ *    along with this program; if not, write to the Free Software
+ *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+ */
+
+# include  <string>
+# include  <stddef.h>
+
+/*
+ * A client is mapped using its file descriptor as the key. The client
+ * contains the "bus", which is the number of the bus that it belongs
+ * to, and can be used to look up the port.
+ */
+class client_state_t {
+    public:
+      client_state_t();
+
+      int read_from_socket(int fd);
+
+	// Key for the bus that client belongs to
+      unsigned bus;
+	// Device name and ident.
+      std::string dev_name;
+      unsigned dev_ident;
+	// State information
+      bool ready_flag;
+      uint64_t ready_time;
+
+    private:
+      void process_client_command_(int fd, int argv, char*argv[]);
+
+    private:
+	// Keep an input buffer of data read from the connection.
+      char buffer_[4096];
+      size_t buffer_fill_;
+};
+
+#endif

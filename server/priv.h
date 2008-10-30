@@ -30,10 +30,38 @@ extern int config_file(FILE*cfg);
 extern void service_init(void);
 extern void service_run(void);
 
+/*
+ * A bus contains a configuration that is a set of bus devices. The
+ * configuration is read from the input configuration file and
+ * collected into a bus_device_map_t map, with the name of the device
+ * as the key.
+ */
+
 struct service_bus_device_config {
+	// Identifier number to use for the device.
       unsigned ident;
 };
 typedef std::map<std::string,struct service_bus_device_config> bus_device_map_t;
+
+/*
+ * The bus_state describes a bus. The fd is the posix file-descriptor
+ * for the server port, and the name is the configured bus name.
+ *
+ * The bus_map maps the TCP port to the bus. This key is also given to
+ * the client so that it can search this table to find its bus.
+ */
+struct bus_state {
+	// Human-readable name for the bus.
+      std::string name;
+	// posix fd for the bus socker.
+      int fd;
+	// List of unbound devices
+      bus_device_map_t device_map;
+};
+
+extern std::map <unsigned, bus_state> bus_map;
+typedef std::map<unsigned, bus_state>::iterator bus_map_idx_t;
+
 
 extern void service_add_bus(unsigned port, const std::string&name,
 			    const bus_device_map_t&dev);

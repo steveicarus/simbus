@@ -1,7 +1,7 @@
 
 all: simbus_server
 
-O = main.o service.o config.tab.o lex.config.o
+O = main.o service.o client.o config.tab.o lex.config.o
 
 simbus_server: $O
 	$(CXX) $(LDFLAGS) -o simbus_server $O
@@ -13,6 +13,7 @@ lex.config.c: config.lex
 	flex -P config config.lex
 
 main.o: main.cc priv.h
-service.o: service.cc priv.h
+service.o: service.cc priv.h client.h
+client.o: client.cc priv.h client.h
 config.tab.o: config.tab.cpp lex.config.c priv.h
 lex.config.o: lex.config.c config.tab.hpp
