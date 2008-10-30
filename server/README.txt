@@ -43,7 +43,9 @@ The client protocol is executed entirely in ASCII text. The client
 sends a command to the server and blocks waiting for a response. Each
 request starts with a command name and ends with a newline.
 
-Times are always given in seconds, with infinite precision.
+Times are always given in seconds using scientific notation and an
+integer mantissa. For example: 3s = 3e0, 1ns = 1e-9, .05ms = 5e-5 and
+so on.
 
 * HELLO "<name>"
 

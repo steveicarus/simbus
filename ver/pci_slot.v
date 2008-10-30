@@ -108,7 +108,8 @@ module pci_slot(// The bus supplies the clock and reset
 	 #(deltatime) /* Wait for the next remote event. */;
 
 	 // Report the current state of the pins at the connector,
-	 // along with the current time. Report the time in ps.
+	 // along with the current time. For the first iteration, this
+	 // gets us synchronized with the server with the time.
 	 $simbus_ready(bus,
 		       "REQ#",   REQ_n,
 		       "INTA#",  INTA_n,
@@ -129,7 +130,9 @@ module pci_slot(// The bus supplies the clock and reset
 	 // for the GO message from the server, which includes the
 	 // values to drive to the various signals that I indicate.
 	 // When the server responds, this task assigns those values
-	 // to the arguments, and returns.
+	 // to the arguments, and returns. The $simbus_until function
+	 // automatically converts the time delay from the server to
+	 // the units of the local scope.
 	 deltatime = $simbus_until(bus,
 				   "PCI CLK",PCI_CLK,
 				   "RESET#", RESET_n,

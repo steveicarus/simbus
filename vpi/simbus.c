@@ -28,6 +28,16 @@
 # include  "priv.h"
 # include  <assert.h>
 
+/*
+ * Implement these system tasks/functions:
+ *
+ * $simbus_connect
+ *
+ * $simbus_ready
+ *
+ * $simbus_until
+ */
+
 # define MAX_INSTANCES 32
 /* Largest message length, including the newline. */
 # define MAX_MESSAGE 4096
@@ -52,6 +62,11 @@ struct port_instance {
 
 } instance_table[MAX_INSTANCES];
 
+/*
+ * Read the next network message from the specified server
+ * connection. This function will manage the read buffer to get text
+ * until the message is complete.
+ */
 static int read_message(int idx, char*buf, size_t nbuf)
 {
       assert(idx < MAX_INSTANCES);
@@ -347,17 +362,83 @@ static PLI_INT32 simbus_ready_compiletf(char*my_name)
 
 static PLI_INT32 simbus_ready_calltf(char*my_name)
 {
-      vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
+      s_vpi_value value;
+      s_vpi_time now;
 
-      vpi_printf("%s:%d: %s() STUB calltf\n",
-		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
-		 my_name);
+      vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
+      vpiHandle scope = vpi_handle(vpiScope, sys);
+      vpiHandle argv = vpi_iterate(vpiArgument, sys);
+      vpiHandle arg;
+      assert(argv);
+
+      arg = vpi_scan(argv);
+      assert(arg);
+
+	/* Get the BUS identifier to use. */
+      value.format = vpiIntVal;
+      vpi_get_value(arg, &value);
+      int bus_id = value.value.integer;
+      assert(bus_id < MAX_INSTANCES);
+      assert(instance_table[bus_id].fd >= 0);
+
+	/* Get the simulation time. */
+      now.type = vpiSimTime;
+      vpi_get_time(0, &now);
+      uint64_t now_int = ((uint64_t)now.high) << 32;
+      now_int += (uint64_t) now.low;
+
+	/* Get the units for the scope */
+      int units = vpi_get(vpiTimeUnit, scope);
+	/* Get the units for the simulation */
+      int prec  = vpi_get(vpiTimePrecision, 0);
+
+	/* Figure the scale (power of 10) needed to convert the
+	   simulation time to ns. */
+      int scale = prec - units;
+
+      char message[MAX_MESSAGE+1];
+      snprintf(message, sizeof message, "READY %" PRIu64 "e%d", now_int, scale);
+
+      char*cp = message + strlen(message);
+
+	/* Send the current state of all the named signals. The format
+	   passed in to the argument list is "name", value. Write
+	   these values in the proper message format. */
+      for (arg = vpi_scan(argv) ; arg ; arg = vpi_scan(argv)) {
+	    *cp++ = ' ';
+
+	    value.format = vpiStringVal;
+	    vpi_get_value(arg, &value);
+	    strcpy(cp, value.value.str);
+	    cp += strlen(cp);
+
+	    *cp++ = '=';
+
+	    arg = vpi_scan(argv);
+	    assert(arg);
+
+	    value.format = vpiBinStrVal;
+	    vpi_get_value(arg, &value);
+	    strcpy(cp, value.value.str);
+	    cp += strlen(cp);
+      }
+
+      *cp++ = '\n';
+      *cp = 0;
+
+      int rc = write(instance_table[bus_id].fd, message, strlen(message));
+      assert(rc == strlen(message));
+
       return 0;
 }
 
 static PLI_INT32 simbus_until_compiletf(char*my_name)
 {
       vpiHandle sys  = vpi_handle(vpiSysTfCall, 0);
+
+      vpi_printf("%s:%d: %s() STUB compiletf\n",
+		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		 my_name);
       return 0;
 }
 
@@ -417,8 +498,8 @@ static struct t_vpi_systf_data simbus_ready_tf = {
 };
 
 static struct t_vpi_systf_data simbus_until_tf = {
-      vpiSysTask,
-      0,
+      vpiSysFunc,
+      vpiSysFuncSized,
       "$simbus_until",
       simbus_until_calltf,
       simbus_until_compiletf,
