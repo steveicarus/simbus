@@ -31,17 +31,23 @@ extern void service_init(void);
 extern void service_run(void);
 
 /*
- * A bus contains a configuration that is a set of bus devices. The
- * configuration is read from the input configuration file and
- * collected into a bus_device_map_t map, with the name of the device
- * as the key.
+ * A bus contains a configuration that is a set of bus devices,
+ * represented by a map of bus_device_plug objects. The configuration
+ * is read from the input configuration file and collected into a
+ * bus_device_map_t map, with the name of the device as the key. The
+ * bus itself then contains this plug as a member.
  */
 
-struct service_bus_device_config {
-	// Identifier number to use for the device.
+struct bus_device_plug {
+	// Identifier number (tcp port) to use for the device.
       unsigned ident;
+	// True when the device is ready for another step.
+      bool ready_flag;
+	// Time that the client last reported.
+      uint64_t ready_time;
+      int ready_scale;
 };
-typedef std::map<std::string,struct service_bus_device_config> bus_device_map_t;
+typedef std::map<std::string,struct bus_device_plug> bus_device_map_t;
 
 /*
  * The bus_state describes a bus. The fd is the posix file-descriptor

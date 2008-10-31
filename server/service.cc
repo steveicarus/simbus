@@ -102,7 +102,7 @@ static void listen_ready(bus_map_idx_t&cur)
       assert(use_fd >= 0);
 
       client_state_t tmp;
-      tmp.bus = cur->first;
+      tmp.set_bus (cur->first);
 
       client_map[use_fd] = tmp;
 }
@@ -166,8 +166,3 @@ void service_run(void)
 	    }
       }
 }
-
-/*
- * $Log: $
- */
-

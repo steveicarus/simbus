@@ -21,6 +21,7 @@
 
 # include  <string>
 # include  <stddef.h>
+# include  "priv.h"
 
 /*
  * A client is mapped using its file descriptor as the key. The client
@@ -28,24 +29,32 @@
  * to, and can be used to look up the port.
  */
 class client_state_t {
+
     public:
       client_state_t();
 
+	// Read data from the socket, and process any commands that
+	// might appear.
       int read_from_socket(int fd);
 
-	// Key for the bus that client belongs to
-      unsigned bus;
-	// Device name and ident.
-      std::string dev_name;
-      unsigned dev_ident;
-	// State information
-      bool ready_flag;
-      uint64_t ready_time;
+	// Bind me to my bus.
+      void set_bus(unsigned bus);
 
     private:
       void process_client_command_(int fd, int argv, char*argv[]);
+      void process_client_hello_(int fd, int argv, char*argv[]);
+      void process_client_ready_(int fd, int argv, char*argv[]);
 
     private:
+	// Key of the bus that I belong to.
+      unsigned bus_;
+
+	// Device name and ident.
+      std::string dev_name_;
+
+	// State information
+      struct bus_device_plug*bus_interface_;
+
 	// Keep an input buffer of data read from the connection.
       char buffer_[4096];
       size_t buffer_fill_;

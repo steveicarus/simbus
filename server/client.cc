@@ -26,10 +26,15 @@ using namespace std;
 
 client_state_t::client_state_t()
 {
-      bus = 0;
-      dev_ident = 0;
+      bus_ = 0;
+      bus_interface_ = 0;
       buffer_fill_ = 0;
-      ready_flag = false;
+}
+
+void client_state_t::set_bus(unsigned bus)
+{
+      assert(bus_ == 0);
+      bus_ = bus;
 }
 
 const char white_space[] = " \r";
@@ -50,7 +55,6 @@ int client_state_t::read_from_socket(int fd)
       if (char*eol = strchr(buffer_, '\n')) {
 	      // Remote the new-line.
 	    *eol++ = 0;
-	    std::cerr << "XXXX message: " << buffer_ << std::endl;
 	    int argc = 0;
 	    char*argv[2048];
 
@@ -76,49 +80,79 @@ int client_state_t::read_from_socket(int fd)
 
 void client_state_t::process_client_command_(int fd, int argc, char*argv[])
 {
-      char outbuf[4096];
-
-      if (dev_name == "") {
-	    if (strcmp(argv[0], "HELLO") != 0) {
-		  fprintf(stderr, "Expecting HELLO from client, got %s\n", argv[0]);
-		  return;
-	    }
-
-	    assert(argc > 1);
-	    string use_name = argv[1];
-
-	    bus_map_idx_t bus_info = bus_map.find(bus);
-	    assert(bus_info != bus_map.end());
-
-	    bus_device_map_t::iterator cur = bus_info->second.device_map.find(use_name);
-	    if (cur == bus_info->second.device_map.end()) {
-		  write(fd, "NAK\n", 4);
-		  cerr << "Device " << use_name
-		       << " not found in bus " << bus_info->second.name
-		       << endl;
-		  return;
-	    }
-
-	    dev_name = use_name;
-	    dev_ident = cur->second.ident;
-
-	    snprintf(outbuf, sizeof outbuf, "YOU-ARE %u\n", dev_ident);
-	    int rc = write(fd, outbuf, strlen(outbuf));
-	    assert(rc == strlen(outbuf));
-
-	    cerr << "Device " << use_name
-		 << " is attached to bus " << bus_info->second.name
-		 << "." << endl;
+      if (dev_name_ == "") {
+	    process_client_hello_(fd, argc, argv);
 	    return;
       }
 
       if (strcmp(argv[0],"HELLO") == 0) {
-	    cerr << "Extra HELLO from " << dev_name << endl;
+	    cerr << "Spurious HELLO from " << dev_name_ << endl;
+
       } else if (strcmp(argv[0],"READY") == 0) {
+	    process_client_ready_(fd, argc, argv);
 
       } else {
 	    cerr << "Unknown command " << argv[0]
-		 << " from client " << dev_name << endl;
+		 << " from client " << dev_name_ << endl;
       }
 }
 
+void client_state_t::process_client_hello_(int fd, int argc, char*argv[])
+{
+      if (strcmp(argv[0], "HELLO") != 0) {
+	    fprintf(stderr, "Expecting HELLO from client, got %s\n", argv[0]);
+	    return;
+      }
+
+      assert(argc > 1);
+      string use_name = argv[1];
+
+	// Locate the bus that I'm part of.
+      bus_map_idx_t bus_info = bus_map.find(bus_);
+      assert(bus_info != bus_map.end());
+
+	// Find my device_map record on the bus.
+      bus_device_map_t::iterator cur = bus_info->second.device_map.find(use_name);
+      if (cur == bus_info->second.device_map.end()) {
+	    write(fd, "NAK\n", 4);
+	    cerr << "Device " << use_name
+		 << " not found in bus " << bus_info->second.name
+		 << endl;
+	    return;
+      }
+
+      dev_name_ = use_name;
+      bus_interface_ = &(cur->second);
+      bus_interface_->ready_flag = false;
+
+      char outbuf[4096];
+      snprintf(outbuf, sizeof outbuf, "YOU-ARE %u\n",bus_interface_->ident);
+      int rc = write(fd, outbuf, strlen(outbuf));
+      assert(rc == strlen(outbuf));
+
+      cerr << "Device " << use_name
+	   << " is attached to bus " << bus_info->second.name
+	   << " as ident=" << bus_interface_->ident
+	   << "." << endl;
+}
+
+void client_state_t::process_client_ready_(int fd, int argc, char*argv[])
+{
+	// The first argument arger the READY keyword in the client
+	// time. Parse that as mantissa/scale.
+      assert(argc >= 2);
+      char*ep = 0;
+      bus_interface_->ready_time = strtoul(argv[1], &ep, 10);
+
+      assert(ep[0] == 'e' && ep[1] != 0);
+      ep += 1;
+      bus_interface_->ready_scale = strtol(ep, &ep, 10);
+      assert(*ep == 0);
+
+      for (int idx = 2 ; idx < argc ; idx += 1) {
+	    cerr << dev_name_ << ": XXXX STUB: READY " << argv[idx] << endl;
+      }
+
+	// This client is now ready and waiting for the server.
+      bus_interface_->ready_flag = true;
+}

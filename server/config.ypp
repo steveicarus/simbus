@@ -24,8 +24,9 @@ static void start_new_bus(void)
 static void add_device_to_bus(unsigned devid, char*devname)
 {
       string tmp_name (devname);
-      struct service_bus_device_config tmp;
+      struct bus_device_plug tmp;
       tmp.ident = devid;
+      tmp.ready_flag = false;
       use_bus_devices[tmp_name] = tmp;
       free(devname);
 }
