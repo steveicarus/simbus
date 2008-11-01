@@ -111,7 +111,8 @@ void client_state_t::process_client_hello_(int fd, int argc, char*argv[])
       bus_map_idx_t bus_info = bus_map.find(bus_);
       assert(bus_info != bus_map.end());
 
-	// Find my device_map record on the bus.
+	// Find my device_map record on the bus. If it is not found,
+	// then send a NAK message back to the client.
       bus_device_map_t::iterator cur = bus_info->second.device_map.find(use_name);
       if (cur == bus_info->second.device_map.end()) {
 	    write(fd, "NAK\n", 4);
@@ -121,10 +122,19 @@ void client_state_t::process_client_hello_(int fd, int argc, char*argv[])
 	    return;
       }
 
+	// Now I have a name for myself. This name came from the
+	// "HELLO" command, but it matches the device in the bus, so
+	// its confirmed.
       dev_name_ = use_name;
+
+	// Link to the bus plug for this client, and fill in the
+	// client data that the plug needs.
       bus_interface_ = &(cur->second);
+      bus_interface_->fd = fd;
       bus_interface_->ready_flag = false;
 
+	// Send a message back to the client saying that it was found
+	// in the bus and now has an identifier.
       char outbuf[4096];
       snprintf(outbuf, sizeof outbuf, "YOU-ARE %u\n",bus_interface_->ident);
       int rc = write(fd, outbuf, strlen(outbuf));

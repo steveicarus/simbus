@@ -39,8 +39,12 @@ extern void service_run(void);
  */
 
 struct bus_device_plug {
+      bus_device_plug() : fd(-1), ready_flag(false) { }
 	// Identifier number (tcp port) to use for the device.
       unsigned ident;
+	// posix fd for the client socket. This fd can also be used to
+	// look up the client in the client_map.
+      int fd;
 	// True when the device is ready for another step.
       bool ready_flag;
 	// Time that the client last reported.
@@ -59,9 +63,12 @@ typedef std::map<std::string,struct bus_device_plug> bus_device_map_t;
 struct bus_state {
 	// Human-readable name for the bus.
       std::string name;
-	// posix fd for the bus socker.
+	// posix fd for the bus socket. This is only used for
+	// listening for new clients.
       int fd;
-	// List of unbound devices
+	// List of configured devices. The key is the name of the
+	// device, so that the client device can be located when it
+	// binds and calls in its name.
       bus_device_map_t device_map;
 };
 
