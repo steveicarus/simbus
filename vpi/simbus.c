@@ -444,9 +444,11 @@ static PLI_INT32 simbus_until_compiletf(char*my_name)
 
 static PLI_INT32 simbus_until_calltf(char*my_name)
 {
+      s_vpi_time now;
       s_vpi_value value;
 
       vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
+      vpiHandle scope = vpi_handle(vpiScope, sys);
       vpiHandle argv = vpi_iterate(vpiArgument, sys);
 
       vpiHandle bus_h = vpi_scan(argv);
@@ -466,12 +468,73 @@ static PLI_INT32 simbus_until_calltf(char*my_name)
 		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
 		 my_name, buf);
 
-      uint64_t deltatime = 1; /* XXXX STUB */
+	/* Chop the message into tokens. */
+      int   msg_argc = 0;
+      char* msg_argv[MAX_MESSAGE/2];
+
+      char*cp = buf;
+      while (*cp != 0) {
+	    msg_argv[msg_argc++] = cp;
+	    cp += strcspn(cp, " ");
+	    if (*cp) {
+		  *cp++ = 0;
+		  cp += strspn(cp, " ");
+	    }
+      }
+      msg_argv[msg_argc] = 0;
+
+      assert(strcmp(msg_argv[0],"UNTIL") == 0);
+
+      assert(msg_argc >= 2);
+
+      uint64_t until_mant = strtoull(msg_argv[1],&cp,10);
+      assert(cp && *cp=='e');
+      cp += 1;
+      int until_exp = strtol(cp,0,0);
+
+	/* Get the units for the scope */
+      int units = vpi_get(vpiTimeUnit, scope);
+
+	/* Put the until time into units of the scope. */
+      while (units < until_exp) {
+	    until_mant *= 10;
+	    until_exp -= 1;
+      }
+      while (units > until_exp) {
+	    until_mant = (until_mant + 5)/10;
+	    until_exp += 1;
+      }
+
+      	/* Get the simulation time and put it into scope units. */
+      now.type = vpiSimTime;
+      vpi_get_time(0, &now);
+      uint64_t deltatime = ((uint64_t)now.high) << 32;
+      deltatime += (uint64_t) now.low;
+
+      int prec  = vpi_get(vpiTimePrecision, 0);
+      while (prec < units) {
+	    prec += 1;
+	    deltatime = (until_mant + 5)/10;
+      }
+
+	/* Now we can calculate the delta time. */
+      if (deltatime > until_mant)
+	    deltatime = 0;
+      else
+	    deltatime = until_mant - deltatime;
 
 	/* Set the return value and return. */
       value.format = vpiIntVal;
       value.value.integer = deltatime;
       vpi_put_value(sys, &value, 0, vpiNoDelay);
+
+	/* Process the signal values. */
+      int idx;
+      for (idx = 2 ; idx < msg_argc ; idx += 1) {
+	    vpi_printf("%s:%d: %s() STUB signal token:%s\n",
+		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		       my_name, msg_argv[idx]);
+      }
 
       return 0;
 }
