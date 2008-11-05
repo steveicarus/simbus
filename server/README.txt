@@ -12,10 +12,16 @@ CONFIGURATION
 # There can be any number of busses in this server, and in this
 # configuration file. Just include a bus section for each bus you want
 # to define. Note that the port must be unique.
+
 bus {
   # Give the bus a symbolic name. This is used for human readable
   # messages. The name is optional, a default will be chosen if needed.
   name = "<bus name>";
+
+  # Select the bus protocol for the bus. This is required. The
+  # protocol is given as a string, that the server then looks up in a
+  # data-base of protocol implementations.
+  protocol = "<type>";
 
   # Specify the TCP network port to use. The server listens on this
   # port, and the clients connects to this port to attach to the bus.
@@ -24,13 +30,20 @@ bus {
   # List all the devices that are expected. The simulation does not
   # start until all the listed devices attach and identify themselves.
   #
-  # The <n> is used to assign IDSEL, REQ/GNT and interrupts to the
-  # device.
+  # If the keyword device vs host selects what kind of connections is
+  # made to the bus. Bus protocols are typically asymetrical. For
+  # example, a "host" on a PCI bus outputs the RESET# signal, but
+  # clients input the RESET# signal. The syntax here does not limit
+  # any particular combination of hosts and devices, although the bus
+  # protocol might.
+  #
+  # The <n> is used to assign non-shared signals to the device.
   #
   # The <name> is used to match an incoming client with this
   # device. The client knows its name and includes it in the "hello"
   # message it sends.
   device <n> "<name>";
+  host <n> "<name>";
 }
 
 CLIENT PROTOCOL
@@ -60,8 +73,11 @@ This client declares that it is ready for the next time step by
 sending this command with the current time. The
 <name>=<value>... tokens are the new values that the client is driving
 onto the named bus signals. These are only the values that the client
-is driving, or Z for bits that it is not driving. The response is an
-UNTIL string as follows:
+is driving, or Z for bits that it is not driving. If the signal is a
+vector, then write the bits MSB first. If a signal is not specified,
+then the server assumes it is unchanged from any previous value.
+
+The usual response is an UNTIL string as follows:
 
   UNTIL <time> <name>=<value>...
 

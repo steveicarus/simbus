@@ -23,12 +23,23 @@
 # include  <stdio.h>
 # include  <map>
 # include  <string>
+# include  <valarray>
+
+class protocol_t;
 
 /* Parse the config file. */
 extern int config_file(FILE*cfg);
 
 extern void service_init(void);
 extern void service_run(void);
+
+/*
+ * The signal_sate_map_t is a map if signals with their value. The
+ * value is stored as an array of bit states, with <array>[0] store as
+ * the LSB.
+ */
+typedef enum bit_state_e { BIT_0, BIT_1, BIT_Z, BIT_X } bit_state_t;
+typedef std::map<std::string, std::valarray<bit_state_t> > signal_state_map_t;
 
 /*
  * A bus contains a configuration that is a set of bus devices,
@@ -39,7 +50,9 @@ extern void service_run(void);
  */
 
 struct bus_device_plug {
-      bus_device_plug() : fd(-1), ready_flag(false) { }
+      bus_device_plug() : host_flag(false), fd(-1), ready_flag(false) { }
+	// True if this device is a "host" connection.
+      bool host_flag;
 	// Identifier number (tcp port) to use for the device.
       unsigned ident;
 	// posix fd for the client socket. This fd can also be used to
@@ -50,6 +63,10 @@ struct bus_device_plug {
 	// Time that the client last reported.
       uint64_t ready_time;
       int ready_scale;
+	// Map of the signal values from the client.
+      signal_state_map_t client_signals;
+	// Map of this signal values to send to the client.
+      signal_state_map_t send_signals;
 };
 typedef std::map<std::string,struct bus_device_plug> bus_device_map_t;
 
@@ -63,6 +80,9 @@ typedef std::map<std::string,struct bus_device_plug> bus_device_map_t;
 struct bus_state {
 	// Human-readable name for the bus.
       std::string name;
+	// Pointer to the protocol implementation instance for this
+	// bus.
+      protocol_t*proto;
 	// posix fd for the bus socket. This is only used for
 	// listening for new clients.
       int fd;
@@ -77,6 +97,7 @@ typedef std::map<unsigned, bus_state>::iterator bus_map_idx_t;
 
 
 extern void service_add_bus(unsigned port, const std::string&name,
+			    const std::string&bus_protocol_name,
 			    const bus_device_map_t&dev);
 
 /*

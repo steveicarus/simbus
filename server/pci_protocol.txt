@@ -1,0 +1,12 @@
+
+PCI bus simulations have these signals:
+
+
+              Name       host     device
+              ----       ----     ------
+Misc.
+              PCI_CLK     I         I
+              RESET#      O         I
+Arbitration
+              REQ#        O         O
+	      GNT#        I         I

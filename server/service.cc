@@ -30,6 +30,7 @@
 
 # include  "priv.h"
 # include  "client.h"
+# include  "protocol.h"
 # include  <assert.h>
 
 using namespace std;
@@ -45,14 +46,19 @@ typedef map<int,client_state_t>::iterator client_map_idx_t;
 map <unsigned, struct bus_state> bus_map;
 
 void service_add_bus(unsigned port, const std::string&name,
+		     const std::string&bus_protocol_name,
 		     const bus_device_map_t&dev)
 {
-      bus_state tmp;
+      bus_state&tmp = bus_map[port];
       tmp.name = name;
       tmp.fd = -1;
       tmp.device_map = dev;
 
-      bus_map[port] = tmp;
+      if (bus_protocol_name == "pci") {
+	    tmp.proto = new PciProtocol(tmp);
+      } else {
+	    tmp.proto = 0;
+      }
 }
 
 /*
@@ -164,5 +170,23 @@ void service_run(void)
 		  if (FD_ISSET(fd, &rfds))
 			client_ready(idx);
 	    }
+
+	      // Now check the busses to see if they can have their
+	      // protocol run.
+	    for (bus_map_idx_t idx = bus_map.begin()
+		       ; idx != bus_map.end() ; idx ++) {
+
+		  bool flag = true;
+		  for (bus_device_map_t::iterator dev = idx->second.device_map.begin()
+			     ; dev != idx->second.device_map.end() ;  dev ++) {
+			if (dev->second.ready_flag == false) {
+			      flag = false;
+			      break;
+			}
+		  }
+		  if (flag == true)
+			idx->second.proto->bus_ready();
+	    }
+
       }
 }

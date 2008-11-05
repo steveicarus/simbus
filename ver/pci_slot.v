@@ -134,7 +134,7 @@ module pci_slot(// The bus supplies the clock and reset
 	 // automatically converts the time delay from the server to
 	 // the units of the local scope.
 	 deltatime = $simbus_until(bus,
-				   "PCI CLK",PCI_CLK,
+				   "PCI_CLK",PCI_CLK,
 				   "RESET#", RESET_n,
 				   "GNT#",   GNT_n,
 				   "IDSEL",  IDSEL,

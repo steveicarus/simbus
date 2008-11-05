@@ -27,11 +27,145 @@
 # include  <stdio.h>
 # include  <assert.h>
 
+typedef enum { BIT_0, BIT_1, BIT_X, BIT_Z } bus_bitval_t;
+static const char bus_bitval_map[4] = { '0', '1', 'x', 'z' };
+static bus_bitval_t char_to_bitval(char ch)
+{
+      switch (ch) {
+	  case '0': return BIT_0;
+	  case '1': return BIT_1;
+	  case 'z': return BIT_Z;
+	  default:  return BIT_X;
+      }
+}
+
 struct simbus_pci_s {
+	/* The name given in the simbus_pci_connect function. This is
+	   also the name sent to the server in order to get my id. */
       char*name;
+	/* POSIX fd for the socket used to connect with the server. */
       int fd;
+	/* Identifier returned by the server during connect. */
       unsigned ident;
+	/* Current simulation time. */
+      uint64_t time_mant;
+      int time_exp;
+
+	/* Values that I write to the server */
+      bus_bitval_t out_reset_n;
+      bus_bitval_t out_req_n;
+      bus_bitval_t out_ad[64];
+
+	/* values that I get back from the server */
+      bus_bitval_t pci_clk;
+      bus_bitval_t pci_gnt_n;
+      bus_bitval_t pci_ad[64];
 };
+
+static void init_simbus_pci(struct simbus_pci_s*pci)
+{
+      int idx;
+      pci->time_mant = 0;
+      pci->time_exp = 0;
+
+      pci->out_reset_n = BIT_1;
+      pci->out_req_n = BIT_1;
+      for (idx = 0 ; idx < 64 ; idx += 1)
+	    pci->out_ad[idx] = BIT_Z;
+
+      pci->pci_clk = BIT_X;
+      pci->pci_gnt_n = BIT_X;
+      for (idx = 0 ; idx < 64 ; idx += 1)
+	    pci->pci_ad[idx] = BIT_X;
+}
+
+/*
+ * This function sends to the server all the output signal values in a
+ * READY command, then waits for an UNTIL command where I get back the
+ * resolved values.
+ */
+static int send_ready_command(struct simbus_pci_s*pci)
+{
+      int rc;
+      char buf[4096];
+      snprintf(buf, sizeof(buf), "READY %lue%d", pci->time_mant, pci->time_exp);
+
+      char*cp = buf + strlen(buf);
+
+      strcpy(cp, " RESET#=");
+      cp += strlen(cp);
+      *cp++ = bus_bitval_map[pci->out_reset_n];
+
+      strcpy(cp, " REQ#=");
+      cp += strlen(cp);
+      *cp++ = bus_bitval_map[pci->out_req_n];
+
+	/* Terminate the message string. */
+      *cp++ = '\n';
+      *cp = 0;
+
+      rc = write(pci->fd, buf, cp-buf);
+      assert(rc == cp-buf);
+
+	/* Now read the response, which should be an UNTIL command */
+      rc = read(pci->fd, buf, sizeof(buf)-1);
+      assert( rc >= 0 );
+
+      buf[rc] = 0;
+
+      cp = strchr(buf, '\n');
+      assert(cp && *cp=='\n');
+
+      *cp = 0;
+
+      cp = buf;
+      int argc = 0;
+      char*argv[2048];
+
+      cp = buf + strspn(buf, " ");
+      while (*cp) {
+	    argv[argc++] = cp;
+	    cp += strcspn(cp, " ");
+	    *cp++ = 0;
+	    cp += strspn(cp, " ");
+      }
+      argv[argc] = 0;
+
+      assert(strcmp(argv[0],"UNTIL") == 0);
+
+	/* Parse the time token */
+      assert(argc >= 1);
+      pci->time_mant = strtoul(argv[1], &cp, 10);
+      assert(*cp == 'e');
+      cp += 1;
+      pci->time_exp = strtol(cp, 0, 10);
+
+      int idx;
+      for (idx = 2 ; idx < argc ; idx += 1) {
+	    cp = strchr(argv[idx],'=');
+	    assert(cp && *cp=='=');
+
+	    *cp++ = 0;
+	    if (strcmp(argv[idx],"PCI_CLK") == 0) {
+		  pci->pci_clk = char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"GNT#") == 0) {
+		  pci->pci_gnt_n = char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"AD") == 0) {
+		  for (idx = 0 ; idx < 64 ; idx += 1) {
+			assert(*cp);
+			pci->pci_ad[63-idx] = char_to_bitval(*cp);
+			cp += 1;
+		  }
+
+	    } else {
+		    /* Skip signals not of interest to me. */
+	    }
+      }
+
+      return 0;
+}
 
 simbus_pci_t simbus_pci_connect(const char*server, const char*name)
 {
@@ -40,6 +174,9 @@ simbus_pci_t simbus_pci_connect(const char*server, const char*name)
       char*host_name = 0;
       char*host_port = 0;
 
+	/* Parse the server string to a host name and port. If the
+	   host name is missing, then assume the rest is the port and
+	   use "localhost" as the server. */
       char*cp;
       if ( (cp = strchr(server, ':')) != 0 ) {
 	    host_name = malloc(cp - server + 1);
@@ -52,8 +189,8 @@ simbus_pci_t simbus_pci_connect(const char*server, const char*name)
 	    host_port = strdup(server);
       }
 
-	/* Given the host string from the command line, look it up and
-	   get the address and port numbers. */
+	/* Look up the host name and port to get the host/port
+	   address. Try to connect to the service. */
       struct addrinfo hints, *res;
       memset(&hints, 0, sizeof(struct addrinfo));
       hints.ai_family = AF_UNSPEC;
@@ -124,13 +261,35 @@ simbus_pci_t simbus_pci_connect(const char*server, const char*name)
 
 unsigned simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 {
-      fprintf(stderr, "simbus_pci_wait: STUB clks=%u, irq=0x%x\n", clks, irq);
+      if (irq != 0) {
+	    fprintf(stderr, "simbus_pci_wait: STUB irq=0x%x\n", irq);
+      }
+
+	/* Wait for the clock to go low, and to go high again. */
+      assert(clks > 0);
+      while (clks > 0) {
+	    while (pci->pci_clk != BIT_0)
+		  send_ready_command(pci);
+
+	    while (pci->pci_clk != BIT_1)
+		  send_ready_command(pci);
+
+	    clks -= 1;
+      }
+
       return 0;
 }
 
 void simbus_pci_reset(simbus_pci_t pci, unsigned width, unsigned settle)
 {
-      fprintf(stderr, "simbus_pci_reset: STUB width=%u, settle=%u\n", width, settle);
+      assert(width > 0);
+      assert(settle > 0);
+
+      pci->out_reset_n = BIT_0;
+      simbus_pci_wait(pci, width, 0);
+
+      pci->out_reset_n = BIT_1;
+      simbus_pci_wait(pci, settle, 0);
 }
 
 uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)

@@ -12,19 +12,22 @@ static void yyerror(const char*msg);
 
 static unsigned use_bus_port;
 static string use_bus_name;
+static string use_bus_protocol;
 static bus_device_map_t use_bus_devices;
 
 static void start_new_bus(void)
 {
       use_bus_port = 0;
       use_bus_name = "";
+      use_bus_protocol = "";
       use_bus_devices.clear();
 }
 
-static void add_device_to_bus(unsigned devid, char*devname)
+static void add_device_to_bus(unsigned devid, char*devname, bool host_flag)
 {
       string tmp_name (devname);
       struct bus_device_plug tmp;
+      tmp.host_flag = host_flag;
       tmp.ident = devid;
       tmp.ready_flag = false;
       use_bus_devices[tmp_name] = tmp;
@@ -33,7 +36,7 @@ static void add_device_to_bus(unsigned devid, char*devname)
 
 static void wrap_up_new_bus(void)
 {
-      service_add_bus(use_bus_port, use_bus_name, use_bus_devices);
+      service_add_bus(use_bus_port, use_bus_name, use_bus_protocol, use_bus_devices);
 }
 
 %}
@@ -43,7 +46,7 @@ static void wrap_up_new_bus(void)
       char*    text;
 }
 
-%token K_bus K_device K_name K_port
+%token K_bus K_device K_host K_name K_port K_protocol
 %token <integer> INTEGER
 %token <text>    STRING
 
@@ -71,7 +74,9 @@ bus_item_list
 bus_item
   : K_port   '=' INTEGER ';'    { use_bus_port = $3; }
   | K_name   '=' STRING ';'     { use_bus_name = string($3); free($3); }
-  | K_device INTEGER STRING ';' { add_device_to_bus($2, $3); }
+  | K_protocol '=' STRING ';'   { use_bus_protocol = string($3); free($3); }
+  | K_device INTEGER STRING ';' { add_device_to_bus($2, $3, false); }
+  | K_host   INTEGER STRING ';' { add_device_to_bus($2, $3, true); }
   ;
 
 %%

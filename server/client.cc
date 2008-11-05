@@ -142,8 +142,8 @@ void client_state_t::process_client_hello_(int fd, int argc, char*argv[])
 
       cerr << "Device " << use_name
 	   << " is attached to bus " << bus_info->second.name
-	   << " as ident=" << bus_interface_->ident
-	   << "." << endl;
+	   << " as " << (bus_interface_->host_flag? "host" : "device")
+	   << " " << bus_interface_->ident << "." << endl;
 }
 
 void client_state_t::process_client_ready_(int fd, int argc, char*argv[])
@@ -159,8 +159,40 @@ void client_state_t::process_client_ready_(int fd, int argc, char*argv[])
       bus_interface_->ready_scale = strtol(ep, &ep, 10);
       assert(*ep == 0);
 
+	// The remaining arguments are <name>=<value> tokens.
       for (int idx = 2 ; idx < argc ; idx += 1) {
-	    cerr << dev_name_ << ": XXXX STUB: READY " << argv[idx] << endl;
+	      // Parse the <name> from the token
+	    ep = strchr(argv[idx], '=');
+	    assert(ep && *ep=='=');
+	    *ep++ = 0;
+
+	      // Build the array of bit values from the <value>
+	    std::valarray<bit_state_t> tmp (strlen(ep));
+	    for (int bit = 0 ; ep[bit] != 0 ;  bit += 1) {
+		    // Note that the string is MSB first, but we want
+		    // to write the LSB into tmp[0].
+		  int array_idx = tmp.size() - bit;
+		  switch (ep[bit]) {
+		      case '0':
+			tmp[array_idx] = BIT_0;
+			break;
+		      case '1':
+			tmp[array_idx] = BIT_1;
+			break;
+		      case 'z':
+			tmp[array_idx] = BIT_Z;
+			break;
+		      case 'x':
+			tmp[array_idx] = BIT_X;
+			break;
+		      default:
+			assert(0);
+			tmp[array_idx] = BIT_X;
+			break;
+		  }
+	    }
+
+	    bus_interface_->client_signals[argv[idx]] = tmp;
       }
 
 	// This client is now ready and waiting for the server.
