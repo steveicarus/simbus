@@ -118,7 +118,7 @@ void protocol_t::run_run()
 
 
 PciProtocol::PciProtocol(struct bus_state&b)
-: protocol_t(b)
+: protocol_t(b), pci_clk_(1)
 {
       pci_clk_ = BIT_1;
 }
@@ -129,17 +129,77 @@ PciProtocol::~PciProtocol()
 
 void PciProtocol::run_run()
 {
-      advance_time_(16500, -12);
+	// Step the PCI clock.
+      advance_pci_clock_();
 
-      if (pci_clk_ == BIT_1) {
-	    pci_clk_ = BIT_0;
-      } else {
-	    pci_clk_ = BIT_1;
-      }
+	// Calculate the RESET# signal.
+      valarray<bit_state_t> reset_n(1);
+      reset_n[0] = calculate_reset_n_();
 
+
+	// Assign the output results back to the devices.
       for (bus_device_map_t::iterator dev = device_map().begin()
 		 ; dev != device_map().end() ; dev ++) {
-	    dev->second.send_signals["PCI_CLK"].resize(1);
-	    dev->second.send_signals["PCI_CLK"][0] = pci_clk_;
+
+	    struct bus_device_plug&curdev = dev->second;
+
+	      // Common signals...
+
+	    curdev.send_signals["PCI_CLK"].resize(pci_clk_.size());
+	    curdev.send_signals["PCI_CLK"] = pci_clk_;
+
+	    if (curdev.host_flag) {
+		    // Outputs to host nodes...
+	    } else {
+		    // Outputs to device nodes...
+		  curdev.send_signals["RESET#"].resize(reset_n.size());
+		  curdev.send_signals["RESET#"] = reset_n;
+	    }
       }
+}
+
+void PciProtocol::advance_pci_clock_(void)
+{
+	// Advance time 1/2 a PCI clock.
+      advance_time_(16500, -12);
+
+	// Toggle the PCI clock
+      if (pci_clk_[0] == BIT_1) {
+	    pci_clk_[0] = BIT_0;
+      } else {
+	    pci_clk_[0] = BIT_1;
+      }
+}
+
+bit_state_t PciProtocol::calculate_reset_n_()
+{
+	// The RESET# signal is the wired AND of the RESET# outputs
+	// from the host devices. If any of the hosts drives RESET#
+	// low, then the output is low.
+      bit_state_t reset_n = BIT_1;
+
+      for (bus_device_map_t::iterator dev = device_map().begin()
+		 ; dev != device_map().end() ; dev ++ ) {
+	    if (! dev->second.host_flag)
+		  continue;
+
+	    valarray<bit_state_t>&tmp = dev->second.client_signals["RESET#"];
+
+	      // Skip if not driving RESET#
+	    if (tmp.size() == 0)
+		  continue;
+	      // Skip if driving RESET# high.
+	    if (tmp[0] == BIT_1)
+		  continue;
+	      // If driving to X or Z, reset output may be unknown.
+	    if (tmp[0] != BIT_0) {
+		  reset_n = BIT_X;
+		  continue;
+	    }
+	      // If any host is driving low, the RESET# is low.
+	    reset_n = BIT_0;
+	    break;
+      }
+
+      return reset_n;
 }

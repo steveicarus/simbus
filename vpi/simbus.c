@@ -96,7 +96,8 @@ static int read_message(int idx, char*buf, size_t nbuf)
 	      /* Read more data from the remote. */
 	    size_t trans = sizeof inst->read_buf - inst->read_fil - 1;
 	    int rc = read(inst->fd, inst->read_buf+inst->read_fil, trans);
-	    if (rc < 0) return rc;
+	    if (rc <= 0) return rc;
+
 	    assert(rc > 0);
 	    inst->read_fil += rc;
 	    inst->read_buf[inst->read_fil] = 0;
@@ -442,6 +443,77 @@ static PLI_INT32 simbus_until_compiletf(char*my_name)
       return 0;
 }
 
+struct signal_list_cell {
+      struct signal_list_cell*next;
+      char*key;
+      vpiHandle sig;
+};
+
+static struct signal_list_cell* find_key_in_list(struct signal_list_cell*ll, const char*key)
+{
+      while (ll && strcmp(ll->key,key)!=0)
+	    ll = ll->next;
+
+      return ll;
+}
+
+static void free_signal_list(struct signal_list_cell*ll)
+{
+      while (ll) {
+	    struct signal_list_cell*tmp = ll->next;
+	    free(ll->key);
+	    free(ll);
+	    ll = tmp;
+      }
+}
+
+static void set_handle_to_value(vpiHandle sig, const char*val)
+{
+      size_t width = strlen(val);
+      size_t vv_count = (width+31)/32;
+
+      s_vpi_value value;
+
+      value.value.vector = calloc(vv_count, sizeof(s_vpi_vecval));
+      int idx;
+      for (idx = 0 ; idx < width ; idx += 1) {
+	    int word = idx / 32;
+	    int bit = idx % 32;
+	    char src = val[width-idx-1];
+	    PLI_INT32 amask = 0;
+	    PLI_INT32 bmask = 0;
+	    switch (src) {
+		case '0':
+		  continue;
+		case '1':
+		  amask = 1;
+		  bmask = 0;
+		  break;
+		case 'x':
+		  amask = 1;
+		  bmask = 1;
+		  break;
+		case 'z':
+		  amask = 0;
+		  bmask = 1;
+		  break;
+	    }
+
+	    s_vpi_vecval*vp = value.value.vector+word;
+
+	    vp->aval |= amask << bit;
+	    vp->bval |= bmask << bit;
+      }
+
+      assert(vpi_get(vpiSize, sig) == width);
+      assert(vpi_get(vpiType, sig) == vpiReg);
+
+      value.format = vpiVectorVal;
+      vpi_put_value(sig, &value, 0, vpiNoDelay);
+
+      free(value.value.vector);
+}
+
 static PLI_INT32 simbus_until_calltf(char*my_name)
 {
       s_vpi_time now;
@@ -460,13 +532,46 @@ static PLI_INT32 simbus_until_calltf(char*my_name)
       int bus = value.value.integer;
       assert(bus >= 0 && bus < MAX_INSTANCES);
 
+	/* Get a list of the signals and their mapping to a handle. We
+	   will use list list to map names from the UNTIL command back
+	   to the handle. */
+      struct signal_list_cell*signal_list = 0;
+      vpiHandle key, sig;
+      for (key = vpi_scan(argv) ; key ; key = vpi_scan(argv)) {
+	    sig = vpi_scan(argv);
+	    assert(sig);
+
+	    struct signal_list_cell*tmp = calloc(1, sizeof(struct signal_list_cell));
+	    value.format = vpiStringVal;
+	    vpi_get_value(key, &value);
+	    assert(value.format == vpiStringVal);
+	    assert(value.value.str);
+	    tmp->key = strdup(value.value.str);
+	    tmp->sig = sig;
+	    tmp->next = signal_list;
+	    signal_list = tmp;
+      }
+
+	/* Now read the command from the server. This will block until
+	   the server data actually arrives. */
       char buf[MAX_MESSAGE+1];
       int rc = read_message(bus, buf, sizeof buf);
-      assert(rc > 0);
 
-      vpi_printf("%s:%d: %s() STUB calltf message:%s\n",
-		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
-		 my_name, buf);
+      if (rc <= 0) {
+	    vpi_printf("%s:%d: %s() read from server failed\n",
+		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		       my_name);
+
+	    vpi_control(vpiStop);
+
+	    free_signal_list(signal_list);
+
+	      /* Set the return value and return. */
+	    value.format = vpiIntVal;
+	    value.value.integer = 0;
+	    vpi_put_value(sys, &value, 0, vpiNoDelay);
+	    return 0;
+      }
 
 	/* Chop the message into tokens. */
       int   msg_argc = 0;
@@ -523,7 +628,7 @@ static PLI_INT32 simbus_until_calltf(char*my_name)
       else
 	    deltatime = until_mant - deltatime;
 
-	/* Set the return value and return. */
+	/* Set the return value and return it. */
       value.format = vpiIntVal;
       value.value.integer = deltatime;
       vpi_put_value(sys, &value, 0, vpiNoDelay);
@@ -531,11 +636,25 @@ static PLI_INT32 simbus_until_calltf(char*my_name)
 	/* Process the signal values. */
       int idx;
       for (idx = 2 ; idx < msg_argc ; idx += 1) {
-	    vpi_printf("%s:%d: %s() STUB signal token:%s\n",
-		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
-		       my_name, msg_argv[idx]);
+
+	    char*key = msg_argv[idx];
+	    char*val = strchr(key, '=');
+	    assert(val && *val=='=');
+	    *val++ = 0;
+
+	    struct signal_list_cell*cur = find_key_in_list(signal_list, key);
+	    if (cur == 0) {
+		  vpi_printf("%s:%d: %s() Unexpected signal %s from bus.\n",
+			     vpi_get_str(vpiFile, sys),
+			     (int)vpi_get(vpiLineNo, sys),
+			     my_name, key);
+		  continue;
+	    }
+
+	    set_handle_to_value(cur->sig, val);
       }
 
+      free_signal_list(signal_list);
       return 0;
 }
 

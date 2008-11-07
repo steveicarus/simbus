@@ -161,6 +161,7 @@ void client_state_t::process_client_ready_(int fd, int argc, char*argv[])
 
 	// The remaining arguments are <name>=<value> tokens.
       for (int idx = 2 ; idx < argc ; idx += 1) {
+
 	      // Parse the <name> from the token
 	    ep = strchr(argv[idx], '=');
 	    assert(ep && *ep=='=');
@@ -171,7 +172,7 @@ void client_state_t::process_client_ready_(int fd, int argc, char*argv[])
 	    for (int bit = 0 ; ep[bit] != 0 ;  bit += 1) {
 		    // Note that the string is MSB first, but we want
 		    // to write the LSB into tmp[0].
-		  int array_idx = tmp.size() - bit;
+		  int array_idx = tmp.size() - bit - 1;
 		  switch (ep[bit]) {
 		      case '0':
 			tmp[array_idx] = BIT_0;
@@ -192,6 +193,7 @@ void client_state_t::process_client_ready_(int fd, int argc, char*argv[])
 		  }
 	    }
 
+	    bus_interface_->client_signals[argv[idx]].resize(tmp.size());
 	    bus_interface_->client_signals[argv[idx]] = tmp;
       }
 

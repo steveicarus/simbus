@@ -118,23 +118,28 @@ module main;
       /* */);
 
    pci64_memory dev
-     (.CLK(CLK),
-      .RESET(RESET_n),
-      .IDSEL(IDSEL),
-      .REQ(REQ_n),
-      .GNT(GNT_n),
+     (.CLK(clk),
+      .RESET(reset_n),
+      .IDSEL(idsel),
+      .REQ(req_n),
+      .GNT(gnt_n),
       .INTA(inta_n),
       
-      .FRAME(FRAME_n),
-      .IRDY(IRDY_n),
-      .TRDY(TRDY_n),
-      .STOP(STOP_n),
-      .DEVSEL(DEVSEL_n),
+      .FRAME(frame_n),
+      .IRDY(irdy_n),
+      .TRDY(trdy_n),
+      .STOP(stop_n),
+      .DEVSEL(devsel_n),
 
       .C_BE(c_be[3:0]),
       .AD(ad[31:0]),
-      .PAR(PAR)
+      .PAR(par)
       /* */);
+
+   initial begin
+      $dumpfile("pcimem.lxt");
+      $dumpvars(0);
+   end
 
 endmodule // main
 

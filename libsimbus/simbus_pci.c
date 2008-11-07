@@ -252,6 +252,7 @@ simbus_pci_t simbus_pci_connect(const char*server, const char*name)
 
       struct simbus_pci_s*pci = calloc(1, sizeof(struct simbus_pci_s));
       assert(pci);
+      init_simbus_pci(pci);
       pci->name = strdup(name);
       pci->fd = server_fd;
       pci->ident = ident;

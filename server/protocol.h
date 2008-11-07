@@ -58,7 +58,11 @@ class PciProtocol  : public protocol_t {
       void run_run();
 
     private:
-      bit_state_t pci_clk_;
+      void advance_pci_clock_(void);
+      bit_state_t calculate_reset_n_(void);
+
+    private:
+      std::valarray<bit_state_t> pci_clk_;
 };
 
 #endif
