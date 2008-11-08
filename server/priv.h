@@ -86,6 +86,9 @@ struct bus_state {
 	// posix fd for the bus socket. This is only used for
 	// listening for new clients.
       int fd;
+	// Start out true, then turn this false when the bus is fully
+	// assembled and initialized.
+      bool need_initialization;
 	// List of configured devices. The key is the name of the
 	// device, so that the client device can be located when it
 	// binds and calls in its name.

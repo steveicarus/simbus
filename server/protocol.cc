@@ -65,9 +65,12 @@ void protocol_t::bus_ready()
 	// Call the protocol engine.
       run_run();
 
-	// Send the new signal state to the client.
+	// Send the new signal state to the client. This scans through
+	// the signal map for each device, and sends the state for all
+	// the signals to the client through the UNTIL message.
       for (bus_device_map_t::iterator dev = bus_.device_map.begin()
 		 ; dev != bus_.device_map.end() ;  dev ++) {
+
 	    int fd = dev->second.fd;
 	    signal_state_map_t&sigs = dev->second.send_signals;
 
@@ -111,20 +114,60 @@ void protocol_t::bus_ready()
       }
 }
 
+void protocol_t::run_init()
+{
+}
+
 void protocol_t::run_run()
 {
       assert(0);
 }
 
-
 PciProtocol::PciProtocol(struct bus_state&b)
-: protocol_t(b), pci_clk_(1)
+: protocol_t(b), pci_clk_(BIT_1)
 {
-      pci_clk_ = BIT_1;
+      granted_ = -1;
 }
 
 PciProtocol::~PciProtocol()
 {
+}
+
+void PciProtocol::run_init()
+{
+      granted_ = -1;
+
+      for (bus_device_map_t::iterator dev = device_map().begin()
+		 ; dev != device_map().end() ; dev ++ ) {
+
+	    struct bus_device_plug&curdev = dev->second;
+
+	    curdev.send_signals["PCI_CLK"].resize(1);
+	    curdev.send_signals["PCI_CLK"][0] = BIT_1;
+
+	    curdev.send_signals["GNT#"].resize(1);
+	    curdev.send_signals["GNT#"][0] = BIT_1;
+
+	    if (curdev.host_flag) {
+		  valarray<bit_state_t>tmp16 (16);
+		  for (int idx = 0 ; idx < 16 ; idx += 1)
+			tmp16[idx] = BIT_1;
+
+		  curdev.send_signals["INTA#"].resize(16);
+		  curdev.send_signals["INTB#"].resize(16);
+		  curdev.send_signals["INTC#"].resize(16);
+		  curdev.send_signals["INTD#"].resize(16);
+		  curdev.send_signals["INTA#"] = tmp16;
+		  curdev.send_signals["INTB#"] = tmp16;
+		  curdev.send_signals["INTC#"] = tmp16;
+		  curdev.send_signals["INTD#"] = tmp16;
+
+	    } else {
+		  curdev.send_signals["RESET#"].resize(1);
+		  curdev.send_signals["RESET#"][0] = BIT_1;
+	    }
+      }
+
 }
 
 void PciProtocol::run_run()
@@ -133,11 +176,16 @@ void PciProtocol::run_run()
       advance_pci_clock_();
 
 	// Calculate the RESET# signal.
-      valarray<bit_state_t> reset_n(1);
-      reset_n[0] = calculate_reset_n_();
+      bit_state_t reset_n = calculate_reset_n_();
 
+	// Run the arbitration state machine.
+      arbitrate_();
 
-	// Assign the output results back to the devices.
+	// Route interrupts from the devices to the hosts.
+      route_interrupts_();
+
+	// Assign the output results back to the devices. These take
+	// care of the signals that are not handled otherwise.
       for (bus_device_map_t::iterator dev = device_map().begin()
 		 ; dev != device_map().end() ; dev ++) {
 
@@ -145,15 +193,13 @@ void PciProtocol::run_run()
 
 	      // Common signals...
 
-	    curdev.send_signals["PCI_CLK"].resize(pci_clk_.size());
-	    curdev.send_signals["PCI_CLK"] = pci_clk_;
+	    curdev.send_signals["PCI_CLK"][0] = pci_clk_;
 
 	    if (curdev.host_flag) {
 		    // Outputs to host nodes...
 	    } else {
 		    // Outputs to device nodes...
-		  curdev.send_signals["RESET#"].resize(reset_n.size());
-		  curdev.send_signals["RESET#"] = reset_n;
+		  curdev.send_signals["RESET#"][0] = reset_n;
 	    }
       }
 }
@@ -164,10 +210,10 @@ void PciProtocol::advance_pci_clock_(void)
       advance_time_(16500, -12);
 
 	// Toggle the PCI clock
-      if (pci_clk_[0] == BIT_1) {
-	    pci_clk_[0] = BIT_0;
+      if (pci_clk_ == BIT_1) {
+	    pci_clk_ = BIT_0;
       } else {
-	    pci_clk_[0] = BIT_1;
+	    pci_clk_ = BIT_1;
       }
 }
 
@@ -202,4 +248,150 @@ bit_state_t PciProtocol::calculate_reset_n_()
       }
 
       return reset_n;
+}
+
+void PciProtocol::arbitrate_()
+{
+	// Only arbitrate on the rising edge of the clock.
+      if (pci_clk_ != BIT_1)
+	    return;
+
+	// Collect all the REQ# signals from all the attached devices.
+      bit_state_t req_n[16];
+      for (int idx = 0 ; idx < 16 ; idx += 1)
+	    req_n[idx] = BIT_1;
+
+      int count_requests = 0;
+      for (bus_device_map_t::iterator dev = device_map().begin()
+		 ; dev != device_map().end() ; dev ++ ) {
+
+	    struct bus_device_plug&curdev = dev->second;
+	    valarray<bit_state_t>&tmp = curdev.client_signals["REQ#"];
+	    if (tmp.size() == 0)
+		  continue;
+	    if (tmp[0] == BIT_Z)
+		  continue;
+
+	    req_n[curdev.ident] = tmp[0];
+	    if (req_n[curdev.ident] == BIT_0)
+		  count_requests += 1;
+      }
+
+	// If there are no requests, then leave the GNT# signals as
+	// they are. This has the effect of parking the GNT# at the
+	// last device to request the bus.
+      if (count_requests == 0)
+	    return;
+
+      int old_grant = granted_;
+
+      if (granted_ < 0)
+	    granted_ = 0;
+
+      do {
+	    granted_ = (granted_+1) % 16;
+      } while (req_n[granted_] != BIT_0);
+
+      if (granted_ == old_grant)
+	    return;
+
+      for (bus_device_map_t::iterator dev = device_map().begin()
+		 ; dev != device_map().end() ; dev ++ ) {
+
+	    struct bus_device_plug&curdev = dev->second;
+	    if (old_grant >= 0 && curdev.ident == old_grant)
+		  curdev.client_signals["GNT#"][0] = BIT_1;
+	    else if (curdev.ident == granted_)
+		  curdev.client_signals["GNT#"][0] = BIT_0;
+      }
+
+}
+
+void PciProtocol::route_interrupts_()
+{
+      map<unsigned, bit_state_t> inta;
+      map<unsigned, bit_state_t> intb;
+      map<unsigned, bit_state_t> intc;
+      map<unsigned, bit_state_t> intd;
+
+	// Collect all the interrupt sources from the non-host devices.
+      for (bus_device_map_t::iterator dev = device_map().begin()
+		 ; dev != device_map().end() ; dev ++ ) {
+
+	    if (dev->second.host_flag)
+		  continue;
+
+	    bit_state_t tmp_bit;
+
+	    valarray<bit_state_t>&tmpa = dev->second.client_signals["INTA#"];
+	    if (tmpa.size() == 0)
+		  tmp_bit = BIT_1;
+	    else if (tmpa[0] == BIT_Z)
+		  tmp_bit = BIT_1;
+	    else
+		  tmp_bit = tmpa[0];
+	    inta[dev->second.ident] = tmp_bit;
+
+	    valarray<bit_state_t>&tmpb = dev->second.client_signals["INTB#"];
+	    if (tmpb.size() == 0)
+		  tmp_bit = BIT_1;
+	    else if (tmpb[0] == BIT_Z)
+		  tmp_bit = BIT_1;
+	    else
+		  tmp_bit = tmpb[0];
+	    intb[dev->second.ident] = tmp_bit;
+
+	    valarray<bit_state_t>&tmpc = dev->second.client_signals["INTC#"];
+	    if (tmpc.size() == 0)
+		  tmp_bit = BIT_1;
+	    else if (tmpc[0] == BIT_Z)
+		  tmp_bit = BIT_1;
+	    else
+		  tmp_bit = tmpc[0];
+	    intc[dev->second.ident] = tmp_bit;
+
+	    valarray<bit_state_t>&tmpd = dev->second.client_signals["INTD#"];
+	    if (tmpd.size() == 0)
+		  tmp_bit = BIT_1;
+	    else if (tmpd[0] == BIT_Z)
+		  tmp_bit = BIT_1;
+	    else
+		  tmp_bit = tmpd[0];
+
+	    intd[dev->second.ident] = tmp_bit;
+      }
+
+	// Send the collected interrupt values to the host devices.
+      for (bus_device_map_t::iterator dev = device_map().begin()
+		 ; dev != device_map().end() ; dev ++ ) {
+
+	    if (!dev->second.host_flag)
+		  continue;
+
+	    struct bus_device_plug&curdev = dev->second;
+
+	    for (map<unsigned, bit_state_t>::iterator cur = inta.begin()
+		       ; cur != inta.end() ; cur ++ ) {
+		  assert(cur->first < 16);
+		  curdev.send_signals["INTA#"][cur->first] = cur->second;
+	    }
+
+	    for (map<unsigned, bit_state_t>::iterator cur = intb.begin()
+		       ; cur != intb.end() ; cur ++ ) {
+		  assert(cur->first < 16);
+		  curdev.send_signals["INTB#"][cur->first] = cur->second;
+	    }
+
+	    for (map<unsigned, bit_state_t>::iterator cur = intc.begin()
+		       ; cur != intc.end() ; cur ++ ) {
+		  assert(cur->first < 16);
+		  curdev.send_signals["INTC#"][cur->first] = cur->second;
+	    }
+
+	    for (map<unsigned, bit_state_t>::iterator cur = intd.begin()
+		       ; cur != intd.end() ; cur ++ ) {
+		  assert(cur->first < 16);
+		  curdev.send_signals["INTD#"][cur->first] = cur->second;
+	    }
+      }
 }

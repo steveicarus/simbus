@@ -59,6 +59,7 @@ struct simbus_pci_s {
 	/* values that I get back from the server */
       bus_bitval_t pci_clk;
       bus_bitval_t pci_gnt_n;
+      bus_bitval_t pci_inta_n[16];
       bus_bitval_t pci_ad[64];
 };
 
@@ -151,6 +152,12 @@ static int send_ready_command(struct simbus_pci_s*pci)
 
 	    } else if (strcmp(argv[idx],"GNT#") == 0) {
 		  pci->pci_gnt_n = char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"INTA#") == 0) {
+		  assert(strlen(cp) == 16);
+		  int bit;
+		  for (bit = 0 ; bit < 16 ; bit += 1)
+			pci->pci_inta_n[bit] = char_to_bitval(cp[15-bit]);
 
 	    } else if (strcmp(argv[idx],"AD") == 0) {
 		  for (idx = 0 ; idx < 64 ; idx += 1) {
@@ -268,7 +275,8 @@ unsigned simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 
 	/* Wait for the clock to go low, and to go high again. */
       assert(clks > 0);
-      while (clks > 0) {
+      unsigned mask = 0;
+      while (clks > 0 && ! (mask&irq)) {
 	    while (pci->pci_clk != BIT_0)
 		  send_ready_command(pci);
 
@@ -276,6 +284,14 @@ unsigned simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 		  send_ready_command(pci);
 
 	    clks -= 1;
+
+	      /* Collect the interrupts that are now being drive. */
+	    mask = 0;
+	    int idx;
+	    for (idx = 0 ; idx < 16 ; idx += 1) {
+		  if (pci->pci_inta_n[idx] == BIT_0)
+			mask |= 1<<idx;
+	    }
       }
 
       return 0;

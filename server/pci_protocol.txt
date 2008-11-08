@@ -7,6 +7,44 @@ PCI bus simulations have these signals:
 Misc.
               PCI_CLK     I         I
               RESET#      O         I
+	      IDSEL       I         I    (See "IDSEL mapping")
+	      INTA#       I*        O    (See "INTx# mapping")
+	      INTB#       I*        O    (        "          )
+	      INTC#       I*        O    (        "          )
+	      INTD#       I*        O    (        "          )
 Arbitration
               REQ#        O         O
 	      GNT#        I         I
+
+* The PCI Clock
+
+This is entirely under the control of the server.
+
+* IDSEL mapping
+
+On a PCI bus, the device number is used to select the IDSEL signal
+that is routed to it. The bus supports 16 directly-connected devices
+(including hosts) and the device number may be a value from 0-15
+inclusive. The IDSEL signal is generated from the AD bus, with IDSEL
+for device-0 connected to AD[16], IDSEL for device-1 to AD[17], and so
+on up to device-15 to AD[31]. Hosts and devices are treated equally by
+the server. The IDSEL mapping is done by the server, so any bus master
+(device or host) can generate configuration cycles with the desired
+IDSEL bits set.
+
+* INTx# mapping
+
+Devices (not hosts) have 4 interrupt outputs, INTA#, INTB#, INTC# and
+INTD#. These are used as expected.
+
+Hosts, on the other hand, only have interrupt *inputs*. The host sees
+the signals INTA#, INTB#, INTC# and INTD# for as 16bit vectors, with
+each bit position of the vector representing the interrupt for the
+corresponding device. Thus the host sees and can differentiate all the
+interrupts from all the devices. If the host simulation wants to
+simulate shared interrupts, it does so internally.
+
+* Arbitration
+
+The server contains the arbitor, so the host is treated like any other
+device with its own REQ# and GNT# signals.

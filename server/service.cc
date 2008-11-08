@@ -52,6 +52,7 @@ void service_add_bus(unsigned port, const std::string&name,
       bus_state&tmp = bus_map[port];
       tmp.name = name;
       tmp.fd = -1;
+      tmp.need_initialization = true;
       tmp.device_map = dev;
 
       if (bus_protocol_name == "pci") {
@@ -184,8 +185,21 @@ void service_run(void)
 			      break;
 			}
 		  }
-		  if (flag == true)
+
+		  if (flag == true) {
+			  // If this is the first time all the devices
+			  // are ready, then the bus is finally
+			  // assembled, and needs final initialization.
+			if (idx->second.need_initialization) {
+			      cout << idx->second.name << ": "
+				   << "Bus assembly complete." << endl;
+			      idx->second.proto->run_init();
+			      idx->second.need_initialization = false;
+			}
+
+			  // Run the first bus state.
 			idx->second.proto->bus_ready();
+		  }
 	    }
 
       }

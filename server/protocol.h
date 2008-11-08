@@ -28,6 +28,9 @@ class protocol_t  {
       explicit protocol_t(struct bus_state&);
       virtual ~protocol_t();
 
+	// Call this once before the first call to bus_ready.
+      virtual void run_init();
+
 	// This method is called by the server when all the clients
 	// for a bus are marked as ready.
       void bus_ready();
@@ -55,14 +58,20 @@ class PciProtocol  : public protocol_t {
       PciProtocol(struct bus_state&);
       ~PciProtocol();
 
+      void run_init();
       void run_run();
 
     private:
       void advance_pci_clock_(void);
       bit_state_t calculate_reset_n_(void);
+      void arbitrate_(void);
+      void route_interrupts_(void);
 
     private:
-      std::valarray<bit_state_t> pci_clk_;
+	// Current state of the PCI clock. (It toggles.)
+      bit_state_t pci_clk_;
+	// Device that is currently granted, or -1 if none.
+      int granted_;
 };
 
 #endif
