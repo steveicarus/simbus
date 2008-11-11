@@ -15,6 +15,17 @@ Misc.
 Arbitration
               REQ#        O         O
 	      GNT#        I         I
+Control
+	      FRAME#      B	    B
+	      REQ64#      B	    B
+	      IRDY#	  B	    B
+	      TRDY#	  B	    B
+	      STOP#	  B	    B
+	      DEVSEL#	  B	    B
+	      ACK64#	  B	    B
+Address/Data
+	      AD	  B         B
+	      C/BE#	  B	    B
 
 * The PCI Clock
 

@@ -18,6 +18,7 @@
  */
 
 # include  "simbus_pci.h"
+# include  "simbus_pci_priv.h"
 # include  <sys/types.h>
 # include  <sys/socket.h>
 # include  <netdb.h>
@@ -27,7 +28,7 @@
 # include  <stdio.h>
 # include  <assert.h>
 
-typedef enum { BIT_0, BIT_1, BIT_X, BIT_Z } bus_bitval_t;
+
 static const char bus_bitval_map[4] = { '0', '1', 'x', 'z' };
 static bus_bitval_t char_to_bitval(char ch)
 {
@@ -38,31 +39,6 @@ static bus_bitval_t char_to_bitval(char ch)
 	  default:  return BIT_X;
       }
 }
-
-struct simbus_pci_s {
-	/* The name given in the simbus_pci_connect function. This is
-	   also the name sent to the server in order to get my id. */
-      char*name;
-	/* POSIX fd for the socket used to connect with the server. */
-      int fd;
-	/* Identifier returned by the server during connect. */
-      unsigned ident;
-	/* Current simulation time. */
-      uint64_t time_mant;
-      int time_exp;
-
-	/* Values that I write to the server */
-      bus_bitval_t out_reset_n;
-      bus_bitval_t out_req_n;
-      bus_bitval_t out_ad[64];
-
-	/* values that I get back from the server */
-      bus_bitval_t pci_clk;
-      bus_bitval_t pci_gnt_n;
-      bus_bitval_t pci_inta_n[16];
-      bus_bitval_t pci_ad[64];
-};
-
 static void init_simbus_pci(struct simbus_pci_s*pci)
 {
       int idx;
@@ -71,6 +47,14 @@ static void init_simbus_pci(struct simbus_pci_s*pci)
 
       pci->out_reset_n = BIT_1;
       pci->out_req_n = BIT_1;
+      pci->out_req64_n = BIT_Z;
+      pci->out_frame_n = BIT_Z;
+      pci->out_irdy_n = BIT_Z;
+      pci->out_trdy_n = BIT_Z;
+      pci->out_stop_n = BIT_Z;
+      pci->out_devsel_n = BIT_Z;
+      for (idx = 0 ; idx < 8 ; idx += 1)
+	    pci->out_c_be[idx] = BIT_Z;
       for (idx = 0 ; idx < 64 ; idx += 1)
 	    pci->out_ad[idx] = BIT_Z;
 
@@ -100,6 +84,44 @@ static int send_ready_command(struct simbus_pci_s*pci)
       strcpy(cp, " REQ#=");
       cp += strlen(cp);
       *cp++ = bus_bitval_map[pci->out_req_n];
+
+      strcpy(cp, " REQ64#=");
+      cp += strlen(cp);
+      *cp++ = bus_bitval_map[pci->out_req64_n];
+
+      strcpy(cp, " FRAME#=");
+      cp += strlen(cp);
+      *cp++ = bus_bitval_map[pci->out_frame_n];
+
+      strcpy(cp, " IRDY#=");
+      cp += strlen(cp);
+      *cp++ = bus_bitval_map[pci->out_irdy_n];
+
+      strcpy(cp, " TRDY#=");
+      cp += strlen(cp);
+      *cp++ = bus_bitval_map[pci->out_trdy_n];
+
+      strcpy(cp, " STOP#=");
+      cp += strlen(cp);
+      *cp++ = bus_bitval_map[pci->out_stop_n];
+
+      strcpy(cp, " DEVSEL#=");
+      cp += strlen(cp);
+      *cp++ = bus_bitval_map[pci->out_devsel_n];
+
+      strcpy(cp, " C/BE#=");
+      cp += strlen(cp);
+      for (rc = 0 ; rc < 8 ; rc += 1)
+	    *cp++ = bus_bitval_map[pci->out_c_be[7-rc]];
+
+      strcpy(cp, " AD=");
+      cp += strlen(cp);
+      for (rc = 0 ; rc < 64 ; rc += 1)
+	    *cp++ = bus_bitval_map[pci->out_ad[63-rc]];
+
+      strcpy(cp, " PAR=");
+      cp += strlen(cp);
+      *cp++ = bus_bitval_map[pci->out_par];
 
 	/* Terminate the message string. */
       *cp++ = '\n';
@@ -176,8 +198,6 @@ static int send_ready_command(struct simbus_pci_s*pci)
 
 simbus_pci_t simbus_pci_connect(const char*server, const char*name)
 {
-      fprintf(stderr, "simbus_pci_connect: STUB name=%s\n", name);
-
       char*host_name = 0;
       char*host_port = 0;
 
@@ -309,15 +329,17 @@ void simbus_pci_reset(simbus_pci_t pci, unsigned width, unsigned settle)
       simbus_pci_wait(pci, settle, 0);
 }
 
-uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
+void __pci_request_bus(simbus_pci_t pci)
 {
-      fprintf(stderr, "simbus_pci_config_read: STUB addr=0x%x\n", addr);
-      return 0xffffffff;
-}
+      int count = 32;
+      pci->out_req_n = BIT_0;
+      while (pci->pci_gnt_n != BIT_0) {
+	    simbus_pci_wait(pci,1,0);
+	    count -= 1;
+	    assert(count > 0);
+      }
 
-void simbus_pci_config_write(simbus_pci_t pci, uint64_t addr, uint32_t val, int BEn)
-{
-      fprintf(stderr, "simbus_pci_config_write: STUB addr=0x%x, val=%x, BE#=0x%xn", addr, val, BEn);
+      pci->out_req_n = BIT_1;
 }
 
 uint32_t simbus_pci_read32(simbus_pci_t pci, uint64_t addr)

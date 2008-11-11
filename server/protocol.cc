@@ -300,9 +300,9 @@ void PciProtocol::arbitrate_()
 
 	    struct bus_device_plug&curdev = dev->second;
 	    if (old_grant >= 0 && curdev.ident == old_grant)
-		  curdev.client_signals["GNT#"][0] = BIT_1;
+		  curdev.send_signals["GNT#"][0] = BIT_1;
 	    else if (curdev.ident == granted_)
-		  curdev.client_signals["GNT#"][0] = BIT_0;
+		  curdev.send_signals["GNT#"][0] = BIT_0;
       }
 
 }
