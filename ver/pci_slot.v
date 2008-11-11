@@ -51,13 +51,16 @@ module pci_slot(// The bus supplies the clock and reset
 		input wire INTD_n,
 		// Other PCI signals
 		inout wire FRAME_n,
+		inout wire REQ64_n,
 		inout wire IRDY_n,
 		inout wire TRDY_n,
 		inout wire STOP_n,
 		inout wire DEVSEL_n,
+		inout wire ACK64_n,
 		inout wire [7:0] C_BE,
 		inout wire [63:0] AD,
-		inout wire  PAR);
+		inout wire  PAR,
+		inout wire PAR64);
 
    // This is the name that I report to the bus server. The user
    // *must* override this, either by defparam or parameter override.
@@ -66,22 +69,28 @@ module pci_slot(// The bus supplies the clock and reset
    // These are values that the remote drives to the PCI port signals.
    // When the values are z, the remote is explicitly not driving.
    reg 	 frame_n_drv = 1'bz;
+   reg   req64_n_drv = 1'bz;
    reg 	 irdy_n_drv = 1'bz;
    reg 	 trdy_n_drv = 1'bz;
    reg 	 stop_n_drv = 1'bz;
    reg 	 devsel_n_drv = 1'bz;
-   reg   c_be_drv = 8'hzz;
-   reg   ad_drv = 64'hzzzzzzzz_zzzzzzzz;
+   reg   ack64_n_drv  = 1'bz;
+   reg [7:0]  c_be_drv = 8'hzz;
+   reg [63:0] ad_drv = 64'hzzzzzzzz_zzzzzzzz;
    reg 	 par_drv = 1'bz;
+   reg 	 par64_drv = 1'bz;
 
    assign FRAME_n = frame_n_drv;
+   assign REQ64_n = req64_n_drv;
    assign IRDY_n  = irdy_n_drv;
    assign TRDY_n  = trdy_n_drv;
    assign STOP_n  = stop_n_srv;
-   assign DEVSEL_n= devsel_n_srv;
-   assign C_BE    = c_be_n;
+   assign DEVSEL_n= devsel_n_drv;
+   assign ACK64_n = ack64_n_drv;
+   assign C_BE    = c_be_drv;
    assign AD      = ad_drv;
    assign PAR     = par_drv;
+   assign PAR64   = par64_drv;
 
    time  deltatime;
    integer bus;
@@ -117,13 +126,16 @@ module pci_slot(// The bus supplies the clock and reset
 		       "INTC#",  INTC_n,
 		       "INTD#",  INTD_n,
 		       "FRAME#", FRAME_n,
+		       "REQ64#", REQ64_n,
 		       "IRDY#",  IRDY_n,
 		       "TRDY#",  TRDY_n,
 		       "STOP#",  STOP_n,
 		       "DEVSEL#",DEVSEL_n,
-		       "C_BE",   C_BE,
+		       "ACK64#", ACK64_n,
+		       "C/BE#",  C_BE,
 		       "AD",     AD,
-		       "PAR",    PAR);
+		       "PAR",    PAR,
+		       "PAR64",  PAR64);
 
 	 // The server responds to this task call when it is ready
 	 // for this device to advance some more. This task waits
@@ -139,13 +151,16 @@ module pci_slot(// The bus supplies the clock and reset
 				   "GNT#",   GNT_n,
 				   "IDSEL",  IDSEL,
 				   "FRAME#", frame_n_drv,
+				   "REQ64#", req64_n_drv,
 				   "IRDY#",  irdy_n_drv,
 				   "TRDY#",  trdy_n_drv,
 				   "STOP#",  stop_n_drv,
 				   "DEVSEL#",devsel_n_drv,
-				   "C_BE",   c_be_drv,
+				   "ACK64#", ack64_n_drv,
+				   "C/BE#",  c_be_drv,
 				   "AD",     ad_drv,
-				   "PAR",    par_drv);
+				   "PAR",    par_drv,
+				   "PAR64",  par64_drv);
       end
 
    end

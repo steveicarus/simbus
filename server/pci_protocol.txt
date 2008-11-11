@@ -26,6 +26,8 @@ Control
 Address/Data
 	      AD	  B         B
 	      C/BE#	  B	    B
+	      PAR	  B	    B
+	      PAR64	  B	    B
 
 * The PCI Clock
 
@@ -59,3 +61,10 @@ simulate shared interrupts, it does so internally.
 
 The server contains the arbitor, so the host is treated like any other
 device with its own REQ# and GNT# signals.
+
+* Address/Data
+
+The PCI protocol supports 64bit busses. The AD vector is 64bits and
+the C/BE# vector is 8 bits always.  If a device is only being a 32bit
+device, then it will send Z bits in the high 32 of the AD vector and
+the high 4 bits of C/BE#. This keeps the protocol handling uniform.

@@ -102,6 +102,11 @@ void protocol_t::bus_ready()
 			      *cp++ = 'x';
 			      break;
 			    default:
+			      cerr << "XXXX " << dev->first
+				   << ":" << cur_sig->first
+				   << ": bit[" << idx << "] "
+				   << " is " << cur_sig->second[width-idx-1]
+				   << endl;
 			      assert(0);
 			}
 		  }
@@ -148,6 +153,47 @@ void PciProtocol::run_init()
 	    curdev.send_signals["GNT#"].resize(1);
 	    curdev.send_signals["GNT#"][0] = BIT_1;
 
+	    curdev.send_signals["FRAME#"].resize(1);
+	    curdev.send_signals["FRAME#"][0] = BIT_Z;
+
+	    curdev.send_signals["REQ64#"].resize(1);
+	    curdev.send_signals["REQ64#"][0] = BIT_Z;
+
+	    curdev.send_signals["IRDY#"].resize(1);
+	    curdev.send_signals["IRDY#"][0] = BIT_Z;
+
+	    curdev.send_signals["TRDY#"].resize(1);
+	    curdev.send_signals["TRDY#"][0] = BIT_Z;
+
+	    curdev.send_signals["STOP#"].resize(1);
+	    curdev.send_signals["STOP#"][0] = BIT_Z;
+
+	    curdev.send_signals["DEVSEL#"].resize(1);
+	    curdev.send_signals["DEVSEL#"][0] = BIT_Z;
+
+	    curdev.send_signals["ACK64#"].resize(1);
+	    curdev.send_signals["ACK64#"][0] = BIT_Z;
+
+	    curdev.send_signals["PAR"].resize(1);
+	    curdev.send_signals["PAR"][0] = BIT_Z;
+
+	    curdev.send_signals["PAR64"].resize(1);
+	    curdev.send_signals["PAR64"][0] = BIT_Z;
+
+	    curdev.send_signals["C/BE#"].resize(8);
+	    curdev.client_signals["C/BE#"].resize(8);
+	    for (int idx = 0 ; idx < 8 ; idx += 1) {
+		  curdev.send_signals["C/BE#"][idx] = BIT_Z;
+		  curdev.client_signals["C/BE#"][idx] = BIT_Z;
+	    }
+
+	    curdev.send_signals["AD"].resize(64);
+	    curdev.client_signals["AD"].resize(64);
+	    for (int idx = 0 ; idx < 64 ; idx += 1) {
+		  curdev.send_signals["AD"][idx] = BIT_Z;
+		  curdev.client_signals["AD"][idx] = BIT_Z;
+	    }
+
 	    if (curdev.host_flag) {
 		  valarray<bit_state_t>tmp16 (16);
 		  for (int idx = 0 ; idx < 16 ; idx += 1)
@@ -183,6 +229,9 @@ void PciProtocol::run_run()
 
 	// Route interrupts from the devices to the hosts.
       route_interrupts_();
+
+	// Blend all the bi-directional signals.
+      blend_bi_signals_();
 
 	// Assign the output results back to the devices. These take
 	// care of the signals that are not handled otherwise.
@@ -305,6 +354,7 @@ void PciProtocol::arbitrate_()
 		  curdev.send_signals["GNT#"][0] = BIT_0;
       }
 
+      cout << "Arbiter: Grant bus to " << granted_ << endl;
 }
 
 void PciProtocol::route_interrupts_()
@@ -393,5 +443,104 @@ void PciProtocol::route_interrupts_()
 		  assert(cur->first < 16);
 		  curdev.send_signals["INTD#"][cur->first] = cur->second;
 	    }
+      }
+}
+
+static bit_state_t blend_bits(bit_state_t a, bit_state_t b)
+{
+      if (a == BIT_Z)
+	    return b;
+      if (b == BIT_Z)
+	    return a;
+      if (a == b)
+	    return a;
+      else
+	    return BIT_X;
+}
+
+void PciProtocol::blend_bi_signals_(void)
+{
+      bit_state_t frame_n = BIT_Z;
+      bit_state_t req64_n = BIT_Z;
+      bit_state_t devsel_n= BIT_Z;
+      bit_state_t ack64_n = BIT_Z;
+      bit_state_t irdy_n  = BIT_Z;
+      bit_state_t trdy_n  = BIT_Z;
+      bit_state_t stop_n  = BIT_Z;
+      bit_state_t ad[64];
+      bit_state_t cbe[8];
+      bit_state_t par = BIT_Z;
+      bit_state_t par64 = BIT_Z;
+
+      for (int idx = 0 ; idx < 64 ; idx += 1)
+	    ad[idx] = BIT_Z;
+      for (int idx = 0 ; idx < 8 ; idx += 1)
+	    cbe[idx] = BIT_Z;
+
+      for (bus_device_map_t::iterator dev = device_map().begin()
+		 ; dev != device_map().end() ; dev ++ ) {
+
+	    struct bus_device_plug&curdev = dev->second;
+	    bit_state_t tmp;
+
+	    tmp = curdev.client_signals["FRAME#"][0];
+	    frame_n = blend_bits(frame_n, tmp);
+
+	    tmp = curdev.client_signals["REQ64#"][0];
+	    req64_n = blend_bits(req64_n, tmp);
+
+	    tmp = curdev.client_signals["DEVSEL#"][0];
+	    devsel_n = blend_bits(devsel_n, tmp);
+
+	    tmp = curdev.client_signals["ACK64#"][0];
+	    ack64_n = blend_bits(ack64_n, tmp);
+
+	    tmp = curdev.client_signals["IRDY#"][0];
+	    irdy_n = blend_bits(irdy_n, tmp);
+
+	    tmp = curdev.client_signals["TRDY#"][0];
+	    trdy_n = blend_bits(trdy_n, tmp);
+
+	    tmp = curdev.client_signals["STOP#"][0];
+	    stop_n = blend_bits(stop_n, tmp);
+
+	    valarray<bit_state_t>&tmp_ad = curdev.client_signals["AD"];
+	    for (int idx = 0 ; idx < 64 ; idx += 1)
+		  ad[idx] = blend_bits(ad[idx], tmp_ad[idx]);
+
+	    valarray<bit_state_t>&tmp_cbe = curdev.client_signals["C/BE#"];
+	    for (int idx = 0 ; idx < 8 ; idx += 1)
+		  cbe[idx] = blend_bits(cbe[idx], tmp_cbe[idx]);
+
+	    tmp = curdev.client_signals["PAR"][0];
+	    par = blend_bits(par, tmp);
+
+	    tmp = curdev.client_signals["PAR64"][0];
+	    par64 = blend_bits(par64, tmp);
+      }
+
+      for (bus_device_map_t::iterator dev = device_map().begin()
+		 ; dev != device_map().end() ; dev ++ ) {
+
+	    struct bus_device_plug&curdev = dev->second;
+
+	    curdev.send_signals["FRAME#"][0] = frame_n;
+	    curdev.send_signals["REQ64#"][0] = req64_n;
+	    curdev.send_signals["IRDY#"][0]  = irdy_n;
+	    curdev.send_signals["TRDY#"][0]  = trdy_n;
+	    curdev.send_signals["STOP#"][0]  = stop_n;
+	    curdev.send_signals["DEVSEL#"][0]= devsel_n;
+	    curdev.send_signals["ACK64#"][0] = ack64_n;
+
+	    valarray<bit_state_t>&tmp_ad = curdev.send_signals["AD"];
+	    for (int idx = 0 ; idx < 64 ; idx += 1)
+		  tmp_ad[idx] = ad[idx];
+
+	    valarray<bit_state_t>&tmp_cbe = curdev.send_signals["C/BE#"];
+	    for (int idx = 0 ; idx < 8 ; idx += 1)
+		  tmp_cbe[idx] = cbe[idx];
+
+	    curdev.send_signals["PAR"][0]   = par;
+	    curdev.send_signals["PAR64"][0] = par64;
       }
 }

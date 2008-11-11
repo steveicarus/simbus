@@ -42,6 +42,7 @@ static bus_bitval_t char_to_bitval(char ch)
 static void init_simbus_pci(struct simbus_pci_s*pci)
 {
       int idx;
+      pci->debug = 0;
       pci->time_mant = 0;
       pci->time_exp = 0;
 
@@ -53,15 +54,19 @@ static void init_simbus_pci(struct simbus_pci_s*pci)
       pci->out_trdy_n = BIT_Z;
       pci->out_stop_n = BIT_Z;
       pci->out_devsel_n = BIT_Z;
+      pci->out_ack64_n = BIT_Z;
       for (idx = 0 ; idx < 8 ; idx += 1)
 	    pci->out_c_be[idx] = BIT_Z;
       for (idx = 0 ; idx < 64 ; idx += 1)
 	    pci->out_ad[idx] = BIT_Z;
+      pci->out_par = BIT_Z;
+      pci->out_par64 = BIT_Z;
 
       pci->pci_clk = BIT_X;
       pci->pci_gnt_n = BIT_X;
       for (idx = 0 ; idx < 64 ; idx += 1)
 	    pci->pci_ad[idx] = BIT_X;
+
 }
 
 /*
@@ -109,6 +114,10 @@ static int send_ready_command(struct simbus_pci_s*pci)
       cp += strlen(cp);
       *cp++ = bus_bitval_map[pci->out_devsel_n];
 
+      strcpy(cp, " ACK64#=");
+      cp += strlen(cp);
+      *cp++ = bus_bitval_map[pci->out_ack64_n];
+
       strcpy(cp, " C/BE#=");
       cp += strlen(cp);
       for (rc = 0 ; rc < 8 ; rc += 1)
@@ -122,6 +131,15 @@ static int send_ready_command(struct simbus_pci_s*pci)
       strcpy(cp, " PAR=");
       cp += strlen(cp);
       *cp++ = bus_bitval_map[pci->out_par];
+
+      strcpy(cp, " PAR64=");
+      cp += strlen(cp);
+      *cp++ = bus_bitval_map[pci->out_par64];
+
+      if (pci->debug) {
+	    *cp = 0;
+	    fprintf(pci->debug, "SEND %s\n", buf);
+      }
 
 	/* Terminate the message string. */
       *cp++ = '\n';
@@ -140,6 +158,9 @@ static int send_ready_command(struct simbus_pci_s*pci)
       assert(cp && *cp=='\n');
 
       *cp = 0;
+      if (pci->debug) {
+	    fprintf(pci->debug, "RECV %s\n", buf);
+      }
 
       cp = buf;
       int argc = 0;
@@ -169,6 +190,7 @@ static int send_ready_command(struct simbus_pci_s*pci)
 	    assert(cp && *cp=='=');
 
 	    *cp++ = 0;
+
 	    if (strcmp(argv[idx],"PCI_CLK") == 0) {
 		  pci->pci_clk = char_to_bitval(*cp);
 
@@ -181,12 +203,50 @@ static int send_ready_command(struct simbus_pci_s*pci)
 		  for (bit = 0 ; bit < 16 ; bit += 1)
 			pci->pci_inta_n[bit] = char_to_bitval(cp[15-bit]);
 
-	    } else if (strcmp(argv[idx],"AD") == 0) {
-		  for (idx = 0 ; idx < 64 ; idx += 1) {
+	    } else if (strcmp(argv[idx],"FRAME#") == 0) {
+		  pci->pci_frame_n = char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"REQ64#") == 0) {
+		  pci->pci_req64_n = char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"IRDY#") == 0) {
+		  pci->pci_irdy_n = char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"TRDY#") == 0) {
+		  pci->pci_trdy_n = char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"STOP#") == 0) {
+		  pci->pci_stop_n = char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"DEVSEL#") == 0) {
+		  pci->pci_devsel_n = char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"ACK64#") == 0) {
+		  pci->pci_ack64_n = char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"C/BE#") == 0) {
+		  assert(strlen(cp) == 8);
+		  int bit;
+		  for (bit = 0 ; bit < 8 ; bit += 1) {
 			assert(*cp);
-			pci->pci_ad[63-idx] = char_to_bitval(*cp);
+			pci->pci_c_be[7-bit] = char_to_bitval(*cp);
 			cp += 1;
 		  }
+
+	    } else if (strcmp(argv[idx],"AD") == 0) {
+		  assert(strlen(cp) == 64);
+		  int bit;
+		  for (bit = 0 ; bit < 64 ; bit += 1) {
+			assert(*cp);
+			pci->pci_ad[63-bit] = char_to_bitval(*cp);
+			cp += 1;
+		  }
+
+	    } else if (strcmp(argv[idx],"PAR") == 0) {
+		  pci->pci_par = char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"PAR64") == 0) {
+		  pci->pci_par64 = char_to_bitval(*cp);
 
 	    } else {
 		    /* Skip signals not of interest to me. */
@@ -287,11 +347,13 @@ simbus_pci_t simbus_pci_connect(const char*server, const char*name)
       return pci;
 }
 
+void simbus_pci_debug(simbus_pci_t pci, FILE*debug)
+{
+      pci->debug = debug;
+}
+
 unsigned simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 {
-      if (irq != 0) {
-	    fprintf(stderr, "simbus_pci_wait: STUB irq=0x%x\n", irq);
-      }
 
 	/* Wait for the clock to go low, and to go high again. */
       assert(clks > 0);

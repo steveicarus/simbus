@@ -66,6 +66,7 @@ class PciProtocol  : public protocol_t {
       bit_state_t calculate_reset_n_(void);
       void arbitrate_(void);
       void route_interrupts_(void);
+      void blend_bi_signals_(void);
 
     private:
 	// Current state of the PCI clock. (It toggles.)

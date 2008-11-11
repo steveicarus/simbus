@@ -93,7 +93,8 @@ module main;
    wire inta;
 
    wire        frame_n, irdy_n, trdy_n, stop_n, devsel_n;
-   wire [7:0]  c_be;
+   wire [3:0]  c_be_h, c_be_l;
+   wire [7:0]  c_be = {c_be_h,c_be_l};
    wire [63:0] ad;
    wire        par;
 
@@ -112,7 +113,7 @@ module main;
       .TRDY_n(trdy_n),
       .STOP_n(stop_n),
       .DEVSEL_n(devsel_n),
-      .C_BE(c_be),
+      .C_BE({c_be_h,c_be_l}),
       .AD(ad),
       .PAR(par)
       /* */);
@@ -131,7 +132,7 @@ module main;
       .STOP(stop_n),
       .DEVSEL(devsel_n),
 
-      .C_BE(c_be[3:0]),
+      .C_BE(c_be_l),
       .AD(ad[31:0]),
       .PAR(par)
       /* */);

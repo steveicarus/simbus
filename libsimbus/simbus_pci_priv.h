@@ -29,6 +29,10 @@ struct simbus_pci_s {
       int fd;
 	/* Identifier returned by the server during connect. */
       unsigned ident;
+
+	/* Debug output file. */
+      FILE*debug;
+
 	/* Current simulation time. */
       uint64_t time_mant;
       int time_exp;
@@ -42,18 +46,27 @@ struct simbus_pci_s {
       bus_bitval_t out_trdy_n;
       bus_bitval_t out_stop_n;
       bus_bitval_t out_devsel_n;
+      bus_bitval_t out_ack64_n;
       bus_bitval_t out_c_be[8];
       bus_bitval_t out_ad[64];
       bus_bitval_t out_par;
+      bus_bitval_t out_par64;
 
 	/* values that I get back from the server */
       bus_bitval_t pci_clk;
       bus_bitval_t pci_gnt_n;
       bus_bitval_t pci_inta_n[16];
       bus_bitval_t pci_frame_n;
+      bus_bitval_t pci_req64_n;
+      bus_bitval_t pci_irdy_n;
+      bus_bitval_t pci_trdy_n;
+      bus_bitval_t pci_stop_n;
       bus_bitval_t pci_devsel_n;
+      bus_bitval_t pci_ack64_n;
       bus_bitval_t pci_c_be[8];
       bus_bitval_t pci_ad[64];
+      bus_bitval_t pci_par;
+      bus_bitval_t pci_par64;
 };
 
 

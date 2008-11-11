@@ -20,6 +20,7 @@
  */
 
 # include  <inttypes.h>
+# include  <stdio.h>
 
 #ifdef __cplusplus
 # define EXTERN extern "C"
@@ -34,6 +35,13 @@ typedef struct simbus_pci_s* simbus_pci_t;
  * the devname to use.
  */
 EXTERN simbus_pci_t simbus_pci_connect(const char*server, const char*name);
+
+/*
+ * Set a log file for the pci interface. This causes detailed library
+ * debug messages to that file. Turn debugging off by setting the file
+ * to NIL
+ */
+EXTERN void simbus_pci_debug(simbus_pci_t pci, FILE*fd);
 
 /*
  * Advance the Verilog simulation some number of PCI clocks, or until

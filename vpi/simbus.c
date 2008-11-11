@@ -418,10 +418,23 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
 	    arg = vpi_scan(argv);
 	    assert(arg);
 
-	    value.format = vpiBinStrVal;
+	    value.format = vpiVectorVal;
 	    vpi_get_value(arg, &value);
-	    strcpy(cp, value.value.str);
-	    cp += strlen(cp);
+	    int bit;
+	    for (bit = vpi_get(vpiSize, arg) ; bit > 0 ; bit -= 1) {
+		  int word = (bit-1) / 32;
+		  int mask = 1 << ((bit-1) % 32);
+		  if (value.value.vector[word].aval & mask)
+			if (value.value.vector[word].bval & mask)
+			      *cp++ = 'x';
+			else
+			      *cp++ = '1';
+		  else
+			if (value.value.vector[word].bval & mask)
+			      *cp++ = 'z';
+			else
+			      *cp++ = '0';
+	    }
       }
 
       *cp++ = '\n';
@@ -503,6 +516,11 @@ static void set_handle_to_value(vpiHandle sig, const char*val)
 
 	    vp->aval |= amask << bit;
 	    vp->bval |= bmask << bit;
+      }
+
+      if (vpi_get(vpiSize, sig) != width) {
+	    vpi_printf("ERROR: %s is %d bits, got %zu from server\n",
+		       vpi_get_str(vpiName, sig), vpi_get(vpiSize, sig), width);
       }
 
       assert(vpi_get(vpiSize, sig) == width);
