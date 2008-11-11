@@ -53,7 +53,7 @@ struct bus_device_plug {
       bus_device_plug() : host_flag(false), fd(-1), ready_flag(false) { }
 	// True if this device is a "host" connection.
       bool host_flag;
-	// Identifier number (tcp port) to use for the device.
+	// Identifier number to use for the device.
       unsigned ident;
 	// posix fd for the client socket. This fd can also be used to
 	// look up the client in the client_map.

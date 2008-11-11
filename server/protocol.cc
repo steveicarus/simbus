@@ -153,6 +153,9 @@ void PciProtocol::run_init()
 	    curdev.send_signals["GNT#"].resize(1);
 	    curdev.send_signals["GNT#"][0] = BIT_1;
 
+	    curdev.send_signals["IDSEL"].resize(1);
+	    curdev.send_signals["IDSEL"][0] = BIT_Z;
+
 	    curdev.send_signals["FRAME#"].resize(1);
 	    curdev.send_signals["FRAME#"][0] = BIT_Z;
 
@@ -531,6 +534,7 @@ void PciProtocol::blend_bi_signals_(void)
 	    curdev.send_signals["STOP#"][0]  = stop_n;
 	    curdev.send_signals["DEVSEL#"][0]= devsel_n;
 	    curdev.send_signals["ACK64#"][0] = ack64_n;
+	    curdev.send_signals["IDSEL"][0]  = ad[curdev.ident+16];
 
 	    valarray<bit_state_t>&tmp_ad = curdev.send_signals["AD"];
 	    for (int idx = 0 ; idx < 64 ; idx += 1)
