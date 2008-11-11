@@ -120,22 +120,22 @@ module pci_slot(// The bus supplies the clock and reset
 	 // along with the current time. For the first iteration, this
 	 // gets us synchronized with the server with the time.
 	 $simbus_ready(bus,
-		       "REQ#",   REQ_n,
-		       "INTA#",  INTA_n,
-		       "INTB#",  INTB_n,
-		       "INTC#",  INTC_n,
-		       "INTD#",  INTD_n,
-		       "FRAME#", FRAME_n,
-		       "REQ64#", REQ64_n,
-		       "IRDY#",  IRDY_n,
-		       "TRDY#",  TRDY_n,
-		       "STOP#",  STOP_n,
-		       "DEVSEL#",DEVSEL_n,
-		       "ACK64#", ACK64_n,
-		       "C/BE#",  C_BE,
-		       "AD",     AD,
-		       "PAR",    PAR,
-		       "PAR64",  PAR64);
+		       "REQ#",   REQ_n,     1'bz,
+		       "INTA#",  INTA_n,    1'bz,
+		       "INTB#",  INTB_n,    1'bz,
+		       "INTC#",  INTC_n,    1'bz,
+		       "INTD#",  INTD_n,    1'bz,
+		       "FRAME#", FRAME_n,   frame_n_drv,
+		       "REQ64#", REQ64_n,   req64_n_drv,
+		       "IRDY#",  IRDY_n,    irdy_n_drv,
+		       "TRDY#",  TRDY_n,    trdy_n_drv,
+		       "STOP#",  STOP_n,    stop_n_drv,
+		       "DEVSEL#",DEVSEL_n,  devsel_n_drv,
+		       "ACK64#", ACK64_n,   ack64_n_drv,
+		       "C/BE#",  C_BE,      c_be_drv,
+		       "AD",     AD,        ad_drv,
+		       "PAR",    PAR,       par_drv,
+		       "PAR64",  PAR64,     par64_drv);
 
 	 // The server responds to this task call when it is ready
 	 // for this device to advance some more. This task waits

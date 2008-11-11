@@ -415,13 +415,14 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
 
 	    *cp++ = '=';
 
-	    arg = vpi_scan(argv);
-	    assert(arg);
+	    vpiHandle sig = vpi_scan(argv);
+	    assert(sig);
 
 	    value.format = vpiVectorVal;
-	    vpi_get_value(arg, &value);
+	    vpi_get_value(sig, &value);
 	    int bit;
-	    for (bit = vpi_get(vpiSize, arg) ; bit > 0 ; bit -= 1) {
+	    char*sig_string = cp;
+	    for (bit = vpi_get(vpiSize, sig) ; bit > 0 ; bit -= 1) {
 		  int word = (bit-1) / 32;
 		  int mask = 1 << ((bit-1) % 32);
 		  if (value.value.vector[word].aval & mask)
@@ -435,6 +436,39 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
 			else
 			      *cp++ = '0';
 	    }
+
+	      /* The second value after the signal name is the drive
+		 reference. It is the value that the server is driving
+		 (or 'bz if this is output-only). Look at the driver
+		 value, and if it is non-z and equal to the value that
+		 I see in the verilog, then assume that this is the
+		 driver driving the value and subtract it. */
+	    vpiHandle drv = vpi_scan(argv);
+	    assert(drv);
+	    assert(vpi_get(vpiSize,drv) == vpi_get(vpiSize,sig));
+
+	    for (bit = vpi_get(vpiSize,drv) ; bit > 0 ; bit -= 1) {
+		  int word = (bit-1) / 32;
+		  int mask = 1 << ((bit-1) % 32);
+		  char drv_reference;
+		  if (value.value.vector[word].aval & mask)
+			if (value.value.vector[word].bval & mask)
+			      drv_reference = 'x';
+			else
+			      drv_reference = '1';
+		  else
+			if (value.value.vector[word].bval & mask)
+			      drv_reference = 'z';
+			else
+			      drv_reference = '0';
+
+		  if (drv_reference == *sig_string)
+			*sig_string = 'z';
+
+		  sig_string += 1;
+	    }
+
+	    assert(sig_string == cp);
       }
 
       *cp++ = '\n';
