@@ -90,7 +90,7 @@ module main;
 
    wire clk, reset_n, idsel;
    wire gnt_n, req_n;
-   wire inta_n;
+   wire inta;
 
    wire        frame_n, irdy_n, trdy_n, stop_n, devsel_n;
    wire [7:0]  c_be;
@@ -103,7 +103,7 @@ module main;
       .IDSEL(idsel),
       .GNT_n(gnt_n),
       .REQ_n(req_n),
-      .INTA_n(inta_n),
+      .INTA_n(~inta),
       .INTB_n(1'b1),
       .INTC_n(1'b1),
       .INTD_n(1'b1),
@@ -123,7 +123,7 @@ module main;
       .IDSEL(idsel),
       .REQ(req_n),
       .GNT(gnt_n),
-      .INTA(inta_n),
+      .INTA(inta),
       
       .FRAME(frame_n),
       .IRDY(irdy_n),
