@@ -68,32 +68,49 @@ module pci_slot(// The bus supplies the clock and reset
 
    // These are values that the remote drives to the PCI port signals.
    // When the values are z, the remote is explicitly not driving.
-   reg 	 frame_n_drv = 1'bz;
-   reg   req64_n_drv = 1'bz;
-   reg 	 irdy_n_drv = 1'bz;
-   reg 	 trdy_n_drv = 1'bz;
-   reg 	 stop_n_drv = 1'bz;
-   reg 	 devsel_n_drv = 1'bz;
-   reg   ack64_n_drv  = 1'bz;
+   reg 	      gnt_n_drv = 1'bz;
+   reg 	      frame_n_drv = 1'bz;
+   reg        req64_n_drv = 1'bz;
+   reg 	      irdy_n_drv = 1'bz;
+   reg 	      trdy_n_drv = 1'bz;
+   reg 	      stop_n_drv = 1'bz;
+   reg 	      devsel_n_drv = 1'bz;
+   reg        ack64_n_drv  = 1'bz;
    reg [7:0]  c_be_drv = 8'hzz;
    reg [63:0] ad_drv = 64'hzzzzzzzz_zzzzzzzz;
-   reg 	 par_drv = 1'bz;
-   reg 	 par64_drv = 1'bz;
+   reg 	      par_drv = 1'bz;
+   reg 	      par64_drv = 1'bz;
 
-   assign FRAME_n = frame_n_drv;
-   assign REQ64_n = req64_n_drv;
-   assign IRDY_n  = irdy_n_drv;
-   assign TRDY_n  = trdy_n_drv;
-   assign STOP_n  = stop_n_srv;
-   assign DEVSEL_n= devsel_n_drv;
-   assign ACK64_n = ack64_n_drv;
-   assign C_BE    = c_be_drv;
-   assign AD      = ad_drv;
-   assign PAR     = par_drv;
-   assign PAR64   = par64_drv;
+   // These are intermediate temporaries that we use to convert the
+   // blocking assigns of the $simbus_until function into non-blocking
+   // assignments for better synchronous behavior.
+   reg 	      frame_n_tmp;
+   reg        req64_n_tmp;
+   reg 	      irdy_n_tmp;
+   reg 	      trdy_n_tmp;
+   reg 	      stop_n_tmp;
+   reg 	      devsel_n_tmp;
+   reg        ack64_n_tmp;
+   reg [7:0]  c_be_tmp;
+   reg [63:0] ad_tmp;
+   reg 	      par_tmp;
+   reg 	      par64_tmp;
+
+   assign FRAME_n = frame_n_tmp;
+   assign REQ64_n = req64_n_tmp;
+   assign IRDY_n  = irdy_n_tmp;
+   assign TRDY_n  = trdy_n_tmp;
+   assign STOP_n  = stop_n_tmp;
+   assign DEVSEL_n= devsel_n_tmp;
+   assign ACK64_n = ack64_n_tmp;
+   assign C_BE    = c_be_tmp;
+   assign AD      = ad_tmp;
+   assign PAR     = par_tmp;
+   assign PAR64   = par64_tmp;
 
    time  deltatime;
    integer bus;
+
    initial begin
       // This connects to the bus and sends a message that logically
       // attaches this design to the system. The name is used to distinguish
@@ -148,7 +165,7 @@ module pci_slot(// The bus supplies the clock and reset
 	 deltatime = $simbus_until(bus,
 				   "PCI_CLK",PCI_CLK,
 				   "RESET#", RESET_n,
-				   "GNT#",   GNT_n,
+				   "GNT#",   gnt_n_drv,
 				   "IDSEL",  IDSEL,
 				   "FRAME#", frame_n_drv,
 				   "REQ64#", req64_n_drv,
@@ -161,6 +178,22 @@ module pci_slot(// The bus supplies the clock and reset
 				   "AD",     ad_drv,
 				   "PAR",    par_drv,
 				   "PAR64",  par64_drv);
+
+	 // This forces the actual assignments to the bus to be done
+	 // by non-blocking assignments. This prevents races with the
+	 // clock that is also delivered by the $simbus_until.
+	 GNT_n        <= gnt_n_drv;
+	 frame_n_tmp  <= frame_n_drv;
+	 req64_n_tmp  <= req64_n_drv;
+	 irdy_n_tmp   <= irdy_n_drv;
+	 trdy_n_tmp   <= trdy_n_drv;
+	 stop_n_tmp   <= stop_n_drv;
+	 devsel_n_tmp <= devsel_n_drv;
+	 ack64_n_tmp  <= ack64_n_drv;
+	 c_be_tmp     <= c_be_drv;
+	 ad_tmp       <= ad_drv;
+	 par_tmp      <= par_drv;
+	 par64_tmp    <= par64_drv;
       end
 
    end

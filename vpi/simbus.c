@@ -447,6 +447,9 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
 	    assert(drv);
 	    assert(vpi_get(vpiSize,drv) == vpi_get(vpiSize,sig));
 
+	    value.format = vpiVectorVal;
+	    vpi_get_value(drv, &value);
+
 	    for (bit = vpi_get(vpiSize,drv) ; bit > 0 ; bit -= 1) {
 		  int word = (bit-1) / 32;
 		  int mask = 1 << ((bit-1) % 32);

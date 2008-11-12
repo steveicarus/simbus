@@ -30,6 +30,12 @@ uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
 	   a REQ#/GNT# handshake. */
       __pci_request_bus(pci);
 
+	/* Advance to the low phase of the PCI clock. We do this
+	   because we want our outputs to change on the rising edges
+	   of the PCI clock. */
+      if (pci->pci_clk != BIT_1)
+	    __pci_half_clock(pci);
+
       pci->out_req_n = BIT_1;
 
       pci->out_par = BIT_Z;
@@ -65,7 +71,8 @@ uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
       }
 
 	/* Clock the Command and address */
-      simbus_pci_wait(pci, 1, 0);
+      __pci_half_clock(pci);
+      __pci_half_clock(pci);
 
       pci->out_par = par;
       pci->out_par64 = par64;
@@ -81,14 +88,18 @@ uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
       }
 
 	/* Clock the IRDY and BE#s (and PAR), and un-drive the AD bits. */
-      simbus_pci_wait(pci,1,0);
+      __pci_half_clock(pci);
+      assert(pci->pci_clk == BIT_0);
+
       pci->out_par = BIT_Z;
       pci->out_par64 = BIT_Z;
 
       if (pci->pci_devsel_n != BIT_0) {
-	    simbus_pci_wait(pci,1,0);
+	    __pci_half_clock(pci);
+	    __pci_half_clock(pci);
 	    if (pci->pci_devsel_n != BIT_0) {
-		  simbus_pci_wait(pci,1,0);
+		  __pci_half_clock(pci);
+		  __pci_half_clock(pci);
 		  if (pci->pci_devsel_n != BIT_0) {
 			fprintf(stderr, "simbus_pci_config_read: "
 				"STUB no response to addr=0x%x\n", addr);
@@ -103,7 +114,8 @@ uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
 	/* Wait for TRDY# */
       int count = 60;
       while (pci->pci_trdy_n != BIT_0) {
-	    simbus_pci_wait(pci,1,0);
+	    __pci_half_clock(pci);
+	    __pci_half_clock(pci);
 	    count -= 60;
 	    assert(count > 0);
       }
@@ -127,7 +139,8 @@ uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
 
 	/* This clocks the drivers to the next state, and clocks in
 	   the final parity from the target. */
-      simbus_pci_wait(pci,1,0);
+      __pci_half_clock(pci);
+      __pci_half_clock(pci);
 
 	/* XXXX Here we should check the pci_par parity bit */
 

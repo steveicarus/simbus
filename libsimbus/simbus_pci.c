@@ -352,6 +352,11 @@ void simbus_pci_debug(simbus_pci_t pci, FILE*debug)
       pci->debug = debug;
 }
 
+void __pci_half_clock(simbus_pci_t pci)
+{
+      send_ready_command(pci);
+}
+
 unsigned simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 {
 

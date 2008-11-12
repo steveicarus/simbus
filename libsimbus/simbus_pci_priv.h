@@ -70,6 +70,12 @@ struct simbus_pci_s {
 };
 
 
+/*
+ * Advance to the next PCI half-clock. After this function returns,
+ * then pci_clk member will be different.
+ */
+extern void __pci_half_clock(simbus_pci_t pci);
+
 extern void __pci_request_bus(simbus_pci_t pci);
 
 #endif
