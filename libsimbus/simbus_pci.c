@@ -423,6 +423,7 @@ void simbus_pci_write32(simbus_pci_t pci, uint64_t addr, uint32_t val, int BEn)
 void simbus_pci_end_simulation(simbus_pci_t pci)
 {
       fprintf(stderr, "simbus_pci_end_simulation: STUB\n");
+      write(pci->fd, "FINISH\n", 7);
       close(pci->fd);
       free(pci->name);
       free(pci);

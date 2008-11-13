@@ -91,6 +91,9 @@ void client_state_t::process_client_command_(int fd, int argc, char*argv[])
       } else if (strcmp(argv[0],"READY") == 0) {
 	    process_client_ready_(fd, argc, argv);
 
+      } else if (strcmp(argv[0],"FINISH") == 0) {
+	    process_client_finish_(fd, argc, argv);
+
       } else {
 	    cerr << "Unknown command " << argv[0]
 		 << " from client " << dev_name_ << endl;
@@ -199,4 +202,9 @@ void client_state_t::process_client_ready_(int fd, int argc, char*argv[])
 
 	// This client is now ready and waiting for the server.
       bus_interface_->ready_flag = true;
+}
+
+void client_state_t::process_client_finish_(int fd, int argc, char*argv[])
+{
+      exit(0);
 }

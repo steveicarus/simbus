@@ -44,6 +44,7 @@ class client_state_t {
       void process_client_command_(int fd, int argv, char*argv[]);
       void process_client_hello_(int fd, int argv, char*argv[]);
       void process_client_ready_(int fd, int argv, char*argv[]);
+      void process_client_finish_(int fd, int argv, char*argv[]);
 
     private:
 	// Key of the bus that I belong to.
