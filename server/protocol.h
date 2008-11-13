@@ -38,6 +38,11 @@ class protocol_t  {
     protected:
       bus_device_map_t& device_map();
 
+      void make_trace_(const char*lab, int lt_type, int wid=1);
+      void set_trace_(const char*lab, bit_state_t bit);
+      void set_trace_(const char*lab, const std::valarray<bit_state_t>&bit);
+      void set_trace_(const char*lab, const std::string&bit);
+
       void advance_time_(uint64_t mant, int exp);
 
     private:
@@ -46,6 +51,8 @@ class protocol_t  {
 
       uint64_t time_mant_;
       int time_exp_;
+
+      std::map<std::string,struct lxt2_wr_symbol*>signal_trace_map;
 
     private: // Not implemented
       protocol_t(const protocol_t&);

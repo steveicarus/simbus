@@ -19,6 +19,7 @@
 
 # include  "protocol.h"
 # include  "priv.h"
+# include  "lxt2_write.h"
 # include  <iostream>
 # include  <assert.h>
 
@@ -36,6 +37,43 @@ protocol_t::~protocol_t()
 bus_device_map_t& protocol_t::device_map()
 {
       return bus_.device_map;
+}
+
+void protocol_t::make_trace_(const char*lab, int lt_type, int wid)
+{
+      string tmp_name = bus_.name + "." + lab;
+      struct lxt2_wr_symbol*sym = lxt2_wr_symbol_add(service_lxt,
+						     tmp_name.c_str(),
+						     0, wid-1, 0, lt_type);
+      signal_trace_map[lab] = sym;
+}
+
+void protocol_t::set_trace_(const char*lab, bit_state_t bit)
+{
+      struct lxt2_wr_symbol*sym = signal_trace_map[lab];
+      char buf[2];
+      buf[0] = "01zx"[bit];
+      buf[1] = 0;
+      lxt2_wr_emit_value_bit_string(service_lxt, sym, 0, buf);
+}
+
+void protocol_t::set_trace_(const char*lab, const valarray<bit_state_t>&bit)
+{
+      struct lxt2_wr_symbol*sym = signal_trace_map[lab];
+      char buf[1025];
+      assert(bit.size() < sizeof buf);
+      for (int idx = 0 ; idx < bit.size() ; idx += 1)
+	    buf[idx] = "01zx"[bit[bit.size()-1-idx]];
+
+      buf[bit.size()] = 0;
+      lxt2_wr_emit_value_bit_string(service_lxt, sym, 0, buf);
+}
+
+void protocol_t::set_trace_(const char*lab, const string&bit)
+{
+      struct lxt2_wr_symbol*sym = signal_trace_map[lab];
+      lxt2_wr_emit_value_string(service_lxt, sym, 0,
+				const_cast<char*>(bit.c_str()));
 }
 
 void protocol_t::advance_time_(uint64_t mant, int exp)
@@ -60,6 +98,23 @@ void protocol_t::bus_ready()
       for (bus_device_map_t::iterator dev = bus_.device_map.begin()
 		 ; dev != bus_.device_map.end() ;  dev ++) {
 	    dev->second.ready_flag = false;
+      }
+
+	// If the lxt dumper is active, then advance the LXT time to
+	// the bus time.
+      if (service_lxt) {
+	    unsigned long long use_time = time_mant_;
+	    int use_exp = time_exp_;
+	    while (use_exp < SERVICE_TIME_PRECISION) {
+		  use_time += 5ULL;
+		  use_time /= 10ULL;
+		  use_exp += 1;
+	    }
+	    while (use_exp > SERVICE_TIME_PRECISION) {
+		  use_time *= 10ULL;
+		  use_exp -= 1;
+	    }
+	    lxt2_wr_set_time(service_lxt, use_time);
       }
 
 	// Call the protocol engine.
@@ -117,6 +172,8 @@ void protocol_t::bus_ready()
 	    int rc = write(fd, buf, cp-buf);
 	    assert(rc == (cp-buf));
       }
+
+      if (service_lxt) lxt2_wr_flush(service_lxt);
 }
 
 void protocol_t::run_init()
@@ -141,6 +198,21 @@ PciProtocol::~PciProtocol()
 void PciProtocol::run_init()
 {
       granted_ = -1;
+
+      if (service_lxt) {
+	    make_trace_("PCI_CLK", LXT2_WR_SYM_F_BITS);
+	    make_trace_("RESET#",  LXT2_WR_SYM_F_BITS);
+	    make_trace_("FRAME#",  LXT2_WR_SYM_F_BITS);
+	    make_trace_("REQ64#",  LXT2_WR_SYM_F_BITS);
+	    make_trace_("IRDY#",   LXT2_WR_SYM_F_BITS);
+	    make_trace_("TRDY#",   LXT2_WR_SYM_F_BITS);
+	    make_trace_("STOP#",   LXT2_WR_SYM_F_BITS);
+	    make_trace_("DEVSEL#", LXT2_WR_SYM_F_BITS);
+	    make_trace_("ACK64#",  LXT2_WR_SYM_F_BITS);
+	    make_trace_("AD",      LXT2_WR_SYM_F_BITS, 64);
+	    make_trace_("C/BE#",   LXT2_WR_SYM_F_BITS, 8);
+	    make_trace_("Bus owner",LXT2_WR_SYM_F_STRING);
+      }
 
       for (bus_device_map_t::iterator dev = device_map().begin()
 		 ; dev != device_map().end() ; dev ++ ) {
@@ -254,6 +326,9 @@ void PciProtocol::run_run()
 		  curdev.send_signals["RESET#"][0] = reset_n;
 	    }
       }
+
+      set_trace_("PCI_CLK", pci_clk_);
+      set_trace_("RESET#",  reset_n);
 }
 
 void PciProtocol::advance_pci_clock_(void)
@@ -347,17 +422,21 @@ void PciProtocol::arbitrate_()
       if (granted_ == old_grant)
 	    return;
 
+      string master_name = "?";
       for (bus_device_map_t::iterator dev = device_map().begin()
 		 ; dev != device_map().end() ; dev ++ ) {
 
 	    struct bus_device_plug&curdev = dev->second;
-	    if (old_grant >= 0 && curdev.ident == old_grant)
+	    if (old_grant >= 0 && curdev.ident == old_grant) {
 		  curdev.send_signals["GNT#"][0] = BIT_1;
-	    else if (curdev.ident == granted_)
+	    } else if (curdev.ident == granted_) {
 		  curdev.send_signals["GNT#"][0] = BIT_0;
+		  master_name = dev->first;
+	    }
       }
 
       cout << "Arbiter: Grant bus to " << granted_ << endl;
+      set_trace_("Bus owner", master_name);
 }
 
 void PciProtocol::route_interrupts_()
@@ -536,13 +615,23 @@ void PciProtocol::blend_bi_signals_(void)
 	    curdev.send_signals["ACK64#"][0] = ack64_n;
 	    curdev.send_signals["IDSEL"][0]  = ad[curdev.ident+16];
 
+	    set_trace_("FRAME#", frame_n);
+	    set_trace_("REQ64#", req64_n);
+	    set_trace_("IRDY#",  irdy_n);
+	    set_trace_("TRDY#",  trdy_n);
+	    set_trace_("STOP#",  stop_n);
+	    set_trace_("DEVSEL#",devsel_n);
+	    set_trace_("ACK64#", ack64_n);
+
 	    valarray<bit_state_t>&tmp_ad = curdev.send_signals["AD"];
 	    for (int idx = 0 ; idx < 64 ; idx += 1)
 		  tmp_ad[idx] = ad[idx];
+	    set_trace_("AD", tmp_ad);
 
 	    valarray<bit_state_t>&tmp_cbe = curdev.send_signals["C/BE#"];
 	    for (int idx = 0 ; idx < 8 ; idx += 1)
 		  tmp_cbe[idx] = cbe[idx];
+	    set_trace_("C/BE#", tmp_cbe);
 
 	    curdev.send_signals["PAR"][0]   = par;
 	    curdev.send_signals["PAR64"][0] = par64;

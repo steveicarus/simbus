@@ -27,10 +27,13 @@
 
 class protocol_t;
 
+/* Initial pre-configuration. */
+extern void service_init(const char*trace_path);
+
 /* Parse the config file. */
 extern int config_file(FILE*cfg);
 
-extern void service_init(void);
+/* Run the server. */
 extern void service_run(void);
 
 /*
@@ -98,10 +101,16 @@ struct bus_state {
 extern std::map <unsigned, bus_state> bus_map;
 typedef std::map<unsigned, bus_state>::iterator bus_map_idx_t;
 
-
 extern void service_add_bus(unsigned port, const std::string&name,
 			    const std::string&bus_protocol_name,
 			    const bus_device_map_t&dev);
+
+/*
+ * Hook for the server LXT dumper. It is up to the protocols to figure
+ * out what to dump here.
+ */
+extern struct lxt2_wr_trace*service_lxt;
+# define SERVICE_TIME_PRECISION (-9)
 
 /*
  * $Log: $

@@ -33,12 +33,16 @@ using namespace std;
 int main(int argc, char*argv[])
 {
       const char*config_path = 0;
+      const char*trace_path = 0;
       int opt;
 
-      while ( (opt = getopt(argc, argv, "c:")) != -1 ) {
+      while ( (opt = getopt(argc, argv, "c:t:")) != -1 ) {
 	    switch (opt) {
 		case 'c':
 		  config_path = optarg;
+		  break;
+		case 't':
+		  trace_path = optarg;
 		  break;
 		default:
 		  assert(0);
@@ -57,11 +61,12 @@ int main(int argc, char*argv[])
 	    return 2;
       }
 
+      service_init(trace_path);
+
       int rc = config_file(cfg);
       if (rc != 0)
 	    return 3;
 
-      service_init();
       service_run();
       return 0;
 }

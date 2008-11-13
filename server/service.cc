@@ -31,6 +31,7 @@
 # include  "priv.h"
 # include  "client.h"
 # include  "protocol.h"
+# include  "lxt2_write.h"
 # include  <assert.h>
 
 using namespace std;
@@ -44,6 +45,23 @@ map<int,client_state_t> client_map;
 typedef map<int,client_state_t>::iterator client_map_idx_t;
 
 map <unsigned, struct bus_state> bus_map;
+
+struct lxt2_wr_trace*service_lxt = 0;
+
+static void service_uninit(void)
+{
+      if (service_lxt) lxt2_wr_close(service_lxt);
+}
+
+void service_init(const char*trace_path)
+{
+      service_lxt = trace_path? lxt2_wr_init(trace_path) : 0;
+      if (service_lxt) {
+	    lxt2_wr_set_timescale(service_lxt, SERVICE_TIME_PRECISION);
+	    lxt2_wr_set_time(service_lxt, 0);
+      }
+      atexit(&service_uninit);
+}
 
 void service_add_bus(unsigned port, const std::string&name,
 		     const std::string&bus_protocol_name,
@@ -66,7 +84,7 @@ void service_add_bus(unsigned port, const std::string&name,
  * This function is called once to start the service running. It binds
  * to the network sockets for all the busses.
  */
-void service_init(void)
+static void service_setup(void)
 {
       int rc;
 
@@ -126,6 +144,8 @@ static void client_ready(client_map_idx_t&client)
 void service_run(void)
 {
       int rc;
+
+      service_setup();
 
       while (true) {
 	    int nfds = 0;
