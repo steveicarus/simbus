@@ -450,27 +450,53 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
 	    value.format = vpiVectorVal;
 	    vpi_get_value(drv, &value);
 
+	    char*drv_reference = malloc(vpi_get(vpiSize,drv));
 	    for (bit = vpi_get(vpiSize,drv) ; bit > 0 ; bit -= 1) {
 		  int word = (bit-1) / 32;
 		  int mask = 1 << ((bit-1) % 32);
-		  char drv_reference;
 		  if (value.value.vector[word].aval & mask)
 			if (value.value.vector[word].bval & mask)
-			      drv_reference = 'x';
+			      drv_reference[bit] = 'x';
 			else
-			      drv_reference = '1';
+			      drv_reference[bit] = '1';
 		  else
 			if (value.value.vector[word].bval & mask)
-			      drv_reference = 'z';
+			      drv_reference[bit] = 'z';
 			else
-			      drv_reference = '0';
+			      drv_reference[bit] = '0';
 
-		  if (drv_reference == *sig_string)
-			*sig_string = 'z';
-
-		  sig_string += 1;
 	    }
 
+	      /* Get the strength values from the signal. */
+	    value.format = vpiStrengthVal;
+	    vpi_get_value(sig, &value);
+
+	      /* Now given the sig_string that is the current result,
+		 and the drive reference that is the value that is
+		 being driven by the server, subtract out from the
+		 sig_string the server driver, and any pullups from
+		 the port. */
+	    for (bit = vpi_get(vpiSize,drv); bit > 0; bit -= 1, sig_string+=1) {
+
+		  if (drv_reference[bit] == *sig_string) {
+			*sig_string = 'z';
+			continue;
+		  }
+
+		  if (*sig_string == 'z')
+			continue;
+		  if (*sig_string == 'x')
+			continue;
+
+		    /* Do not pass pullup/pulldown values to the
+		       server. If the strength of the net is less then
+		       a strong drive, then clear it to z. */
+		  struct t_vpi_strengthval*str = value.value.strength + bit - 1;
+		  if (str->s0 < vpiStrongDrive && str->s1 < vpiStrongDrive)
+			*sig_string = 'z';
+	    }
+
+	    free(drv_reference);
 	    assert(sig_string == cp);
       }
 

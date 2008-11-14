@@ -40,7 +40,7 @@ module pci_slot(// The bus supplies the clock and reset
 		output reg PCI_CLK,
 		output reg RESET_n,
 		// The bus implements IDSEL
-		output reg IDSEL,
+		output wire IDSEL,
 		// Arbiter signals
 		output reg GNT_n,
 		input wire REQ_n,
@@ -66,8 +66,14 @@ module pci_slot(// The bus supplies the clock and reset
    // *must* override this, either by defparam or parameter override.
    parameter name = "N/A";
 
+   // Normally, this port includes bus pullups that are required
+   // for the PCI on the bus-side. Suppress those pullups by setting
+   // this parameter to 0.
+   parameter include_bus_pullups = 1;
+
    // These are values that the remote drives to the PCI port signals.
    // When the values are z, the remote is explicitly not driving.
+   reg 	      idsel_drv = 1'bz; 			   
    reg 	      gnt_n_drv = 1'bz;
    reg 	      frame_n_drv = 1'bz;
    reg        req64_n_drv = 1'bz;
@@ -91,6 +97,7 @@ module pci_slot(// The bus supplies the clock and reset
    reg 	      stop_n_tmp;
    reg 	      devsel_n_tmp;
    reg        ack64_n_tmp;
+   reg        idsel_tmp;
    reg [7:0]  c_be_tmp;
    reg [63:0] ad_tmp;
    reg 	      par_tmp;
@@ -103,10 +110,26 @@ module pci_slot(// The bus supplies the clock and reset
    assign STOP_n  = stop_n_tmp;
    assign DEVSEL_n= devsel_n_tmp;
    assign ACK64_n = ack64_n_tmp;
+   assign IDSEL   = idsel_tmp;
    assign C_BE    = c_be_tmp;
    assign AD      = ad_tmp;
    assign PAR     = par_tmp;
    assign PAR64   = par64_tmp;
+
+   if (include_bus_pullups) begin
+      pullup frame_pull (FRAME_n);
+      pullup req64_pull (REQ64_n);
+      pullup irdt_pull  (IRDY_n);
+      pullup trdy_pull  (TRDY_n);
+      pullup stop_pull  (STOP_n);
+      pullup devsel_pull(DEVSEL_n);
+      pullup ack64_pull (ACK64_n);
+      pullup idsel_pull (IDSEL);
+      pullup c_be_pull[7:0] (C_BE);
+      pullup ad_pull [63:0] (AD);
+      pullup par_pull   (PAR);
+      pullup par64_pull (PAR64);
+   end
 
    time  deltatime;
    integer bus;
@@ -166,7 +189,7 @@ module pci_slot(// The bus supplies the clock and reset
 				   "PCI_CLK",PCI_CLK,
 				   "RESET#", RESET_n,
 				   "GNT#",   gnt_n_drv,
-				   "IDSEL",  IDSEL,
+				   "IDSEL",  idsel_drv,
 				   "FRAME#", frame_n_drv,
 				   "REQ64#", req64_n_drv,
 				   "IRDY#",  irdy_n_drv,
@@ -191,6 +214,7 @@ module pci_slot(// The bus supplies the clock and reset
 	 devsel_n_tmp <= devsel_n_drv;
 	 ack64_n_tmp  <= ack64_n_drv;
 	 c_be_tmp     <= c_be_drv;
+	 idsel_tmp    <= idsel_drv;
 	 ad_tmp       <= ad_drv;
 	 par_tmp      <= par_drv;
 	 par64_tmp    <= par64_drv;
