@@ -18,7 +18,6 @@
  *    along with this program; if not, write to the Free Software
  *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
-#ident "$Id:$"
 
 # include  <stdio.h>
 # include  <map>
@@ -110,9 +109,6 @@ extern void service_add_bus(unsigned port, const std::string&name,
  * out what to dump here.
  */
 extern struct lxt2_wr_trace*service_lxt;
-# define SERVICE_TIME_PRECISION (-9)
+# define SERVICE_TIME_PRECISION (-10)
 
-/*
- * $Log: $
- */
 #endif

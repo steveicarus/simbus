@@ -57,6 +57,7 @@ void service_init(const char*trace_path)
 {
       service_lxt = trace_path? lxt2_wr_init(trace_path) : 0;
       if (service_lxt) {
+	    printf("Dumping bus signals to %s\n", trace_path);
 	    lxt2_wr_set_timescale(service_lxt, SERVICE_TIME_PRECISION);
 	    lxt2_wr_set_time(service_lxt, 0);
       }
