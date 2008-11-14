@@ -209,6 +209,8 @@ void PciProtocol::run_init()
 	    make_trace_("STOP#",   LXT2_WR_SYM_F_BITS);
 	    make_trace_("DEVSEL#", LXT2_WR_SYM_F_BITS);
 	    make_trace_("ACK64#",  LXT2_WR_SYM_F_BITS);
+	    make_trace_("PAR",     LXT2_WR_SYM_F_BITS);
+	    make_trace_("PAR64",   LXT2_WR_SYM_F_BITS);
 	    make_trace_("AD",      LXT2_WR_SYM_F_BITS, 64);
 	    make_trace_("C/BE#",   LXT2_WR_SYM_F_BITS, 8);
 	    make_trace_("Bus owner",LXT2_WR_SYM_F_STRING);
@@ -635,5 +637,8 @@ void PciProtocol::blend_bi_signals_(void)
 
 	    curdev.send_signals["PAR"][0]   = par;
 	    curdev.send_signals["PAR64"][0] = par64;
+
+	    set_trace_("PAR",    par);
+	    set_trace_("PAR64",  par64);
       }
 }

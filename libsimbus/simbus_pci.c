@@ -352,9 +352,53 @@ void simbus_pci_debug(simbus_pci_t pci, FILE*debug)
       pci->debug = debug;
 }
 
+static bus_bitval_t bit_xor(bus_bitval_t a, bus_bitval_t b)
+{
+      if (a==BIT_X) return BIT_X;
+      if (a==BIT_Z) return BIT_X;
+      if (b==BIT_X) return BIT_X;
+      if (b==BIT_Z) return BIT_X;
+
+      if (a != b) return BIT_1;
+      else return BIT_0;
+}
+
 void __pci_half_clock(simbus_pci_t pci)
 {
       send_ready_command(pci);
+
+      if (pci->pci_clk == BIT_1) {
+	    int idx;
+
+	      /* If the clock is 1, then we clocked out AD and C/BE#
+		 values. Now we can calculate the PAR and PAR64 bits
+		 that well me transmitted on the next clock. */
+
+	    pci->out_par = BIT_Z;
+	    for (idx = 0 ; idx < 32 && pci->out_par==BIT_Z ; idx += 1)
+		  if (pci->out_ad[idx] != BIT_Z)
+			pci->out_par = BIT_0;
+
+	    if (pci->out_par != BIT_Z) {
+		  for (idx = 0 ; idx < 32 ; idx += 1)
+			pci->out_par = bit_xor(pci->out_par, pci->out_ad[idx]);
+		  for (idx = 0 ; idx < 4 ; idx += 1)
+			pci->out_par = bit_xor(pci->out_par, pci->out_c_be[idx]);
+	    }
+
+	      /* The 64bit bus signals work similarly. */
+	    pci->out_par64 = BIT_Z;
+	    for (idx = 32 ; idx < 64 && pci->out_par64==BIT_Z ; idx += 1)
+		  if (pci->out_ad[idx] != BIT_Z)
+			pci->out_par64 = BIT_0;
+
+	    if (pci->out_par64 != BIT_Z) {
+		  for (idx = 32 ; idx < 64 ; idx += 1)
+			pci->out_par64 = bit_xor(pci->out_par64, pci->out_ad[idx]);
+		  for (idx = 4 ; idx < 8 ; idx += 1)
+			pci->out_par64 = bit_xor(pci->out_par64, pci->out_c_be[idx]);
+	    }
+      }
 }
 
 unsigned simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
