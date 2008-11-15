@@ -28,7 +28,10 @@ class protocol_t  {
       explicit protocol_t(struct bus_state&);
       virtual ~protocol_t();
 
-	// Call this once before the first call to bus_ready.
+	// Call this called by the server once before the first call
+	// to bus_ready. The derived class uses this opportunity to
+	// configure the clients (and traces) with all the various
+	// signals of the protocol.
       virtual void run_init();
 
 	// This method is called by the server when all the clients
@@ -36,17 +39,33 @@ class protocol_t  {
       void bus_ready();
 
     protected:
+	// Access the devices of the bus. The derived class mostly is
+	// interested in the signals to and from the client.
       bus_device_map_t& device_map();
 
-      void make_trace_(const char*lab, int lt_type, int wid=1);
+	// Functions to facilitate server-side tracing of the bus. The
+	// protocol creates the traces and sets their value with these
+	// functions.
+      enum trace_type_t { PT_BITS, PT_STRING };
+      void make_trace_(const char*lab, trace_type_t lt_type, int wid=1);
       void set_trace_(const char*lab, bit_state_t bit);
       void set_trace_(const char*lab, const std::valarray<bit_state_t>&bit);
       void set_trace_(const char*lab, const std::string&bit);
 
+	// The derived protocol knows when the next interesting event
+	// will be, and it uses this method to advance the clock to
+	// that time.
       void advance_time_(uint64_t mant, int exp);
 
     private:
+	// The derived class implements this method to process its
+	// signals at the current synchronization point. The base
+	// class does the basic signal collection, then calls this
+	// method to give the derived class a chance to set the new
+	// signal values.
       virtual void run_run() =0;
+
+    private:
       struct bus_state&bus_;
 
       uint64_t time_mant_;
@@ -57,29 +76,6 @@ class protocol_t  {
     private: // Not implemented
       protocol_t(const protocol_t&);
       protocol_t& operator= (const protocol_t&);
-};
-
-class PciProtocol  : public protocol_t {
-
-    public:
-      PciProtocol(struct bus_state&);
-      ~PciProtocol();
-
-      void run_init();
-      void run_run();
-
-    private:
-      void advance_pci_clock_(void);
-      bit_state_t calculate_reset_n_(void);
-      void arbitrate_(void);
-      void route_interrupts_(void);
-      void blend_bi_signals_(void);
-
-    private:
-	// Current state of the PCI clock. (It toggles.)
-      bit_state_t pci_clk_;
-	// Device that is currently granted, or -1 if none.
-      int granted_;
 };
 
 #endif

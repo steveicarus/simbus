@@ -31,6 +31,7 @@
 # include  "priv.h"
 # include  "client.h"
 # include  "protocol.h"
+# include  "PciProtocol.h"
 # include  "lxt2_write.h"
 # include  <assert.h>
 
