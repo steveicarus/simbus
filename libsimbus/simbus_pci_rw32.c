@@ -22,9 +22,11 @@
 # include  <stdio.h>
 # include  <assert.h>
 
-uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
+
+uint32_t simbus_pci_read32(simbus_pci_t pci, uint64_t addr, int BEn)
 {
       int idx;
+
 	/* Arbitrate for the bus. This may return immediately if the
 	   bus is parked here, or it may return after some clocks and
 	   a REQ#/GNT# handshake. */
@@ -38,13 +40,13 @@ uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
 
       pci->out_req_n = BIT_1;
 
-      __address_command32(pci, addr, 0xfa);
+      __address_command32(pci, addr, 0xf6);
 
-	/* Set up to read all 4 bytes of the word. (Config I/O is 32 bits.) */
-      pci->out_c_be[0] = BIT_0;
-      pci->out_c_be[1] = BIT_0;
-      pci->out_c_be[2] = BIT_0;
-      pci->out_c_be[3] = BIT_0;
+	/* Collect the BE# bits. */
+      pci->out_c_be[0] = BEn&0x1? BIT_1 : BIT_0;
+      pci->out_c_be[1] = BEn&0x2? BIT_1 : BIT_0;
+      pci->out_c_be[2] = BEn&0x4? BIT_1 : BIT_0;
+      pci->out_c_be[3] = BEn&0x8? BIT_1 : BIT_0;
 	/* Make sure address lines are undriven */
       for (idx = 0 ; idx < 64 ; idx += 1) {
 	    pci->out_ad[idx] = BIT_Z;
@@ -55,7 +57,7 @@ uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
       assert(pci->pci_clk == BIT_0);
 
       if (__wait_for_devsel(pci) < 0) {
-	    fprintf(stderr, "simbus_pci_config_read: "
+	    fprintf(stderr, "simbus_pci_read32: "
 		    "No response to addr=0x%x\n", addr);
 	    return 0xffffffff;
       }
@@ -86,65 +88,7 @@ uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
       return result;
 }
 
-void simbus_pci_config_write(simbus_pci_t pci, uint64_t addr, uint32_t val, int BEn)
+void simbus_pci_write32(simbus_pci_t pci, uint64_t addr, uint32_t val, int BEn)
 {
-      int idx;
-	/* Arbitrate for the bus. This may return immediately if the
-	   bus is parked here, or it may return after some clocks and
-	   a REQ#/GNT# handshake. */
-      __pci_request_bus(pci);
-
-	/* Advance to the low phase of the PCI clock. We do this
-	   because we want our outputs to change on the rising edges
-	   of the PCI clock. */
-      if (pci->pci_clk != BIT_1)
-	    __pci_half_clock(pci);
-
-      pci->out_req_n = BIT_1;
-
-      __address_command32(pci, addr, 0xfb);
-
-      pci->out_c_be[0] = BEn&1 ? BIT_1 : BIT_0;
-      pci->out_c_be[1] = BEn&2 ? BIT_1 : BIT_0;
-      pci->out_c_be[2] = BEn&4 ? BIT_1 : BIT_0;
-      pci->out_c_be[3] = BEn&5 ? BIT_1 : BIT_0;
-      pci->out_c_be[4] = BIT_1;
-      pci->out_c_be[5] = BIT_1;
-      pci->out_c_be[7] = BIT_1;
-      pci->out_c_be[8] = BIT_1;
-
-      for (idx = 0 ; idx < 32 ; idx += 1, val >>= 1)
-	    pci->out_ad[idx] = (val&1) ? BIT_1 : BIT_0;
-      for (idx = 32 ; idx < 64; idx += 1)
-	    pci->out_ad[idx] = BIT_Z;
-
-	/* Clock the IRDY and BE#s (and PAR). */
-      __pci_half_clock(pci);
-      assert(pci->pci_clk == BIT_0);
-
-      if (pci->pci_devsel_n != BIT_0) { /* FAST */
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
-	    if (pci->pci_devsel_n != BIT_0) { /* MED */
-		  __pci_half_clock(pci);
-		  __pci_half_clock(pci);
-		  if (pci->pci_devsel_n != BIT_0) { /* SLOW */
-			__pci_half_clock(pci);
-			__pci_half_clock(pci);
-			if (pci->pci_devsel_n != BIT_0) { /* subtract */
-			      fprintf(stderr, "simbus_pci_config_write: "
-				      "No response to addr=0x%x\n", addr);
-			      __undrive_bus(pci);
-			      return;
-			}
-		  }
-	    }
-      }
-
-      while (pci->pci_trdy_n != BIT_0) {
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
-      }
-
-      __undrive_bus(pci);
+      fprintf(stderr, "simbus_pci_write32: STUB addr=0x%x, val=%x, BE#=%x\n", addr, val, BEn);
 }

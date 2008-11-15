@@ -98,8 +98,8 @@ EXTERN void simbus_pci_write64(simbus_pci_t bus, uint64_t addr, uint64_t val, in
  * The read32 uses 32bit PCI only. If the address is more then 32its,
  * then use a DAC to write the 64bit address.
  */
-EXTERN uint32_t simbus_pci_read32(simbus_pci_t bus, uint64_t addr);
-EXTERN uint64_t simbus_pci_read64(simbus_pci_t bus, uint64_t addr);
+EXTERN uint32_t simbus_pci_read32(simbus_pci_t bus, uint64_t addr, int BEn);
+EXTERN uint64_t simbus_pci_read64(simbus_pci_t bus, uint64_t addr, int BEn);
 
 /*
  * Send an end-of-simulation message to the simulator.

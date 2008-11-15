@@ -78,4 +78,14 @@ extern void __pci_half_clock(simbus_pci_t pci);
 
 extern void __pci_request_bus(simbus_pci_t pci);
 
+extern void __address_command32(simbus_pci_t pci, uint64_t addr, unsigned cmd);
+
+/*
+ * Wait for the DEVSEL#. Return <0 if it doesn't arrive.
+ */
+extern int __wait_for_devsel(simbus_pci_t pci);
+
+extern int __wait_for_read32(simbus_pci_t pci, uint32_t*val);
+
+extern void __undrive_bus(simbus_pci_t pci);
 #endif

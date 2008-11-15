@@ -453,15 +453,119 @@ void __pci_request_bus(simbus_pci_t pci)
       pci->out_req_n = BIT_1;
 }
 
-uint32_t simbus_pci_read32(simbus_pci_t pci, uint64_t addr)
+/*
+ * Send the address and command...
+ */
+void __address_command32(simbus_pci_t pci, uint64_t addr, unsigned cmd)
 {
-      fprintf(stderr, "simbus_pci_read32: STUB addr=0x%x\n", addr);
-      return 0xffffffff;
+      int idx;
+      pci->out_req64_n = BIT_1;
+      pci->out_frame_n = BIT_0;
+      pci->out_irdy_n  = BIT_1;
+      pci->out_trdy_n  = BIT_Z;
+      pci->out_stop_n  = BIT_Z;
+      pci->out_devsel_n= BIT_Z;
+
+	/* The address. */
+      uint64_t addr_tmp = addr;
+      for (idx = 0 ; idx < 32 ; idx += 1) {
+	    pci->out_ad[idx] = (addr_tmp&1)? BIT_1 : BIT_0;
+	    addr_tmp >>= (uint64_t)1;
+      }
+
+	/* Ah, there is more address data. That means this is a 64bit
+	   address and a DAC is necessary. Generate the DAC to clock
+	   out the low bits, and let the remaining bits be taken care
+	   of by the next clock. */
+      if (addr_tmp != 0) {
+	    pci->out_c_be[0] = BIT_1;
+	    pci->out_c_be[1] = BIT_0;
+	    pci->out_c_be[2] = BIT_1;
+	    pci->out_c_be[3] = BIT_1;
+
+	      /* Clock the DAC command and low address bits */
+	    __pci_half_clock(pci);
+	    __pci_half_clock(pci);
+
+	      /* Get the remaining address bits ready. */
+	    for (idx = 0 ; idx < 32 ; idx += 1) {
+		  pci->out_ad[idx] = (addr_tmp&1)? BIT_1 : BIT_0;
+		  addr_tmp >>= (uint64_t)1;
+	    }
+       }
+
+      for (idx = 0 ; idx < 4 ; idx += 1)
+	    pci->out_c_be[idx] = (cmd & (1<<idx)) ? BIT_1 : BIT_0;
+
+	/* Clock the Command and address */
+      __pci_half_clock(pci);
+      __pci_half_clock(pci);
+
+	/* Stage the IRDY# */
+      pci->out_frame_n = BIT_1;
+      pci->out_irdy_n  = BIT_0;
 }
 
-void simbus_pci_write32(simbus_pci_t pci, uint64_t addr, uint32_t val, int BEn)
+int __wait_for_devsel(simbus_pci_t pci)
 {
-      fprintf(stderr, "simbus_pci_write32: STUB addr=0x%x, val=%x, BE#=%x\n", addr, val, BEn);
+      if (pci->pci_devsel_n != BIT_0) { /* FAST decode... */
+	    __pci_half_clock(pci);
+	    __pci_half_clock(pci);
+	    if (pci->pci_devsel_n != BIT_0) { /* SLOW decode... */
+		  __pci_half_clock(pci);
+		  __pci_half_clock(pci);
+		  if (pci->pci_devsel_n != BIT_0) { /* Subtractive decode... */
+			__pci_half_clock(pci);
+			__pci_half_clock(pci);
+			if (pci->pci_devsel_n != BIT_0) { /* give up. */
+			      __undrive_bus(pci);
+			      return -1;
+			}
+		  }
+	    }
+      }
+
+      return 0;
+}
+
+int __wait_for_read32(simbus_pci_t pci, uint32_t*val)
+{
+      pci->out_frame_n = BIT_1;
+      pci->out_req64_n = BIT_1;
+
+	/* Wait for TRDY# */
+      int count = 256;
+      while (pci->pci_trdy_n != BIT_0) {
+	    __pci_half_clock(pci);
+	    __pci_half_clock(pci);
+	    count -= 1;
+	    assert(count > 0);
+      }
+
+	/* Collect the result read from the device. */
+      uint32_t result = 0;
+      int idx;
+      for (idx = 0 ; idx < 32 ; idx += 1) {
+	    if (pci->pci_ad[idx] != BIT_0)
+		  result |= 1 << idx;
+      }
+
+      *val = result;
+      return 0;
+}
+
+void __undrive_bus(simbus_pci_t pci)
+{
+      int idx;
+
+      pci->out_frame_n = BIT_Z;
+      pci->out_req64_n = BIT_Z;
+      pci->out_irdy_n  = BIT_Z;
+
+      for (idx = 0 ; idx < 8 ; idx += 1)
+	    pci->out_c_be[idx] = BIT_Z;
+      for (idx = 0 ; idx < 64 ; idx += 1)
+	    pci->out_ad[idx] = BIT_Z;
 }
 
 void simbus_pci_end_simulation(simbus_pci_t pci)
