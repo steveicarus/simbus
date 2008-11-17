@@ -87,5 +87,7 @@ extern int __wait_for_devsel(simbus_pci_t pci);
 
 extern int __wait_for_read32(simbus_pci_t pci, uint32_t*val);
 
+extern void __setup_for_write32(simbus_pci_t pci, uint32_t val, int BEn);
+
 extern void __undrive_bus(simbus_pci_t pci);
 #endif

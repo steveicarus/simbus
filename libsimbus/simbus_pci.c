@@ -554,6 +554,29 @@ int __wait_for_read32(simbus_pci_t pci, uint32_t*val)
       return 0;
 }
 
+void __setup_for_write32(simbus_pci_t pci, uint32_t val, int BEn)
+{
+      pci->out_c_be[0] = BEn&1 ? BIT_1 : BIT_0;
+      pci->out_c_be[1] = BEn&2 ? BIT_1 : BIT_0;
+      pci->out_c_be[2] = BEn&4 ? BIT_1 : BIT_0;
+      pci->out_c_be[3] = BEn&8 ? BIT_1 : BIT_0;
+      pci->out_c_be[4] = BIT_1;
+      pci->out_c_be[5] = BIT_1;
+      pci->out_c_be[7] = BIT_1;
+      pci->out_c_be[8] = BIT_1;
+
+      int idx;
+      for (idx = 0 ; idx < 32 ; idx += 1, val >>= 1)
+	    pci->out_ad[idx] = (val&1) ? BIT_1 : BIT_0;
+      for (idx = 32 ; idx < 64; idx += 1)
+	    pci->out_ad[idx] = BIT_Z;
+
+	/* Clock the IRDY and BE#s (and PAR). */
+      __pci_half_clock(pci);
+      assert(pci->pci_clk == BIT_0);
+
+}
+
 void __undrive_bus(simbus_pci_t pci)
 {
       int idx;

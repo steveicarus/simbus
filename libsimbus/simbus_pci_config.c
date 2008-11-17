@@ -104,41 +104,12 @@ void simbus_pci_config_write(simbus_pci_t pci, uint64_t addr, uint32_t val, int 
 
       __address_command32(pci, addr, 0xfb);
 
-      pci->out_c_be[0] = BEn&1 ? BIT_1 : BIT_0;
-      pci->out_c_be[1] = BEn&2 ? BIT_1 : BIT_0;
-      pci->out_c_be[2] = BEn&4 ? BIT_1 : BIT_0;
-      pci->out_c_be[3] = BEn&5 ? BIT_1 : BIT_0;
-      pci->out_c_be[4] = BIT_1;
-      pci->out_c_be[5] = BIT_1;
-      pci->out_c_be[7] = BIT_1;
-      pci->out_c_be[8] = BIT_1;
+      __setup_for_write32(pci, val, BEn);
 
-      for (idx = 0 ; idx < 32 ; idx += 1, val >>= 1)
-	    pci->out_ad[idx] = (val&1) ? BIT_1 : BIT_0;
-      for (idx = 32 ; idx < 64; idx += 1)
-	    pci->out_ad[idx] = BIT_Z;
-
-	/* Clock the IRDY and BE#s (and PAR). */
-      __pci_half_clock(pci);
-      assert(pci->pci_clk == BIT_0);
-
-      if (pci->pci_devsel_n != BIT_0) { /* FAST */
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
-	    if (pci->pci_devsel_n != BIT_0) { /* MED */
-		  __pci_half_clock(pci);
-		  __pci_half_clock(pci);
-		  if (pci->pci_devsel_n != BIT_0) { /* SLOW */
-			__pci_half_clock(pci);
-			__pci_half_clock(pci);
-			if (pci->pci_devsel_n != BIT_0) { /* subtract */
-			      fprintf(stderr, "simbus_pci_config_write: "
-				      "No response to addr=0x%x\n", addr);
-			      __undrive_bus(pci);
-			      return;
-			}
-		  }
-	    }
+      if (__wait_for_devsel(pci) < 0) {
+	    fprintf(stderr, "simbus_pci_config_write: "
+		    "No response to addr=0x%x\n", addr);
+	    return ;
       }
 
       while (pci->pci_trdy_n != BIT_0) {
