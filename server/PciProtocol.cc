@@ -380,6 +380,15 @@ static bit_state_t blend_bits(bit_state_t a, bit_state_t b)
 	    return BIT_X;
 }
 
+static bit_state_t subtract_feedback(bit_state_t sig, bit_state_t ref)
+{
+      if (ref == BIT_Z)
+	    return sig;
+      if (sig == ref)
+	    return BIT_Z;
+      return sig;
+}
+
 void PciProtocol::blend_bi_signals_(void)
 {
       bit_state_t frame_n = BIT_Z;
@@ -389,8 +398,8 @@ void PciProtocol::blend_bi_signals_(void)
       bit_state_t irdy_n  = BIT_Z;
       bit_state_t trdy_n  = BIT_Z;
       bit_state_t stop_n  = BIT_Z;
-      bit_state_t ad[64];
-      bit_state_t cbe[8];
+      valarray<bit_state_t> ad (64);
+      valarray<bit_state_t> cbe(8);
       bit_state_t par = BIT_Z;
       bit_state_t par64 = BIT_Z;
 
@@ -446,15 +455,6 @@ void PciProtocol::blend_bi_signals_(void)
 
 	    struct bus_device_plug&curdev = dev->second;
 
-	    curdev.send_signals["FRAME#"][0] = frame_n;
-	    curdev.send_signals["REQ64#"][0] = req64_n;
-	    curdev.send_signals["IRDY#"][0]  = irdy_n;
-	    curdev.send_signals["TRDY#"][0]  = trdy_n;
-	    curdev.send_signals["STOP#"][0]  = stop_n;
-	    curdev.send_signals["DEVSEL#"][0]= devsel_n;
-	    curdev.send_signals["ACK64#"][0] = ack64_n;
-	    curdev.send_signals["IDSEL"][0]  = ad[curdev.ident+16];
-
 	    set_trace_("FRAME#", frame_n);
 	    set_trace_("REQ64#", req64_n);
 	    set_trace_("IRDY#",  irdy_n);
@@ -463,18 +463,31 @@ void PciProtocol::blend_bi_signals_(void)
 	    set_trace_("DEVSEL#",devsel_n);
 	    set_trace_("ACK64#", ack64_n);
 
+	    curdev.send_signals["FRAME#"][0] = subtract_feedback(frame_n, curdev.client_signals["FRAME#"][0]);
+	    curdev.send_signals["REQ64#"][0] = subtract_feedback(req64_n, curdev.client_signals["REQ64#"][0]);
+	    curdev.send_signals["IRDY#"][0]  = subtract_feedback(irdy_n, curdev.client_signals["IRDY#"][0]);
+	    curdev.send_signals["TRDY#"][0]  = subtract_feedback(trdy_n, curdev.client_signals["TRDY#"][0]);
+	    curdev.send_signals["STOP#"][0]  = subtract_feedback(stop_n, curdev.client_signals["STOP#"][0]);
+	    curdev.send_signals["DEVSEL#"][0]= subtract_feedback(devsel_n, curdev.client_signals["DEVSEL#"][0]);
+	    curdev.send_signals["ACK64#"][0] = subtract_feedback(ack64_n, curdev.client_signals["ACK64#"][0]);
+
+	    curdev.send_signals["IDSEL"][0]  = ad[curdev.ident+16];
+
 	    valarray<bit_state_t>&tmp_ad = curdev.send_signals["AD"];
+	    valarray<bit_state_t>&cli_ad = curdev.client_signals["AD"];
 	    for (int idx = 0 ; idx < 64 ; idx += 1)
-		  tmp_ad[idx] = ad[idx];
-	    set_trace_("AD", tmp_ad);
+		  tmp_ad[idx] = subtract_feedback(ad[idx], cli_ad[idx]);
 
 	    valarray<bit_state_t>&tmp_cbe = curdev.send_signals["C/BE#"];
+	    valarray<bit_state_t>&cli_cbe = curdev.client_signals["C/BE#"];
 	    for (int idx = 0 ; idx < 8 ; idx += 1)
-		  tmp_cbe[idx] = cbe[idx];
-	    set_trace_("C/BE#", tmp_cbe);
+		  tmp_cbe[idx] = subtract_feedback(cbe[idx], cli_cbe[idx]);
 
-	    curdev.send_signals["PAR"][0]   = par;
-	    curdev.send_signals["PAR64"][0] = par64;
+	    set_trace_("AD", ad);
+	    set_trace_("C/BE#", cbe);
+
+	    curdev.send_signals["PAR"][0]   = subtract_feedback(par, curdev.client_signals["PAR"][0]);
+	    curdev.send_signals["PAR64"][0] = subtract_feedback(par64, curdev.client_signals["PAR64"][0]);
 
 	    set_trace_("PAR",    par);
 	    set_trace_("PAR64",  par64);
