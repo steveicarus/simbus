@@ -669,6 +669,20 @@ static PLI_INT32 simbus_until_calltf(char*my_name)
       }
       msg_argv[msg_argc] = 0;
 
+	/* If we get a FINISH command from the server, then $finish
+	   the local simulation. */
+      if (strcmp(msg_argv[0],"FINISH") == 0) {
+	    vpi_printf("Server disconnected with FINISH command\n");
+	    vpi_control(vpiFinish);
+	    free_signal_list(signal_list);
+
+	      /* Set the return value and return. */
+	    value.format = vpiIntVal;
+	    value.value.integer = 0;
+	    vpi_put_value(sys, &value, 0, vpiNoDelay);
+	    return 0;
+      }
+
       assert(strcmp(msg_argv[0],"UNTIL") == 0);
 
       assert(msg_argc >= 2);

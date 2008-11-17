@@ -73,6 +73,7 @@ void service_add_bus(unsigned port, const std::string&name,
       tmp.name = name;
       tmp.fd = -1;
       tmp.need_initialization = true;
+      tmp.finished = false;
       tmp.device_map = dev;
 
       if (bus_protocol_name == "pci") {
@@ -158,23 +159,37 @@ void service_run(void)
 	    for (bus_map_idx_t idx = bus_map.begin()
 		       ; idx != bus_map.end(); idx++) {
 		  int fd = idx->second.fd;
-		  FD_SET(fd, &rfds);
-		  if (fd >= nfds)
-			nfds = fd + 1;
+		  if (fd >= 0) {
+			FD_SET(fd, &rfds);
+			if (fd >= nfds)
+			      nfds = fd + 1;
+		  }
 	    }
 
 	      // Add the client ports to the fd list.
 	    for (client_map_idx_t idx = client_map.begin()
 		       ; idx != client_map.end() ; idx ++) {
 		  int fd = idx->first;
-		  FD_SET(fd, &rfds);
-		  if (fd >= nfds)
-			nfds = fd + 1;
+		  if (! idx->second.is_exited()) {
+			FD_SET(fd, &rfds);
+			if (fd >= nfds)
+			      nfds = fd + 1;
+		  }
+	    }
+
+	    if (nfds == 0) {
+		  printf("... Nothing more to do.\n");
+		  break;
 	    }
 
 	    rc = select(nfds, &rfds, 0, 0, 0);
 	    if (rc == 0)
 		  continue;
+
+	    if (rc < 0) {
+		  printf("... select returns %d (errno=%d)\n", rc, errno);
+		  break;
+	    }
 
 	    assert(rc >= 0);
 
@@ -206,6 +221,9 @@ void service_run(void)
 			      flag = false;
 			      break;
 			}
+
+			if (dev->second.finish_flag)
+			      idx->second.finished = true;
 		  }
 
 		  if (flag == true) {

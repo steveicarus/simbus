@@ -86,7 +86,14 @@ to be changed again, and the <name>=<value> tokens are assignments of
 the resolved values as the bus appears. These reflect the drivings and
 non-drivings of all the other devices on the bus.
 
+If the bus is in the process of shutting down, then the clients will
+receive the FINISH command instead of the UNTIL command. The client
+shall close the socket and is detached from the bus.
+
 * FINISH
 
 Tell the bus to finish the simulation. This is normally used by the
-test bench device to terminate the entire simulation.
+test bench device to terminate the entire simulation. This command has
+no response. However, it causes the server to send FINISH commands to
+all the clients, including this client, in order to close down all the
+clients gracefully.

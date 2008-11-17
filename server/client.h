@@ -40,6 +40,10 @@ class client_state_t {
 	// Bind me to my bus.
       void set_bus(unsigned bus);
 
+	// Return true if the FINISH command has been send for this
+	// client. In this case, the FD will not be valid anymore.
+      bool is_exited(void) const;
+
     private:
       void process_client_command_(int fd, int argv, char*argv[]);
       void process_client_hello_(int fd, int argv, char*argv[]);

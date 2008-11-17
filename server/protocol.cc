@@ -129,6 +129,26 @@ void protocol_t::bus_ready()
 	// Call the protocol engine.
       run_run();
 
+	// If the bus is finished, then just send FINISH commands to
+	// all the clients and close their ports.
+      if (bus_.finished) {
+	    for (bus_device_map_t::iterator dev = bus_.device_map.begin()
+		       ; dev != bus_.device_map.end() ;  dev ++) {
+
+		  int fd = dev->second.fd;
+		  int rc = write(fd, "FINISH\n", 7);
+		  close(fd);
+		  dev->second.exited_flag = true;
+	    }
+
+	      // Close the bus.
+	    close(bus_.fd);
+	    bus_.fd = -1;
+
+	    if (service_lxt) lxt2_wr_flush(service_lxt);
+	    return;
+      }
+
 	// Send the new signal state to the client. This scans through
 	// the signal map for each device, and sends the state for all
 	// the signals to the client through the UNTIL message.

@@ -37,6 +37,13 @@ void client_state_t::set_bus(unsigned bus)
       bus_ = bus;
 }
 
+bool client_state_t::is_exited(void) const
+{
+      if (bus_interface_ == 0)
+	    return false;
+      return bus_interface_->exited_flag;
+}
+
 const char white_space[] = " \r";
 
 int client_state_t::read_from_socket(int fd)
@@ -206,5 +213,15 @@ void client_state_t::process_client_ready_(int fd, int argc, char*argv[])
 
 void client_state_t::process_client_finish_(int fd, int argc, char*argv[])
 {
-      exit(0);
+	// Locate the bus that I'm part of.
+      bus_map_idx_t bus_info = bus_map.find(bus_);
+      assert(bus_info != bus_map.end());
+
+      cerr << "Device " << dev_name_
+	   << " detached from bus " << bus_info->second.name
+	   << " as " << (bus_interface_->host_flag? "host" : "device")
+	   << " " << bus_interface_->ident
+	   << " with FINISH command." << endl;
+      bus_interface_->ready_flag  = true;
+      bus_interface_->finish_flag = true;
 }

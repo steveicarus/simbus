@@ -52,7 +52,7 @@ typedef std::map<std::string, std::valarray<bit_state_t> > signal_state_map_t;
  */
 
 struct bus_device_plug {
-      bus_device_plug() : host_flag(false), fd(-1), ready_flag(false) { }
+      bus_device_plug() : host_flag(false), fd(-1), ready_flag(false), finish_flag(false), exited_flag(false) { }
 	// True if this device is a "host" connection.
       bool host_flag;
 	// Identifier number to use for the device.
@@ -62,6 +62,8 @@ struct bus_device_plug {
       int fd;
 	// True when the device is ready for another step.
       bool ready_flag;
+      bool finish_flag;
+      bool exited_flag;
 	// Time that the client last reported.
       uint64_t ready_time;
       int ready_scale;
@@ -91,6 +93,8 @@ struct bus_state {
 	// Start out true, then turn this false when the bus is fully
 	// assembled and initialized.
       bool need_initialization;
+	// True if the bus is finished (by finish command)
+      bool finished;
 	// List of configured devices. The key is the name of the
 	// device, so that the client device can be located when it
 	// binds and calls in its name.

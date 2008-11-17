@@ -593,8 +593,22 @@ void __undrive_bus(simbus_pci_t pci)
 
 void simbus_pci_end_simulation(simbus_pci_t pci)
 {
-      fprintf(stderr, "simbus_pci_end_simulation: STUB\n");
-      write(pci->fd, "FINISH\n", 7);
+      int rc;
+
+	/* Send the FINISH command */
+      rc = write(pci->fd, "FINISH\n", 7);
+      assert(rc >= 0);
+      assert(rc == 7);
+
+	/* Now read the response, which should be a FINISH command */
+      char buf[128];
+      rc = read(pci->fd, buf, sizeof(buf)-1);
+      assert( rc >= 0 );
+
+	/* The response from the server should be FINISH. */
+      buf[rc] = 0;
+      assert(strcmp(buf,"FINISH\n") == 0);
+
       close(pci->fd);
       free(pci->name);
       free(pci);
