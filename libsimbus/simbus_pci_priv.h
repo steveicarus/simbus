@@ -85,9 +85,23 @@ extern void __address_command32(simbus_pci_t pci, uint64_t addr, unsigned cmd);
  */
 extern int __wait_for_devsel(simbus_pci_t pci);
 
-extern int __wait_for_read32(simbus_pci_t pci, uint32_t*val);
-
 extern void __setup_for_write32(simbus_pci_t pci, uint32_t val, int BEn);
+
+/*
+ * The __generic_pci_read32 function performs a PCI read32 bus
+ * transaction to read a single word. The cmd is the bus command to
+ * use, and the BEn is the BE# values to use. The result is written
+ * into result[0], and the return code is >=0 if the transaction
+ * completes.
+ *
+ * If the transaction is terminated, the result is one of the GPCI
+ * error codes, which are all <0.
+ */
+extern int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
+				int BEn, uint32_t*result);
+# define GPCI_MASTER_ABORT (-1)
+# define GPCI_TARGET_RETRY (-2)
+
 
 extern void __undrive_bus(simbus_pci_t pci);
 #endif

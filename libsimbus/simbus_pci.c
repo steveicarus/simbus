@@ -528,7 +528,7 @@ int __wait_for_devsel(simbus_pci_t pci)
       return 0;
 }
 
-int __wait_for_read32(simbus_pci_t pci, uint32_t*val)
+static int __wait_for_read32(simbus_pci_t pci, uint32_t*val)
 {
       pci->out_frame_n = BIT_1;
       pci->out_req64_n = BIT_1;
@@ -536,6 +536,9 @@ int __wait_for_read32(simbus_pci_t pci, uint32_t*val)
 	/* Wait for TRDY# */
       int count = 256;
       while (pci->pci_trdy_n != BIT_0) {
+	      /* If STOP# is low while TRDY# is high, then this is a Retry */
+	    if (pci->pci_stop_n == BIT_0)
+		  return GPCI_TARGET_RETRY;
 	    __pci_half_clock(pci);
 	    __pci_half_clock(pci);
 	    count -= 1;
@@ -551,6 +554,72 @@ int __wait_for_read32(simbus_pci_t pci, uint32_t*val)
       }
 
       *val = result;
+      return 0;
+}
+
+int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
+			 int BEn, uint32_t*result)
+{
+      int idx;
+      int rc;
+
+	/* Arbitrate for the bus. This may return immediately if the
+	   bus is parked here, or it may return after some clocks and
+	   a REQ#/GNT# handshake. */
+      __pci_request_bus(pci);
+
+	/* Advance to the low phase of the PCI clock. We do this
+	   because we want our outputs to change on the rising edges
+	   of the PCI clock. */
+      if (pci->pci_clk != BIT_1)
+	    __pci_half_clock(pci);
+
+      pci->out_req_n = BIT_1;
+
+      __address_command32(pci, addr, cmd);
+
+	/* Collect the BE# bits. */
+      pci->out_c_be[0] = BEn&0x1? BIT_1 : BIT_0;
+      pci->out_c_be[1] = BEn&0x2? BIT_1 : BIT_0;
+      pci->out_c_be[2] = BEn&0x4? BIT_1 : BIT_0;
+      pci->out_c_be[3] = BEn&0x8? BIT_1 : BIT_0;
+	/* Make sure address lines are undriven */
+      for (idx = 0 ; idx < 64 ; idx += 1) {
+	    pci->out_ad[idx] = BIT_Z;
+      }
+
+	/* Clock the IRDY and BE#s (and PAR), and un-drive the AD bits. */
+      __pci_half_clock(pci);
+      assert(pci->pci_clk == BIT_0);
+
+      if (__wait_for_devsel(pci) < 0) {
+	    *result = 0xffffffff;
+	    return GPCI_MASTER_ABORT;
+      }
+
+      if ( (rc = __wait_for_read32(pci, result)) < 0) {
+	      /* Release all the signals I've been driving. */
+	    __undrive_bus(pci);
+
+	      /* This clocks the drivers to the next state, and clocks in
+		 the final parity from the target. */
+	    __pci_half_clock(pci);
+	    __pci_half_clock(pci);
+	    *result = 0xffffffff;
+	    return rc;
+      }
+
+	/* Release all the signals I've been driving. */
+      __undrive_bus(pci);
+
+	/* This clocks the drivers to the next state, and clocks in
+	   the final parity from the target. */
+      __pci_half_clock(pci);
+      __pci_half_clock(pci);
+
+	/* XXXX Here we should check the pci_par parity bit */
+
+	/* Done. Return the result. */
       return 0;
 }
 
