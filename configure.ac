@@ -24,5 +24,7 @@ if test $BISON = no; then
 AC_MSG_ERROR("bison is required")
 fi
 
+AC_PROG_INSTALL
+
 AC_CONFIG_FILES(Make.rules)
 AC_OUTPUT

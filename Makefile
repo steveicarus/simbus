@@ -24,12 +24,14 @@ install:
 	cd libsimbus ; $(MAKE) install
 	cd vpi       ; $(MAKE) install
 	cd ver       ; $(MAKE) install
+	cd pcimem    ; $(MAKE) install
 
 uninstall:
 	cd server    ; $(MAKE) uninstall
 	cd libsimbus ; $(MAKE) uninstall
 	cd vpi       ; $(MAKE) uninstall
 	cd ver       ; $(MAKE) uninstall
+	cd pcimem    ; $(MAKE) uninstall
 
 Make.rules: Make.rules.in
 	./config.status

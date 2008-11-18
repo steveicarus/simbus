@@ -8,7 +8,10 @@ clean:
 	rm -f lex.config.c
 	rm -f config.tab.cpp config.tab.hpp
 
-install: all
+install: all installdirs $(bindir)/simbus_server
+
+uninstall:
+	rm -f $(DESTDIR)$(bindir)/simbus_server
 
 O = main.o service.o client.o protocol.o PciProtocol.o \
 config.tab.o lex.config.o lxt2_write.o
@@ -30,3 +33,9 @@ PciProtocol.o: PciProtocol.cc priv.h protocol.h PciProtocol.h
 config.tab.o: config.tab.cpp lex.config.c priv.h
 lex.config.o: lex.config.c config.tab.hpp
 lxt2_write.o: lxt2_write.c lxt2_write.h
+
+$(bindir)/simbus_server: simbus_server
+	$(INSTALL_PROGRAM) simbus_server $(DESTDIR)$(bindir)/simbus_server
+
+installdirs: ../mkinstalldirs
+	$(srcdir)/../mkinstalldirs $(DESTDIR)$(bindir)

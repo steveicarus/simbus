@@ -1,11 +1,18 @@
 
+srcdir = @srcdir@
+
 prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+libdir = @libdir@
 includedir = @includedir@
 datarootdir = @datarootdir@
 datadir = @datadir@/simbus
 
 IVERILOG = @IVERILOG@
 IVERILOG_VPI = @IVERILOG_VPI@
+
+iverilog_vpi_dir = $(shell $(IVERILOG_VPI) --install-dir)
 
 CC = @CC@
 CXX = @CXX@
@@ -16,5 +23,6 @@ CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 LDFLAGS = @LDFLAGS@
 
+INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_DATA = @INSTALL_DATA@
