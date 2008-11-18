@@ -1,8 +1,14 @@
 
+include ../Make.rules
+
 all: simbus_server
 
-CCFLAGS = -O -g
-CXXFLAGS = -g
+clean:
+	rm -f simbus_server *.o *~
+	rm -f lex.config.c
+	rm -f config.tab.cpp config.tab.hpp
+
+install: all
 
 O = main.o service.o client.o protocol.o PciProtocol.o \
 config.tab.o lex.config.o lxt2_write.o
@@ -11,10 +17,10 @@ simbus_server: $O
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o simbus_server $O -lz -lbz2
 
 config.tab.cpp config.tab.hpp: config.ypp
-	bison -d -p config config.ypp
+	$(BISON) -d -p config config.ypp
 
 lex.config.c: config.lex
-	flex -P config config.lex
+	$(FLEX) -P config config.lex
 
 main.o: main.cc priv.h
 service.o: service.cc priv.h protocol.h PciProtocol.h client.h lxt2_write.h

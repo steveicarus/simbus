@@ -1,0 +1,20 @@
+
+prefix = @prefix@
+includedir = @includedir@
+datarootdir = @datarootdir@
+datadir = @datadir@/simbus
+
+IVERILOG = @IVERILOG@
+IVERILOG_VPI = @IVERILOG_VPI@
+
+CC = @CC@
+CXX = @CXX@
+FLEX = @FLEX@
+BISON = @BISON@
+
+CFLAGS = @CFLAGS@
+CXXFLAGS = @CXXFLAGS@
+LDFLAGS = @LDFLAGS@
+
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@

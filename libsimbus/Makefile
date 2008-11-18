@@ -1,5 +1,14 @@
 
 
+include ../Make.rules
+
+all: libsimbus.a
+
+clean:
+	rm -f libsimbus.a *.o *~
+
+install: all
+
 L = simbus_pci.o simbus_pci_config.o simbus_pci_rw32.o
 
 libsimbus.a: $L
