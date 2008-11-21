@@ -17,7 +17,17 @@
  *    along with this program; if not, write to the Free Software
  *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
-// $Id: pci64_memory.v,v 1.3 2008/06/28 00:25:26 steve Exp $
+
+/* Runtime arguments:
+ *
+ *    +bar0-mask=%h         -- Set the BAR0 mask. This defines the size of
+ *                             the memory region. The default is fffff000 (4K).
+ *
+ *    +mem-retry-rate=%d
+ *    +mem-discon-rate=%d
+ *                          -- Set rates that the memory will retry commands
+ *                             and disconnect bursts. The default is 0 (off).
+ */
 
 /*
  * The pci memdev device is a virtual memory device that acts like an
@@ -94,7 +104,7 @@ module main;
 
    wire        frame_n, irdy_n, trdy_n, stop_n, devsel_n;
    wire [3:0]  c_be_h, c_be_l;
-   wire [7:0]  c_be = {c_be_h,c_be_l};
+   wire [7:0]  c_be;
    wire [63:0] ad;
    wire        par;
 
@@ -113,7 +123,7 @@ module main;
       .TRDY_n(trdy_n),
       .STOP_n(stop_n),
       .DEVSEL_n(devsel_n),
-      .C_BE({c_be_h,c_be_l}),
+      .C_BE(c_be),
       .AD(ad),
       .PAR(par)
       /* */);
@@ -132,7 +142,7 @@ module main;
       .STOP(stop_n),
       .DEVSEL(devsel_n),
 
-      .C_BE(c_be_l),
+      .C_BE(c_be[3:0]),
       .AD(ad[31:0]),
       .PAR(par)
       /* */);
@@ -152,7 +162,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
    parameter DEVICE_ID  = 32'hffc1_12c5;
 
    // Use this to set the size of the memory region.
-   parameter BAR0_MASK  = 32'hffff0000;
+   reg [31:0] bar0_mask;
 
    // Memories are normally prefetchable.
    parameter BAR0_FLAGS = 'hc;
@@ -160,10 +170,6 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
    // This is the default memory image file. override this
    // parameter to use a different host file.
    parameter IMAGE      = "memory.bin";
-
-   // This is the default retry rate to use. 0 means turn it off.
-   parameter RETRY_RATE = 0;
-   parameter DISCON_RATE = 0;
 
    localparam BAR2_MASK  = 32'hffffe000;
    localparam BAR2_FLAGS = 'h4;
@@ -234,11 +240,11 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
    // this device. Use BAR0 and the BAR mask to decode the address.
    function [0:0] selected;
       input [63:0] addr;
-      if ((config_mem[4] & BAR0_MASK) == 0 && config_mem[5] == 0)
+      if ((config_mem[4] & bar0_mask) == 0 && config_mem[5] == 0)
 	selected = 0;
       else if (config_mem[5] != addr[63:32])
 	selected = 0;
-      else if ((addr[31:0] & BAR0_MASK) == (config_mem[4] & BAR0_MASK))
+      else if ((addr[31:0] & bar0_mask) == (config_mem[4] & bar0_mask))
 	selected = 1;
       else
 	selected = 0;
@@ -374,7 +380,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
 	   6'b000000: /* device ID is read-only */;
 	   6'b000010: /* class code is read-only */;
 	   // Mask BAR0/1, and leave the other BARs zero.
-	   6'b000100: config_mem[6'b000100] = AD[31:0] & BAR0_MASK | BAR0_FLAGS;
+	   6'b000100: config_mem[6'b000100] = AD[31:0] & bar0_mask | BAR0_FLAGS;
 	   6'b000101: config_mem[6'b000101] = AD[31:0];
 	   6'b000110: config_mem[6'b000110] = AD[31:0] & BAR2_MASK | BAR2_FLAGS;
 	   6'b000111: config_mem[6'b000111] = AD[31:0];
@@ -405,7 +411,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
       input bar_flag;
       reg [31:0] masked_address;
       begin
-	 masked_address = use_address[31:0] & ~BAR0_MASK;
+	 masked_address = use_address[31:0] & ~bar0_mask;
 
 	 // Fast timing, respond immediately
 	 DEVSEL_reg <= 0;
@@ -443,7 +449,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
 	 parity_bit <= ^{read_tmp, C_BE};
 
 	 // and go to the next address.
-	 masked_address <= (masked_address + 4) & ~BAR0_MASK;
+	 masked_address <= (masked_address + 4) & ~bar0_mask;
 
 	 // Keep reading so long as the master does not
 	 // stop the transaction. The TRDY_reg is there to
@@ -461,7 +467,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
 	      AD_reg  <= read_tmp;
 	      parity_bit <= ^{read_tmp, C_BE};
 	      // Linear addressing.
-	      masked_address <= (masked_address + 4) & ~BAR0_MASK;
+	      masked_address <= (masked_address + 4) & ~bar0_mask;
 
 	      // If FRAME# is high, then this is the last word.
 	      if (FRAME == 1)
@@ -504,7 +510,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
       input bar_flag;
       reg [31:0] masked_address;
       begin
-	 masked_address = use_address[31:0] & ~BAR0_MASK;
+	 masked_address = use_address[31:0] & ~bar0_mask;
 
 	 // Fast timing, respond immediately
 	 DEVSEL_reg <= 0;
@@ -538,7 +544,7 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
 	      // Store the next value
 	      $simbus_mem_poke(memory_fd, masked_address, write_val, bar_flag);
 	      // Linear addressing.
-	      masked_address <= (masked_address + 4) & ~BAR0_MASK;
+	      masked_address <= (masked_address + 4) & ~bar0_mask;
 
 	      // If FRAME# is high, then this is the last word.
 	      if (FRAME == 1)
@@ -829,22 +835,24 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
    end
 
    initial begin
+      if (0 == $value$plusargs("bar0-mask=%h", bar0_mask))
+	bar0_mask = 32'hffff_0000;
+      // Constrain the range for the BAR0 mask.
+      bar0_mask = 32'h8000_0000 | (bar0_mask & 32'hffff_f000);
+      $display("%m: Using BAR0 mask = %8h", bar0_mask);
+
       // Open the memory image.
-      memory_fd = $simbus_mem_open(IMAGE, 1 + ~BAR0_MASK);
+      memory_fd = $simbus_mem_open(IMAGE, 1 + ~bar0_mask);
       $display("%m: Open file %s as memory store. (fd=%0d)", IMAGE, memory_fd);
 
       // Get a retry rate from the command line. If there is none
       // specified, then use the value from the defined parameter.
       if (0 == $value$plusargs("mem-retry-rate=%d", retry_rate))
-	retry_rate = RETRY_RATE;
+	retry_rate = 0;
 
       if (0 == $value$plusargs("mem-discon-rate=%d", discon_rate))
-	discon_rate = DISCON_RATE;
+	discon_rate = 0;
 
    end
 
 endmodule // pci_memory
-
-/*
- * $Log: pci64_memory.v,v $
- */
