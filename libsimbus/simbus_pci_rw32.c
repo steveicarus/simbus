@@ -31,7 +31,8 @@ uint32_t simbus_pci_read32(simbus_pci_t pci, uint64_t addr, int BEn)
 	    int rc = __generic_pci_read32(pci, addr, 0xf6, BEn, &val);
 
 	    if (rc == GPCI_TARGET_RETRY) {
-		  fprintf(stderr, "simbus_pci_read32: Retry\n");
+		    /* Automatically retry until the target responds
+		       with something other then retry. */
 		  continue;
 	    }
 
