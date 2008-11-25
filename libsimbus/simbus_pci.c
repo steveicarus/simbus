@@ -425,7 +425,7 @@ unsigned simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 	    }
       }
 
-      return 0;
+      return mask & irq;
 }
 
 void simbus_pci_reset(simbus_pci_t pci, unsigned width, unsigned settle)

@@ -57,6 +57,10 @@ corresponding device. Thus the host sees and can differentiate all the
 interrupts from all the devices. If the host simulation wants to
 simulate shared interrupts, it does so internally.
 
+The INTx# interrupts for a device are allocated to a bit in the INTx#
+vector by the device number. For example, device 0 drives INTA#[0],
+device 1 drives INTA#[1], and so forth.
+
 * Arbitration
 
 The server contains the arbitor, so the host is treated like any other

@@ -51,6 +51,10 @@ void PciProtocol::run_init()
 	    make_trace_("PAR64",   PT_BITS);
 	    make_trace_("AD",      PT_BITS, 64);
 	    make_trace_("C/BE#",   PT_BITS, 8);
+	    make_trace_("INTA#",   PT_BITS, 16);
+	    make_trace_("INTB#",   PT_BITS, 16);
+	    make_trace_("INTC#",   PT_BITS, 16);
+	    make_trace_("INTD#",   PT_BITS, 16);
 	    make_trace_("Bus owner",PT_STRING);
       }
 
@@ -365,6 +369,11 @@ void PciProtocol::route_interrupts_()
 		  assert(cur->first < 16);
 		  curdev.send_signals["INTD#"][cur->first] = cur->second;
 	    }
+
+	    set_trace_("INTA#", curdev.send_signals["INTA#"]);
+	    set_trace_("INTB#", curdev.send_signals["INTB#"]);
+	    set_trace_("INTC#", curdev.send_signals["INTC#"]);
+	    set_trace_("INTD#", curdev.send_signals["INTD#"]);
       }
 }
 
