@@ -102,6 +102,8 @@ extern int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 # define GPCI_MASTER_ABORT (-1)
 # define GPCI_TARGET_RETRY (-2)
 
+extern int __generic_pci_write32(simbus_pci_t pci, uint64_t addr, int cmd,
+				 uint32_t val, int BEn);
 
 extern void __undrive_bus(simbus_pci_t pci);
 #endif

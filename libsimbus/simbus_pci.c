@@ -519,7 +519,7 @@ int __wait_for_devsel(simbus_pci_t pci)
 			__pci_half_clock(pci);
 			if (pci->pci_devsel_n != BIT_0) { /* give up. */
 			      __undrive_bus(pci);
-			      return -1;
+			      return GPCI_MASTER_ABORT;
 			}
 		  }
 	    }
@@ -658,6 +658,46 @@ void __undrive_bus(simbus_pci_t pci)
 	    pci->out_c_be[idx] = BIT_Z;
       for (idx = 0 ; idx < 64 ; idx += 1)
 	    pci->out_ad[idx] = BIT_Z;
+}
+
+int __generic_pci_write32(simbus_pci_t pci, uint64_t addr, int cmd,
+			  uint32_t val, int BEn)
+{
+      int rc;
+
+	/* Arbitrate for the bus. This may return immediately if the
+	   bus is parked here, or it may return after some clocks and
+	   a REQ#/GNT# handshake. */
+      __pci_request_bus(pci);
+
+	/* Advance to the low phase of the PCI clock. We do this
+	   because we want our outputs to change on the rising edges
+	   of the PCI clock. */
+      if (pci->pci_clk != BIT_1)
+	    __pci_half_clock(pci);
+
+      pci->out_req_n = BIT_1;
+
+
+      __address_command32(pci, addr, cmd);
+
+      __setup_for_write32(pci, val, BEn);
+
+      if ( (rc = __wait_for_devsel(pci)) < 0)
+	    return rc;
+
+	/* Wait for the target to TRDY# in order to clock the data out. */
+      while (pci->pci_trdy_n != BIT_0) {
+	    __pci_half_clock(pci);
+	    __pci_half_clock(pci);
+      }
+
+	/* Release the bus and settle. */
+      __undrive_bus(pci);
+      __pci_half_clock(pci);
+      __pci_half_clock(pci);
+
+      return 0;
 }
 
 void simbus_pci_end_simulation(simbus_pci_t pci)

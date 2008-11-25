@@ -55,33 +55,12 @@ void simbus_pci_write32(simbus_pci_t pci, uint64_t addr, uint32_t val, int BEn)
 {
       int idx;
 
-	/* Arbitrate for the bus. This may return immediately if the
-	   bus is parked here, or it may return after some clocks and
-	   a REQ#/GNT# handshake. */
-      __pci_request_bus(pci);
+      int rc;
 
-	/* Advance to the low phase of the PCI clock. We do this
-	   because we want our outputs to change on the rising edges
-	   of the PCI clock. */
-      if (pci->pci_clk != BIT_1)
-	    __pci_half_clock(pci);
-
-      pci->out_req_n = BIT_1;
-
-      __address_command32(pci, addr, 0xf7);
-
-      __setup_for_write32(pci, val, BEn);
-
-      if (__wait_for_devsel(pci) < 0) {
+      rc = __generic_pci_write32(pci, addr, 0xf7, val, BEn);
+      if (rc < 0) {
 	    fprintf(stderr, "simbus_pci_write32: "
 		    "No response to addr=0x%x\n", addr);
 	    return ;
       }
-
-      while (pci->pci_trdy_n != BIT_0) {
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
-      }
-
-      __undrive_bus(pci);
 }
