@@ -68,11 +68,13 @@ simbus_pci_memdev_t simbus_pci_memdev_init(simbus_pci_t bus, uint64_t config)
 	    xsp->base_memory = val & ~15;
 	      /* BAR1 has high address bits */
 	    val = simbus_pci_config_read(xsp->bus, xsp->config + 20);
-	    xsp->base_memory = val;
 	    xsp->base_memory |= ((uint64_t)val) << 32;
 	      /* BAR2 has base of control registers */
 	    val = simbus_pci_config_read(xsp->bus, xsp->config + 24);
 	    xsp->base_cntrl = val & ~15;
+	      /* BAR3 has high address bits */
+	    val = simbus_pci_config_read(xsp->bus, xsp->config + 28);
+	    xsp->base_cntrl |= ((uint64_t)val) << 32;
 	    break;
 
 	  default:
