@@ -20,7 +20,6 @@
 # include  "simbus_pci.h"
 # include  "simbus_pci_memdev.h"
 # include  <stdlib.h>
-# include  <malloc.h>
 # include  <assert.h>
 
 
