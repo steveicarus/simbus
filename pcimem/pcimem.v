@@ -161,18 +161,22 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
    // This is the device ID of this PCI device.
    parameter DEVICE_ID  = 32'hffc1_12c5;
 
-   // Use this to set the size of the memory region.
+   // Use this to set the size of the memory region. Even though
+   // memory device understands 64bit addresses, keep the size
+   // to <= 4Gig.
    reg [31:0] bar0_mask;
 
-   // Memories are normally prefetchable.
+   // Memories are normally prefetchable. (Prefetchable=1)
+   // This memory can go anywhere is 64bit address space. (Type=10)
    parameter BAR0_FLAGS = 'hc;
 
    // This is the default memory image file. override this
    // parameter to use a different host file.
    parameter IMAGE      = "memory.bin";
 
+   // The command bar (BAR2) is fixed size.
    localparam BAR2_MASK  = 32'hffffe000;
-   localparam BAR2_FLAGS = 'h4;
+   localparam BAR2_FLAGS = 'hc;
 
    input CLK;
    input RESET;
@@ -361,17 +365,19 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
    task do_configuration_write;
 
       begin
-	 // use_address was built up in address phase.
-	 TRDY_reg <= 0;
-	 DEVSEL_reg <= 0;
-
-	 // Even fast timing response requires that we wait.
-	 @(posedge CLK) ;
-
 	 // Activate TRDY and DEVSEL drivers, and start
 	 // waiting for the IRDY.
 	 TRDY_en <= 1;
 	 DEVSEL_en <= 1;
+
+	 // Even fast timing response requires that we wait.
+	 @(posedge CLK) ;
+
+	 // use_address was built up in address phase.
+	 TRDY_reg <= 0;
+	 DEVSEL_reg <= 0;
+
+	 @(posedge CLK) /* Clock the TRDY and DEVSEL */ ;
 
 	 while (IRDY == 1)
 	   @(posedge CLK) ;
@@ -618,17 +624,19 @@ module pci64_memory (CLK, RESET, AD, C_BE, PAR,
    task do_bar2_write;
 
       begin
-	 // Save the address from the address phase.
-	 TRDY_reg <= 0;
-	 DEVSEL_reg <= 0;
-
-	 // Even fast timing response requires that we wait.
-	 @(posedge CLK) ;
-
 	 // Activate TRDY and DEVSEL drivers, and start
 	 // waiting for the IRDY.
 	 TRDY_en <= 1;
 	 DEVSEL_en <= 1;
+
+	 // Even fast timing response requires that we wait.
+	 @(posedge CLK) ;
+
+	 // Save the address from the address phase.
+	 TRDY_reg <= 0;
+	 DEVSEL_reg <= 0;
+
+	 @ (posedge CLK) /* Clock the TRDY# and DEVSEL# out */ ;
 
 	 while (IRDY == 1)
 	   @(posedge CLK) ;
