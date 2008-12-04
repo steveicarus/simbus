@@ -38,7 +38,7 @@ class client_state_t {
       int read_from_socket(int fd);
 
 	// Bind me to my bus.
-      void set_bus(unsigned bus);
+      void set_bus(const std::string&bus_key);
 
 	// Return true if the FINISH command has been send for this
 	// client. In this case, the FD will not be valid anymore.
@@ -52,7 +52,7 @@ class client_state_t {
 
     private:
 	// Key of the bus that I belong to.
-      unsigned bus_;
+      std::string bus_;
 
 	// Device name and ident.
       std::string dev_name_;

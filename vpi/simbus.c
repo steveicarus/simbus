@@ -21,6 +21,7 @@
 # include  <vpi_user.h>
 # include  <sys/types.h>
 # include  <sys/socket.h>
+# include  <sys/un.h>
 # include  <netdb.h>
 # include  <unistd.h>
 # include  <stdlib.h>
@@ -170,6 +171,87 @@ static PLI_INT32 simbus_connect_compiletf(char*my_name)
       return 0;
 }
 
+static int tcp_server(vpiHandle sys, const char*my_name, const char*dev_name,
+		      char*addr)
+{
+
+	/* Split the string into a host name and a port number. If
+	   there is no host name, then use "localhost". */
+      char*host_name = 0;
+      char*host_port = 0;
+      char*cp = strchr(addr, ':');
+      if (cp != 0) {
+	    *cp++ = 0;
+	    host_name = addr;
+	    host_port = cp;
+      } else {
+	    host_name = "localhost";
+	    host_port = addr;
+      }
+
+	/* Given the host string from the command line, look it up and
+	   get the address and port numbers. */
+      struct addrinfo hints, *res;
+      memset(&hints, 0, sizeof(struct addrinfo));
+      hints.ai_family = AF_UNSPEC;
+      hints.ai_socktype = SOCK_STREAM;
+      int rc = getaddrinfo(host_name, host_port, &hints, &res);
+      if (rc != 0) {
+	    vpi_printf("%s:%d: %s(%s) cannot find host %s:%s\n",
+		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		       my_name, dev_name, host_name, host_port);
+	    return -1;
+      }
+
+	/* Connect to the server. */
+      int server_fd = -1;
+      struct addrinfo *rp;
+      for (rp = res ; rp != 0 ; rp = rp->ai_next) {
+	    server_fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+	    if (server_fd < 0)
+		  continue;
+
+	    if (connect(server_fd, rp->ai_addr, rp->ai_addrlen) < 0) {
+		  close(server_fd);
+		  server_fd = -1;
+		  continue;
+	    }
+
+	    break;
+      }
+
+      freeaddrinfo(res);
+
+      if (server_fd == -1) {
+	    vpi_printf("%s:%d: %s(%s) cannot connect to server %s:%s\n",
+		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
+		       my_name, dev_name, host_name, host_port);
+
+	    return -1;
+      }
+
+      return server_fd;
+}
+
+static int pipe_server(vpiHandle sys, const char*my_name, const char*dev_name,
+		       const char*path)
+{
+      int fd = socket(PF_UNIX, SOCK_STREAM, 0);
+      assert(fd >= 0);
+
+      struct sockaddr_un addr;
+      memset(&addr, 0, sizeof addr);
+
+      assert(strlen(path) < sizeof addr.sun_path);
+      addr.sun_family = AF_UNIX;
+      strcpy(addr.sun_path, path);
+
+      int rc = connect(fd, (const struct sockaddr*)&addr, sizeof addr);
+      assert(rc >= 0);
+
+      return fd;
+}
+
 static PLI_INT32 simbus_connect_calltf(char*my_name)
 {
       int idx;
@@ -220,64 +302,18 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
 	    return 0;
       }
 
-	/* Split the string into a host name and a port number. If
-	   there is no host name, then use "localhost". */
-      char*host_name = 0;
-      char*host_port = 0;
-      char*cp = strchr(host_string, ':');
-      if (cp != 0) {
-	    *cp++ = 0;
-	    host_name = host_string;
-	    host_port = cp;
-      } else {
-	    host_name = "localhost";
-	    host_port = host_string;
-      }
-
-	/* Given the host string from the command line, look it up and
-	   get the address and port numbers. */
-      struct addrinfo hints, *res;
-      memset(&hints, 0, sizeof(struct addrinfo));
-      hints.ai_family = AF_UNSPEC;
-      hints.ai_socktype = SOCK_STREAM;
-      int rc = getaddrinfo(host_name, host_port, &hints, &res);
-      if (rc != 0) {
-	    vpi_printf("%s:%d: %s(%s) cannot find host %s:%s\n",
-		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
-		       my_name, dev_name, host_name, host_port);
-
-	    free(dev_name);
-	    free(host_string);
-	    value.format = vpiIntVal;
-	    value.value.integer = -1;
-	    vpi_put_value(sys, &value, 0, vpiNoDelay);
-	    return 0;
-      }
-
-	/* Connect to the server. */
       int server_fd = -1;
-      struct addrinfo *rp;
-      for (rp = res ; rp != 0 ; rp = rp->ai_next) {
-	    server_fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-	    if (server_fd < 0)
-		  continue;
+      if (strncmp(host_string, "tcp:", 4) == 0) {
+	    server_fd = tcp_server(sys, my_name, dev_name, host_string+4);
 
-	    if (connect(server_fd, rp->ai_addr, rp->ai_addrlen) < 0) {
-		  close(server_fd);
-		  server_fd = -1;
-		  continue;
-	    }
+      } else if (strncmp(host_string, "pipe:", 5) == 0) {
+	    server_fd = pipe_server(sys, my_name, dev_name, host_string+5);
 
-	    break;
+      } else {
+	    server_fd = tcp_server(sys, my_name, dev_name, host_string);
       }
-
-      freeaddrinfo(res);
 
       if (server_fd == -1) {
-	    vpi_printf("%s:%d: %s(%s) cannot connect to server %s:%s\n",
-		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
-		       my_name, dev_name, host_name, host_port);
-
 	    free(dev_name);
 	    free(host_string);
 	    value.format = vpiIntVal;
@@ -289,7 +325,7 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
 	/* Send HELLO message to the server. */
       snprintf(buf, sizeof buf, "HELLO %s\n", dev_name);
 
-      rc = write(server_fd, buf, strlen(buf));
+      int rc = write(server_fd, buf, strlen(buf));
       assert(rc == strlen(buf));
 
 	/* Read response from server. */
@@ -298,9 +334,9 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
       assert(strchr(buf, '\n'));
 
       if (strcmp(buf, "NAK\n") == 0) {
-	    vpi_printf("%s:%d: %s(%s) Server %s:%s doesn't want me.\n",
+	    vpi_printf("%s:%d: %s(%s) Server %s doesn't want me.\n",
 		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
-		       my_name, host_name, host_port, dev_name);
+		       my_name, host_string, dev_name);
 
 	    free(dev_name);
 	    free(host_string);
@@ -315,9 +351,9 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
       if (strncmp(buf, "YOU-ARE ", 8) == 0) {
 	    sscanf(buf, "YOU-ARE %u", &ident);
       } else {
-	    vpi_printf("%s:%d: %s(%s) Server %s:%s protocol error.\n",
+	    vpi_printf("%s:%d: %s(%s) Server %s protocol error.\n",
 		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
-		       my_name, dev_name, host_name, host_port);
+		       my_name, dev_name, host_string);
 
 	    free(dev_name);
 	    free(host_string);
@@ -341,9 +377,9 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
       instance_table[idx].read_buf[0] = 0;
       instance_table[idx].read_fil = 0;
 
-      vpi_printf("%s:%d: %s(%s) Bus server %s:%s ready.\n",
+      vpi_printf("%s:%d: %s(%s) Bus server %s ready.\n",
 		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
-		 my_name, dev_name, host_name, host_port);
+		 my_name, dev_name, host_string);
 
       value.format = vpiIntVal;
       value.value.integer = idx;

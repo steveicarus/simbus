@@ -19,9 +19,7 @@
 
 # include  "simbus_pci.h"
 # include  "simbus_pci_priv.h"
-# include  <sys/types.h>
-# include  <sys/socket.h>
-# include  <netdb.h>
+# include  "simbus_priv.h"
 # include  <unistd.h>
 # include  <stdlib.h>
 # include  <string.h>
@@ -258,56 +256,7 @@ static int send_ready_command(struct simbus_pci_s*pci)
 
 simbus_pci_t simbus_pci_connect(const char*server, const char*name)
 {
-      char*host_name = 0;
-      char*host_port = 0;
-
-	/* Parse the server string to a host name and port. If the
-	   host name is missing, then assume the rest is the port and
-	   use "localhost" as the server. */
-      char*cp;
-      if ( (cp = strchr(server, ':')) != 0 ) {
-	    host_name = malloc(cp - server + 1);
-	    strncpy(host_name, server, cp-server);
-	    host_name[cp-server] - 0;
-
-	    host_port = strdup(cp+1);
-      } else {
-	    host_name = strdup("localhost");
-	    host_port = strdup(server);
-      }
-
-	/* Look up the host name and port to get the host/port
-	   address. Try to connect to the service. */
-      struct addrinfo hints, *res;
-      memset(&hints, 0, sizeof(struct addrinfo));
-      hints.ai_family = AF_UNSPEC;
-      hints.ai_socktype = SOCK_STREAM;
-      int rc = getaddrinfo(host_name, host_port, &hints, &res);
-      assert(rc == 0);
-
-	/* Try to connect to the server. */
-      int server_fd = -1;
-      struct addrinfo *rp;
-      for (rp = res ; rp != 0 ; rp = rp->ai_next) {
-	      /* Make the right kind of socket. */
-	    server_fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-	    if (server_fd < 0)
-		  continue;
-
-	      /* Try to connect. */
-	    if (connect(server_fd, rp->ai_addr, rp->ai_addrlen) < 0) {
-		  close(server_fd);
-		  server_fd = -1;
-		  continue;
-	    }
-
-	    break;
-      }
-
-      freeaddrinfo(res);
-      free(host_name);
-      free(host_port);
-
+      int server_fd = __simbus_server_socket(server);
       assert(server_fd >= 0);
 
       char buf[4096];
@@ -315,7 +264,7 @@ simbus_pci_t simbus_pci_connect(const char*server, const char*name)
 	/* Send HELLO message to the server. */
       snprintf(buf, sizeof buf, "HELLO %s\n", name);
 
-      rc = write(server_fd, buf, strlen(buf));
+      int rc = write(server_fd, buf, strlen(buf));
       assert(rc == strlen(buf));
 
 	/* Read response from server. */

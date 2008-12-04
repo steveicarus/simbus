@@ -26,15 +26,14 @@ using namespace std;
 
 client_state_t::client_state_t()
 {
-      bus_ = 0;
       bus_interface_ = 0;
       buffer_fill_ = 0;
 }
 
-void client_state_t::set_bus(unsigned bus)
+void client_state_t::set_bus(const std::string&bus_key)
 {
-      assert(bus_ == 0);
-      bus_ = bus;
+      assert(bus_.size() == 0);
+      bus_ = bus_key;
 }
 
 bool client_state_t::is_exited(void) const

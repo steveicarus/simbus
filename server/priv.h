@@ -23,6 +23,7 @@
 # include  <map>
 # include  <string>
 # include  <valarray>
+# include  <list>
 
 class protocol_t;
 
@@ -93,18 +94,22 @@ struct bus_state {
 	// Start out true, then turn this false when the bus is fully
 	// assembled and initialized.
       bool need_initialization;
+	// when initializing, unlink all the paths in this list.
+      std::list<std::string>unlink_on_initialization;
 	// True if the bus is finished (by finish command)
       bool finished;
 	// List of configured devices. The key is the name of the
 	// device, so that the client device can be located when it
 	// binds and calls in its name.
       bus_device_map_t device_map;
+
+      void assembly_complete();
 };
 
-extern std::map <unsigned, bus_state> bus_map;
-typedef std::map<unsigned, bus_state>::iterator bus_map_idx_t;
+extern std::map <std::string, bus_state> bus_map;
+typedef std::map<std::string, bus_state>::iterator bus_map_idx_t;
 
-extern void service_add_bus(unsigned port, const std::string&name,
+extern void service_add_bus(const std::string&port, const std::string&name,
 			    const std::string&bus_protocol_name,
 			    const bus_device_map_t&dev);
 

@@ -27,6 +27,11 @@ bus {
   # port, and the clients connects to this port to attach to the bus.
   port = <n>;
 
+  # The server also supports named pipes for the server. This
+  # specifies the path to the pipe to use. You can only specify port
+  # or pipe for the bus, not both.
+  #pipe = "bus_server";
+
   # List all the devices that are expected. The simulation does not
   # start until all the listed devices attach and identify themselves.
   #

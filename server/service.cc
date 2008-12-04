@@ -20,6 +20,7 @@
 
 # include  <sys/types.h>
 # include  <sys/socket.h>
+# include  <sys/un.h>
 # include  <netinet/ip.h>
 # include  <arpa/inet.h>
 # include  <string.h>
@@ -45,7 +46,7 @@ using namespace std;
 map<int,client_state_t> client_map;
 typedef map<int,client_state_t>::iterator client_map_idx_t;
 
-map <unsigned, struct bus_state> bus_map;
+map <string, struct bus_state> bus_map;
 
 struct lxt2_wr_trace*service_lxt = 0;
 
@@ -65,7 +66,7 @@ void service_init(const char*trace_path)
       atexit(&service_uninit);
 }
 
-void service_add_bus(unsigned port, const std::string&name,
+void service_add_bus(const std::string&port, const std::string&name,
 		     const std::string&bus_protocol_name,
 		     const bus_device_map_t&dev)
 {
@@ -83,6 +84,58 @@ void service_add_bus(unsigned port, const std::string&name,
       }
 }
 
+static int socket_from_string(string astr, struct bus_state&bus_obj)
+{
+      int fd = -2;
+      int rc;
+
+      if (astr.substr(0,4) == "tcp:") {
+	    astr.erase(0,4);
+
+	    fd = socket(PF_INET, SOCK_STREAM, 0);
+
+	    struct sockaddr_in addr;
+	    memset(&addr, 0, sizeof addr);
+
+	      // If the address string is a simple number, then assume
+	      // it is a simple TCP port number.
+	    if (astr.find_first_not_of("0123456789") == string::npos) {
+
+		  addr.sin_family = AF_INET;
+		    // The port is the map key.
+		  addr.sin_port = htons(strtoul(astr.c_str(), 0, 10));
+		  addr.sin_addr.s_addr = INADDR_ANY;
+
+	    } else {
+		  assert(0);
+	    }
+
+	    rc = bind(fd, (const struct sockaddr*)&addr, sizeof addr);
+
+      } else if (astr.substr(0,5) == "pipe:") {
+	    astr.erase(0,5);
+
+	    fd = socket(PF_UNIX, SOCK_STREAM, 0);
+
+	    struct sockaddr_un addr;
+	    memset(&addr, 0, sizeof addr);
+
+	    assert(astr.size() < sizeof addr.sun_path);
+	    addr.sun_family = AF_UNIX;
+	    strcpy(addr.sun_path, astr.c_str());
+
+	    rc = bind(fd, (const struct sockaddr*)&addr, sizeof addr);
+
+	      // Save the path to be unlinked on setup complete.
+	    bus_obj.unlink_on_initialization.push_back(astr);
+
+      } else {
+	    assert(0);
+      }
+
+      return fd;
+}
+
 /*
  * This function is called once to start the service running. It binds
  * to the network sockets for all the busses.
@@ -93,22 +146,9 @@ static void service_setup(void)
 
       for (bus_map_idx_t cur = bus_map.begin() ; cur != bus_map.end(); cur++) {
 
-	      // Create the server socket..
-	    cur->second.fd = socket(PF_INET, SOCK_STREAM, 0);
-	    assert(cur->second.fd >= 0);
-
 	      // Bind the service port address to the socket.
-	    struct sockaddr_in server_socket;
-	    memset(&server_socket, 0, sizeof server_socket);
-	    server_socket.sin_family = AF_INET;
 	      // The port is the map key.
-	    server_socket.sin_port = htons(cur->first);
-	    server_socket.sin_addr.s_addr = INADDR_ANY;
-
-	    rc = bind(cur->second.fd,
-		      (const sockaddr*)&server_socket,
-		      sizeof(server_socket));
-	    assert(rc >= 0);
+	    cur->second.fd = socket_from_string(cur->first, cur->second);
 
 	      // Put the socket into listen mode.
 	    rc = listen(cur->second.fd, 2);
@@ -230,12 +270,8 @@ void service_run(void)
 			  // If this is the first time all the devices
 			  // are ready, then the bus is finally
 			  // assembled, and needs final initialization.
-			if (idx->second.need_initialization) {
-			      cout << idx->second.name << ": "
-				   << "Bus assembly complete." << endl;
-			      idx->second.proto->run_init();
-			      idx->second.need_initialization = false;
-			}
+			if (idx->second.need_initialization)
+			      idx->second.assembly_complete();
 
 			  // Run the first bus state.
 			idx->second.proto->bus_ready();
@@ -243,4 +279,19 @@ void service_run(void)
 	    }
 
       }
+}
+
+void bus_state::assembly_complete()
+{
+      cout << name << ": Bus assembly complete." << endl;
+
+      proto->run_init();
+
+      while (unlink_on_initialization.size() > 0) {
+	    string path = unlink_on_initialization.front();
+	    unlink_on_initialization.pop_front();
+	    unlink(path.c_str());
+      }
+
+      need_initialization = false;
 }

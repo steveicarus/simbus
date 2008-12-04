@@ -15,6 +15,7 @@
 "device" { return K_device; }
 "host"   { return K_host; }
 "name"   { return K_name; }
+"pipe"   { return K_pipe; }
 "port"   { return K_port; }
 "protocol" { return K_protocol; }
 
