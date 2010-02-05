@@ -42,9 +42,9 @@ static void wrap_up_new_bus(void)
       ostringstream bus_key;
 
       if (use_bus_pipe.size() == 0) {
-	    bus_key << "tcp:"  << use_bus_port << ends;
+	    bus_key << "tcp:"  << use_bus_port;
       } else {
-	    bus_key << "pipe:" << use_bus_pipe << ends;
+	    bus_key << "pipe:" << use_bus_pipe;
       }
 
       service_add_bus(bus_key.str(), use_bus_name,

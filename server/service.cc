@@ -107,6 +107,7 @@ static int socket_from_string(string astr, struct bus_state&bus_obj)
 		  addr.sin_addr.s_addr = INADDR_ANY;
 
 	    } else {
+		  fprintf(stderr, "Invalid tcp port number: <%s> first bad char is %d of %d\n", astr.c_str(), astr.find_first_not_of("0123456789"), astr.size());
 		  assert(0);
 	    }
 
