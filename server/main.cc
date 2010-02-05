@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Stephen Williams (steve@icarus.com)
+ * Copyright (c) 2010 Stephen Williams (steve@icarus.com)
  *
  *    This source code is free software; you can redistribute it
  *    and/or modify it in source code form under the terms of the GNU
@@ -16,7 +16,6 @@
  *    along with this program; if not, write to the Free Software
  *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
-#ident "$Id:$"
 
 # include  <iostream>
 
@@ -27,8 +26,6 @@ using namespace std;
 # include  <unistd.h>
 # include  "priv.h"
 # include  <assert.h>
-
-# define SERVER_PORT_DEFAULT 11000
 
 int main(int argc, char*argv[])
 {
@@ -61,17 +58,16 @@ int main(int argc, char*argv[])
 	    return 2;
       }
 
+	/* Initialize the server... */
       service_init(trace_path);
 
+	/* Parse the config file... */
       int rc = config_file(cfg);
       if (rc != 0)
 	    return 3;
 
+	/* Run the service. */
       service_run();
+
       return 0;
 }
-
-/*
- * $Log: $
- */
-

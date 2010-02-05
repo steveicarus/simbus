@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Stephen Williams (steve@icarus.com)
+ * Copyright (c) 2010 Stephen Williams (steve@icarus.com)
  *
  *    This source code is free software; you can redistribute it
  *    and/or modify it in source code form under the terms of the GNU
@@ -16,7 +16,6 @@
  *    along with this program; if not, write to the Free Software
  *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
-#ident "$Id:$"
 
 # include  <sys/types.h>
 # include  <sys/socket.h>
@@ -39,15 +38,32 @@
 using namespace std;
 
 /*
- * A client is mapped using its file descriptor as the key. The client
- * contains the "bus", which is the number of the bus that it belongs
- * to, and can be used to look up the port.
+ * The bus_map is a collection of all the configured busses. The key
+ * is the port id string, which is unique for every bus. Clients that
+ * attach to the system use the port id to identify their bus when
+ * they first attach.
  */
-map<int,client_state_t> client_map;
-typedef map<int,client_state_t>::iterator client_map_idx_t;
-
 map <string, struct bus_state> bus_map;
 
+/*
+ * The client_map is a collection of all the clients that have
+ * connected to this server. Initially, this map is empty. When
+ * clients connect to this server, the "listen_ready" function accepts
+ * the connection to the bus port, accepts the new connection and uses
+ * the generated fd as a key to the client_map. So this map is built
+ * up as clients connect to the server.
+ *
+ * The client_map is used by the service_run() function. When the
+ * "select" system call notices activity on an fd, the client_map is
+ * used to map that fd to the client.
+ */
+static map<int,client_state_t> client_map;
+typedef map<int,client_state_t>::iterator client_map_idx_t;
+
+/*
+ * If the server is supposed to write lxt output, this is the pointer
+ * to the lxt writer.
+ */
 struct lxt2_wr_trace*service_lxt = 0;
 
 static void service_uninit(void)
@@ -55,6 +71,11 @@ static void service_uninit(void)
       if (service_lxt) lxt2_wr_close(service_lxt);
 }
 
+/*
+ * The service_init() function is called by main() during startup to
+ * do the initial setup of data structures. It is called before
+ * anything else can happen with the service.
+ */
 void service_init(const char*trace_path)
 {
       service_lxt = trace_path? lxt2_wr_init(trace_path) : 0;
@@ -66,11 +87,20 @@ void service_init(const char*trace_path)
       atexit(&service_uninit);
 }
 
+/*
+ * While configuring, the config file parser calls this function to
+ * create a bus. All the contents of the bus have been collected by
+ * the parser and are handed to this function to actually create the
+ * bus.
+ */
 void service_add_bus(const std::string&port, const std::string&name,
 		     const std::string&bus_protocol_name,
 		     const bus_device_map_t&dev)
 {
+	// The bus is stored in the bus_map with its port string as
+	// the key. Each bus has its own port.
       bus_state&tmp = bus_map[port];
+
       tmp.name = name;
       tmp.fd = -1;
       tmp.need_initialization = true;
@@ -84,6 +114,13 @@ void service_add_bus(const std::string&port, const std::string&name,
       }
 }
 
+/*
+ * Given a port string, open a socket of the right type and return the
+ * fd. The port strings come from the bus description:
+ *
+ *     tcp:<number>         -- TCP/IP port stream (port = <number>)
+ *     pipe:<path>          -- named pipe         (pipe = <path>)
+ */
 static int socket_from_string(string astr, struct bus_state&bus_obj)
 {
       int fd = -2;
@@ -139,7 +176,8 @@ static int socket_from_string(string astr, struct bus_state&bus_obj)
 
 /*
  * This function is called once to start the service running. It binds
- * to the network sockets for all the busses.
+ * to the network sockets for all the busses. All the config files
+ * have been parsed first.
  */
 static void service_setup(void)
 {
@@ -177,7 +215,8 @@ static void listen_ready(bus_map_idx_t&cur)
 }
 
 /*
- * A client connection is ready. Read the data from the connection and
+ * This function is called when the select loop finds that the port
+ * for a client is ready. Read the data from the connection and
  * process it.
  */
 static void client_ready(client_map_idx_t&client)
@@ -223,6 +262,7 @@ void service_run(void)
 		  break;
 	    }
 
+	      // Wait for bus or client ports.
 	    rc = select(nfds, &rfds, 0, 0, 0);
 	    if (rc == 0)
 		  continue;
@@ -251,7 +291,9 @@ void service_run(void)
 	    }
 
 	      // Now check the busses to see if they can have their
-	      // protocol run.
+	      // protocol run. The *_ready() function may have changed
+	      // the bus state such that the protocol has something
+	      // interesting to do.
 	    for (bus_map_idx_t idx = bus_map.begin()
 		       ; idx != bus_map.end() ; idx ++) {
 

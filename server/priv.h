@@ -79,7 +79,7 @@ typedef std::map<std::string,struct bus_device_plug> bus_device_map_t;
  * The bus_state describes a bus. The fd is the posix file-descriptor
  * for the server port, and the name is the configured bus name.
  *
- * The bus_map maps the TCP port to the bus. This key is also given to
+ * The bus_map maps the port string to the bus. This key is also given to
  * the client so that it can search this table to find its bus.
  */
 struct bus_state {
@@ -109,6 +109,10 @@ struct bus_state {
 extern std::map <std::string, bus_state> bus_map;
 typedef std::map<std::string, bus_state>::iterator bus_map_idx_t;
 
+/*
+ * This function is used by the service config file to add a new bus
+ * to the system.
+ */
 extern void service_add_bus(const std::string&port, const std::string&name,
 			    const std::string&bus_protocol_name,
 			    const bus_device_map_t&dev);
