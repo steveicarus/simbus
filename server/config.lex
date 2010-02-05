@@ -13,11 +13,17 @@
   /* Keywords. */
 "bus"    { return K_bus; }
 "device" { return K_device; }
+"env"    { return K_env; }
+"exec"   { return K_exec; }
 "host"   { return K_host; }
 "name"   { return K_name; }
 "pipe"   { return K_pipe; }
 "port"   { return K_port; }
+"process"  { return K_process; }
 "protocol" { return K_protocol; }
+"stderr" { return K_stderr; }
+"stdin"  { return K_stdin; }
+"stdout" { return K_stdout; }
 
   /* Skip white space */
 [ \t\r\n] { ; }

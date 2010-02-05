@@ -29,14 +29,14 @@ using namespace std;
 
 int main(int argc, char*argv[])
 {
-      const char*config_path = 0;
+      list<const char*> config_paths;
       const char*trace_path = 0;
       int opt;
 
       while ( (opt = getopt(argc, argv, "c:t:")) != -1 ) {
 	    switch (opt) {
 		case 'c':
-		  config_path = optarg;
+		  config_paths .push_back(optarg);
 		  break;
 		case 't':
 		  trace_path = optarg;
@@ -47,24 +47,29 @@ int main(int argc, char*argv[])
 	    }
       }
 
-      if (config_path == 0) {
+      if (config_paths.size() == 0) {
 	    cerr << "Need a config file. Use -c <file> to specify." << endl;
 	    return 1;
-      }
-
-      FILE*cfg = fopen(config_path, "r");
-      if (cfg == 0) {
-	    cerr << "Unable to open " << config_path << endl;
-	    return 2;
       }
 
 	/* Initialize the server... */
       service_init(trace_path);
 
-	/* Parse the config file... */
-      int rc = config_file(cfg);
-      if (rc != 0)
-	    return 3;
+	/* Parse the config files... */
+      for (list<const char*>::iterator idx = config_paths.begin()
+		 ; idx != config_paths.end() ; idx ++ ) {
+
+	    const char*config_path = *idx;
+	    FILE*cfg = fopen(config_path, "r");
+	    if (cfg == 0) {
+		  cerr << "Unable to open " << config_path << endl;
+		  return 2;
+	    }
+
+	    int rc = config_file(cfg);
+	    if (rc != 0)
+		  return 3;
+      }
 
 	/* Run the service. */
       service_run();

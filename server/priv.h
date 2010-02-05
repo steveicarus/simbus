@@ -33,6 +33,9 @@ extern void service_init(const char*trace_path);
 /* Parse the config file. */
 extern int config_file(FILE*cfg);
 
+/* Run the processes, if any */
+extern void process_run(void);
+
 /* Run the server. */
 extern void service_run(void);
 
@@ -116,6 +119,18 @@ typedef std::map<std::string, bus_state>::iterator bus_map_idx_t;
 extern void service_add_bus(const std::string&port, const std::string&name,
 			    const std::string&bus_protocol_name,
 			    const bus_device_map_t&dev);
+
+
+/*
+ * This function is used by the config file to add a new process to
+ * the process executer.
+ */
+extern void process_add(const std::string&name,
+			const std::string&use_exec,
+			const std::string&use_stdin,
+			const std::string&use_stdout,
+			const std::string&use_stderr,
+			const std::map<std::string,std::string>&use_env);
 
 /*
  * Hook for the server LXT dumper. It is up to the protocols to figure

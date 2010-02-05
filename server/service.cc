@@ -230,6 +230,9 @@ void service_run(void)
 
       service_setup();
 
+	// Run processes that the user might have requested
+      process_run();
+
       while (true) {
 	    int nfds = 0;
 	    fd_set rfds;

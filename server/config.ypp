@@ -11,17 +11,24 @@ using namespace std;
 extern "C" int configlex(void);
 static void yyerror(const char*msg);
 
+static string use_name;
+
 static unsigned use_bus_port;
 static string use_bus_pipe;
-static string use_bus_name;
 static string use_bus_protocol;
 static bus_device_map_t use_bus_devices;
+
+static string use_proc_exec;
+static string use_proc_stdin;
+static string use_proc_stdout;
+static string use_proc_stderr;
+static map<string,string> use_proc_env;
 
 static void start_new_bus(void)
 {
       use_bus_port = 0;
       use_bus_pipe = "";
-      use_bus_name = "";
+      use_name = "";
       use_bus_protocol = "";
       use_bus_devices.clear();
 }
@@ -47,8 +54,24 @@ static void wrap_up_new_bus(void)
 	    bus_key << "pipe:" << use_bus_pipe;
       }
 
-      service_add_bus(bus_key.str(), use_bus_name,
+      service_add_bus(bus_key.str(), use_name,
 		      use_bus_protocol, use_bus_devices);
+}
+
+static void start_new_process(void)
+{
+	use_name = "";
+	use_proc_exec = "";
+	use_proc_stdin = "/dev/null";
+	use_proc_stdout = "/dev/null";
+	use_proc_stderr = "";
+	use_proc_env.clear();
+}
+
+static void wrap_up_new_process(void)
+{
+	process_add(use_name, use_proc_exec, use_proc_stdin,
+	            use_proc_stdout, use_proc_stderr, use_proc_env);
 }
 
 %}
@@ -58,7 +81,8 @@ static void wrap_up_new_bus(void)
       char*    text;
 }
 
-%token K_bus K_device K_host K_name K_pipe K_port K_protocol
+%token K_bus K_device K_env K_exec K_host K_name
+%token K_pipe K_port K_process K_protocol K_stderr K_stdin K_stdout
 %token <integer> INTEGER
 %token <text>    STRING
 
@@ -69,7 +93,7 @@ config_file
   | config_item
   ;
 
-config_item : bus ;
+config_item : bus | process ;
 
 bus
   : K_bus
@@ -86,10 +110,32 @@ bus_item_list
 bus_item
   : K_port   '=' INTEGER ';'    { use_bus_port = $3; }
   | K_pipe   '=' STRING ';'     { use_bus_pipe = string($3); free($3); }
-  | K_name   '=' STRING ';'     { use_bus_name = string($3); free($3); }
+  | K_name   '=' STRING ';'     { use_name = string($3); free($3); }
   | K_protocol '=' STRING ';'   { use_bus_protocol = string($3); free($3); }
   | K_device INTEGER STRING ';' { add_device_to_bus($2, $3, false); }
   | K_host   INTEGER STRING ';' { add_device_to_bus($2, $3, true); }
+  ;
+
+process
+  : K_process
+      { start_new_process(); }
+    '{' process_item_list '}'
+      { wrap_up_new_process(); }
+  ;
+
+process_item_list
+  : process_item_list process_item
+  | process_item
+  ;
+
+process_item
+  : K_name   '=' STRING ';'      { use_name = string($3); free($3); }
+  | K_exec   '=' STRING ';'      { use_proc_exec = string($3); free($3); }
+  | K_stdin  '=' STRING ';'      { use_proc_stdin  = string($3); free($3); }
+  | K_stdout '=' STRING ';'      { use_proc_stdout = string($3); free($3); }
+  | K_stderr '=' STRING ';'      { use_proc_stderr = string($3); free($3); }
+  | K_env STRING '=' STRING ';'  { use_proc_env[string($2)] = string($4);
+                                   free($2); free($4); }
   ;
 
 %%
