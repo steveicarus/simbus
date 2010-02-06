@@ -26,6 +26,7 @@
 # include  <sys/types.h>
 # include  <sys/stat.h>
 # include  <fcntl.h>
+# include  <signal.h>
 
 using namespace std;
 
@@ -132,6 +133,8 @@ static void do_process_run(const string&name, const process_info&info)
 
 void process_run(void)
 {
+	// Ignore children so that they don't become zombies.
+      signal(SIGCHLD, SIG_IGN);
       for (map<string,process_info>::iterator idx = proc_table.begin()
 		 ; idx != proc_table.end() ; idx ++) {
 	    do_process_run(idx->first, idx->second);
