@@ -130,6 +130,10 @@ static int socket_from_string(string astr, struct bus_state&bus_obj)
 	    astr.erase(0,4);
 
 	    fd = socket(PF_INET, SOCK_STREAM, 0);
+	    if (fd < 0) {
+		  perror("socket(PF_INET, SOCK_SREAM)");
+		  return fd;
+	    }
 
 	    struct sockaddr_in addr;
 	    memset(&addr, 0, sizeof addr);
@@ -145,15 +149,29 @@ static int socket_from_string(string astr, struct bus_state&bus_obj)
 
 	    } else {
 		  fprintf(stderr, "Invalid tcp port number: <%s> first bad char is %d of %d\n", astr.c_str(), astr.find_first_not_of("0123456789"), astr.size());
-		  assert(0);
+		  return -1;
 	    }
 
 	    rc = bind(fd, (const struct sockaddr*)&addr, sizeof addr);
+	    if (rc < 0) {
+		  switch (errno) {
+		      default:
+			fprintf(stderr, "Unable to bind to service port %s (errno=%d)\n",
+				astr.c_str(), errno);
+			break;
+		  }
+		  close(fd);
+		  return -1;
+	    }
 
       } else if (astr.substr(0,5) == "pipe:") {
 	    astr.erase(0,5);
 
 	    fd = socket(PF_UNIX, SOCK_STREAM, 0);
+	    if (fd < 0) {
+		  perror("socket(PF_UNIX, SOCK_SREAM)");
+		  return fd;
+	    }
 
 	    struct sockaddr_un addr;
 	    memset(&addr, 0, sizeof addr);
@@ -163,6 +181,20 @@ static int socket_from_string(string astr, struct bus_state&bus_obj)
 	    strcpy(addr.sun_path, astr.c_str());
 
 	    rc = bind(fd, (const struct sockaddr*)&addr, sizeof addr);
+	    if (rc < 0) {
+		  switch (errno) {
+		      case EADDRINUSE:
+			fprintf(stderr, "Pipe path \"%s\" already in use.\n",
+				astr.c_str());
+			break;
+		      default:
+			fprintf(stderr, "Unable to bind to service pipe %s (errno=%d)\n",
+				astr.c_str(), errno);
+			break;
+		  }
+		  close(fd);
+		  return -1;
+	    }
 
 	      // Save the path to be unlinked on setup complete.
 	    bus_obj.unlink_on_initialization.push_back(astr);
@@ -179,7 +211,7 @@ static int socket_from_string(string astr, struct bus_state&bus_obj)
  * to the network sockets for all the busses. All the config files
  * have been parsed first.
  */
-static void service_setup(void)
+static int service_setup(void)
 {
       int rc;
 
@@ -188,11 +220,19 @@ static void service_setup(void)
 	      // Bind the service port address to the socket.
 	      // The port is the map key.
 	    cur->second.fd = socket_from_string(cur->first, cur->second);
+	    if (cur->second.fd < 0) return -1;
 
 	      // Put the socket into listen mode.
 	    rc = listen(cur->second.fd, 2);
+	    if (rc < 0) {
+		  perror(cur->first.c_str());
+		  return -1;
+	    }
+
 	    assert(rc >= 0);
       }
+
+      return 0;
 }
 
 /*
@@ -224,11 +264,12 @@ static void client_ready(client_map_idx_t&client)
       client->second.read_from_socket(client->first);
 }
 
-void service_run(void)
+int service_run(void)
 {
       int rc;
 
-      service_setup();
+      rc = service_setup();
+      if (rc != 0) return rc;
 
 	// Run processes that the user might have requested
       process_run();

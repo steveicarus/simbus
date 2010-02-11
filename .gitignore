@@ -1,0 +1,11 @@
+
+# server/
+server/*.o
+server/config.tab.cpp
+server/config.tab.hpp
+server/lex.config.c
+server/simbus_server
+
+# vpi/
+vpi/*.o
+vpi/simbus.vpi

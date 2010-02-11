@@ -37,7 +37,7 @@ extern int config_file(FILE*cfg);
 extern void process_run(void);
 
 /* Run the server. */
-extern void service_run(void);
+extern int service_run(void);
 
 /*
  * The signal_sate_map_t is a map if signals with their value. The

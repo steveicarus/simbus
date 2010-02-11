@@ -72,7 +72,5 @@ int main(int argc, char*argv[])
       }
 
 	/* Run the service. */
-      service_run();
-
-      return 0;
+      return service_run();
 }
