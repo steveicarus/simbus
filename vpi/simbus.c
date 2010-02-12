@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Stephen Williams (steve@icarus.com)
+ * Copyright (c) 2010 Stephen Williams (steve@icarus.com)
  *
  *    This source code is free software; you can redistribute it
  *    and/or modify it in source code form under the terms of the GNU
@@ -16,7 +16,6 @@
  *    along with this program; if not, write to the Free Software
  *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
-#ident "$Id:$"
 
 # include  <vpi_user.h>
 # include  <sys/types.h>
@@ -492,14 +491,14 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
 		  int mask = 1 << ((bit-1) % 32);
 		  if (value.value.vector[word].aval & mask)
 			if (value.value.vector[word].bval & mask)
-			      drv_reference[bit] = 'x';
+			      drv_reference[bit-1] = 'x';
 			else
-			      drv_reference[bit] = '1';
+			      drv_reference[bit-1] = '1';
 		  else
 			if (value.value.vector[word].bval & mask)
-			      drv_reference[bit] = 'z';
+			      drv_reference[bit-1] = 'z';
 			else
-			      drv_reference[bit] = '0';
+			      drv_reference[bit-1] = '0';
 
 	    }
 
@@ -514,7 +513,7 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
 		 the port. */
 	    for (bit = vpi_get(vpiSize,drv); bit > 0; bit -= 1, sig_string+=1) {
 
-		  if (drv_reference[bit] == *sig_string) {
+		  if (drv_reference[bit-1] == *sig_string) {
 			*sig_string = 'z';
 			continue;
 		  }
@@ -832,8 +831,3 @@ void (*vlog_startup_routines[])(void) = {
       simbus_mem_register,
       0
 };
-
-/*
- * $Log: $
- */
-
