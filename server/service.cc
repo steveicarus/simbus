@@ -23,6 +23,7 @@
 # include  <netinet/ip.h>
 # include  <arpa/inet.h>
 # include  <string.h>
+# include  <signal.h>
 # include  <unistd.h>
 
 # include  <iostream>
@@ -36,6 +37,16 @@
 # include  <assert.h>
 
 using namespace std;
+
+/*
+ * handle SIGINT signals by setting a flag. The service loop will
+ * notice the flag and do the processing to handle the interrupt.
+ */
+static bool interrupted_flag = false;
+static void sigint_handler(int)
+{
+      interrupted_flag = true;
+}
 
 /*
  * The bus_map is a collection of all the configured busses. The key
@@ -69,6 +80,7 @@ struct lxt2_wr_trace*service_lxt = 0;
 static void service_uninit(void)
 {
       if (service_lxt) lxt2_wr_close(service_lxt);
+      service_lxt = 0;
 }
 
 /*
@@ -274,7 +286,19 @@ int service_run(void)
 	// Run processes that the user might have requested
       process_run();
 
+      struct sigaction sigint_new, sigint_old;
+      sigint_new.sa_handler = &sigint_handler;
+      sigint_new.sa_flags = 0;
+      sigint_new.sa_mask = 0;
+      rc = sigaction(SIGINT, &sigint_new, &sigint_old);
+      interrupted_flag = false;
+
       while (true) {
+	    if (interrupted_flag) {
+		  fprintf(stderr, "INTERRUPTED Server, ending service\n");
+		  break;
+	    }
+
 	    int nfds = 0;
 	    fd_set rfds;
 	    FD_ZERO(&rfds);
@@ -309,6 +333,11 @@ int service_run(void)
 	      // Wait for bus or client ports.
 	    rc = select(nfds, &rfds, 0, 0, 0);
 	    if (rc == 0)
+		  continue;
+
+	      // If the select was interrupted, then restart the loop
+	      // to process the interrupt.
+	    if (rc < 0 && errno==EINTR)
 		  continue;
 
 	    if (rc < 0) {
@@ -366,6 +395,9 @@ int service_run(void)
 	    }
 
       }
+
+      rc = sigaction(SIGINT, &sigint_old, 0);
+      service_uninit();
 }
 
 void bus_state::assembly_complete()
