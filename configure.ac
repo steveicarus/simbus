@@ -2,6 +2,13 @@
 AC_INIT(simbus,0.0)
 
 AC_PROG_CC([gcc cc])
+# AC_PROG_CC_C99 is only available in autoconf version 2.60 and later.
+# If you must use an older version then comment out the following two
+# lines, but be warned that there could be issues with finding the
+# nan(), etc. functions. It is really best to upgrade to a supported
+# version of autoconf.
+AC_PREREQ([2.60])
+AC_PROG_CC_C99
 AC_PROG_CXX([g++ c++])
 
 AC_CHECK_PROG(IVERILOG,iverilog,iverilog,no)

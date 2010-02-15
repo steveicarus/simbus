@@ -17,11 +17,11 @@
  *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
 
+#define __STDC_FORMAT_MACROS
 # include  "protocol.h"
 # include  "client.h"
 # include  "priv.h"
 # include  "lxt2_write.h"
-#define __STDC_FORMAT_MACROS
 # include  <inttypes.h>
 # include  <iostream>
 # include  <assert.h>
