@@ -27,16 +27,35 @@ using namespace std;
 # include  "priv.h"
 # include  <assert.h>
 
+std::ofstream protocol_log;
+
+void process_debug_flag(const char*arg)
+{
+      const char* key = arg;
+      const char* value = strchr(key, '=');
+      if (value == 0) {
+
+      } else {
+	    value += 1;
+	    if (strncmp(arg, "protocol=", value-key) == 0) {
+		  protocol_log.open(value, ios_base::out);
+	    }
+      }
+}
+
 int main(int argc, char*argv[])
 {
       list<const char*> config_paths;
       const char*trace_path = 0;
       int opt;
 
-      while ( (opt = getopt(argc, argv, "c:t:")) != -1 ) {
+      while ( (opt = getopt(argc, argv, "c:D:t:")) != -1 ) {
 	    switch (opt) {
 		case 'c':
 		  config_paths .push_back(optarg);
+		  break;
+		case 'D':
+		  process_debug_flag(optarg);
 		  break;
 		case 't':
 		  trace_path = optarg;

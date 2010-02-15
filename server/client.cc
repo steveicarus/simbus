@@ -24,6 +24,8 @@
 
 using namespace std;
 
+std::map<int, client_state_t> client_state_t::client_map;
+
 client_state_t::client_state_t()
 {
       bus_interface_ = 0;
@@ -91,6 +93,11 @@ void client_state_t::process_client_command_(int fd, int argc, char*argv[])
 	    return;
       }
 
+      protocol_log << dev_name_ << ":RECV:" << argv[0];
+      for (int idx = 1 ; idx < argc ; idx += 1)
+	    protocol_log << " " << argv[idx];
+      protocol_log << endl;
+
       if (strcmp(argv[0],"HELLO") == 0) {
 	    cerr << "Spurious HELLO from " << dev_name_ << endl;
 
@@ -148,6 +155,9 @@ void client_state_t::process_client_hello_(int fd, int argc, char*argv[])
       snprintf(outbuf, sizeof outbuf, "YOU-ARE %u\n",bus_interface_->ident);
       int rc = write(fd, outbuf, strlen(outbuf));
       assert(rc == strlen(outbuf));
+
+      protocol_log << dev_name_ << ":SEND:YOU-ARE "
+		   << bus_interface_->ident << endl;
 
       cerr << "Device " << use_name
 	   << " is attached to bus " << bus_info->second.name
