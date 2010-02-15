@@ -1,4 +1,14 @@
 
+#
+Make.rules
+configure
+config.*
+autom4te.cache/*
+
+# libsimbus/
+libsimbus/*.a
+libsimbus/*.o
+
 # server/
 server/*.o
 server/config.tab.cpp
