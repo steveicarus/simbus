@@ -289,7 +289,7 @@ int service_run(void)
       struct sigaction sigint_new, sigint_old;
       sigint_new.sa_handler = &sigint_handler;
       sigint_new.sa_flags = 0;
-      sigint_new.sa_mask = 0;
+      sigemptyset(&sigint_new.sa_mask);
       rc = sigaction(SIGINT, &sigint_new, &sigint_old);
       interrupted_flag = false;
 
