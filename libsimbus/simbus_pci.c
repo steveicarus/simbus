@@ -21,6 +21,7 @@
 # include  "simbus_pci_priv.h"
 # include  "simbus_priv.h"
 # include  <unistd.h>
+# include  <limits.h>
 # include  <stdlib.h>
 # include  <string.h>
 # include  <stdio.h>
@@ -76,7 +77,7 @@ static int send_ready_command(struct simbus_pci_s*pci)
 {
       int rc;
       char buf[4096];
-      snprintf(buf, sizeof(buf), "READY %lue%d", pci->time_mant, pci->time_exp);
+      snprintf(buf, sizeof(buf), "READY %" PRIu64 "e%d", pci->time_mant, pci->time_exp);
 
       char*cp = buf + strlen(buf);
 
@@ -177,7 +178,15 @@ static int send_ready_command(struct simbus_pci_s*pci)
 
 	/* Parse the time token */
       assert(argc >= 1);
-      pci->time_mant = strtoul(argv[1], &cp, 10);
+      if (sizeof(uint64_t) <= sizeof(unsigned long)) {
+	    pci->time_mant = strtoul(argv[1], &cp, 10);
+      } else if (sizeof(uint64_t) <= sizeof(unsigned long long)) {
+	    pci->time_mant = strtoull(argv[1], &cp, 10);
+      } else {
+	    pci->time_mant = strtoull(argv[1], &cp, 10);
+	    assert(pci->time_mant < ULLONG_MAX);
+      }
+
       assert(*cp == 'e');
       cp += 1;
       pci->time_exp = strtol(cp, 0, 10);
