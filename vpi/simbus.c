@@ -402,7 +402,7 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
       s_vpi_time now;
 
       vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
-      vpiHandle scope = vpi_handle(vpiScope, sys);
+	/* vpiHandle scope = vpi_handle(vpiScope, sys); */
       vpiHandle argv = vpi_iterate(vpiArgument, sys);
       vpiHandle arg;
       assert(argv);
@@ -423,14 +423,17 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
       uint64_t now_int = ((uint64_t)now.high) << 32;
       now_int += (uint64_t) now.low;
 
-	/* Get the units for the scope */
-      int units = vpi_get(vpiTimeUnit, scope);
-	/* Get the units for the simulation */
-      int prec  = vpi_get(vpiTimePrecision, 0);
+	/* Get the units for the simulation. */
+      int scale  = vpi_get(vpiTimePrecision, 0);
 
-	/* Figure the scale (power of 10) needed to convert the
-	   simulation time to ns. */
-      int scale = prec - units;
+	/* Minimize the mantissa by increasing the scale so long as
+	   the mantissa is a multiple of 10. This is not a functional
+	   requirement, but it does help prevent a runaway precision
+	   expansion. */
+      while (now_int >= 10 && (now_int%10 == 0)) {
+	    now_int /= 10;
+	    scale += 1;
+      }
 
       char message[MAX_MESSAGE+1];
       snprintf(message, sizeof message, "READY %" PRIu64 "e%d", now_int, scale);

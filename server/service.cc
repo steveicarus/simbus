@@ -57,21 +57,6 @@ static void sigint_handler(int)
 map <string, struct bus_state> bus_map;
 
 /*
- * The client_map is a collection of all the clients that have
- * connected to this server. Initially, this map is empty. When
- * clients connect to this server, the "listen_ready" function accepts
- * the connection to the bus port, accepts the new connection and uses
- * the generated fd as a key to the client_map. So this map is built
- * up as clients connect to the server.
- *
- * The client_map is used by the service_run() function. When the
- * "select" system call notices activity on an fd, the client_map is
- * used to map that fd to the client.
- */
-static map<int,client_state_t> client_map;
-typedef map<int,client_state_t>::iterator client_map_idx_t;
-
-/*
  * If the server is supposed to write lxt output, this is the pointer
  * to the lxt writer.
  */
@@ -263,7 +248,7 @@ static void listen_ready(bus_map_idx_t&cur)
       client_state_t tmp;
       tmp.set_bus (cur->first);
 
-      client_map[use_fd] = tmp;
+      client_state_t::client_map[use_fd] = tmp;
 }
 
 /*
@@ -271,7 +256,7 @@ static void listen_ready(bus_map_idx_t&cur)
  * for a client is ready. Read the data from the connection and
  * process it.
  */
-static void client_ready(client_map_idx_t&client)
+static void client_ready(client_state_t::client_map_idx_t&client)
 {
       client->second.read_from_socket(client->first);
 }
@@ -315,8 +300,8 @@ int service_run(void)
 	    }
 
 	      // Add the client ports to the fd list.
-	    for (client_map_idx_t idx = client_map.begin()
-		       ; idx != client_map.end() ; idx ++) {
+	    for (client_state_t::client_map_idx_t idx = client_state_t::client_map.begin()
+		       ; idx != client_state_t::client_map.end() ; idx ++) {
 		  int fd = idx->first;
 		  if (! idx->second.is_exited()) {
 			FD_SET(fd, &rfds);
@@ -356,8 +341,8 @@ int service_run(void)
 	    }
 
 	      // Client sockets that become ready...
-	    for (client_map_idx_t idx = client_map.begin()
-		       ; idx != client_map.end() ; idx ++) {
+	    for (client_state_t::client_map_idx_t idx = client_state_t::client_map.begin()
+		       ; idx != client_state_t::client_map.end() ; idx ++) {
 		  int fd = idx->first;
 		  if (FD_ISSET(fd, &rfds))
 			client_ready(idx);

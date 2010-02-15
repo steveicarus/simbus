@@ -24,6 +24,7 @@
 # include  <string>
 # include  <valarray>
 # include  <list>
+# include  <fstream>
 
 class protocol_t;
 
@@ -138,5 +139,10 @@ extern void process_add(const std::string&name,
  */
 extern struct lxt2_wr_trace*service_lxt;
 # define SERVICE_TIME_PRECISION (-10)
+
+/*
+ * File for logging protocol interractions with the clients.
+ */
+extern std::ofstream protocol_log;
 
 #endif

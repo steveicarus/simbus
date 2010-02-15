@@ -18,8 +18,11 @@
  */
 
 # include  "protocol.h"
+# include  "client.h"
 # include  "priv.h"
 # include  "lxt2_write.h"
+#define __STDC_FORMAT_MACROS
+# include  <inttypes.h>
 # include  <iostream>
 # include  <assert.h>
 
@@ -139,6 +142,9 @@ void protocol_t::bus_ready()
 		  int rc = write(fd, "FINISH\n", 7);
 		  close(fd);
 		  dev->second.exited_flag = true;
+
+		  protocol_log << client_state_t::client_map[fd].dev_name()
+			       << ":SEND:FINISH" << endl;
 	    }
 
 	      // Close the bus.
@@ -159,7 +165,7 @@ void protocol_t::bus_ready()
 	    signal_state_map_t&sigs = dev->second.send_signals;
 
 	    char buf[4097];
-	    snprintf(buf, sizeof buf, "UNTIL %lue%d", time_mant_, time_exp_);
+	    snprintf(buf, sizeof buf, "UNTIL %" PRIu64 "e%d", time_mant_, time_exp_);
 
 	    char*cp = buf + strlen(buf);
 	    for (signal_state_map_t::iterator cur_sig = sigs.begin()
@@ -196,6 +202,10 @@ void protocol_t::bus_ready()
 		  }
 
 	    }
+
+	    *cp = 0;
+	    protocol_log << client_state_t::client_map[fd].dev_name()
+			 << ":SEND:" << buf << endl;
 
 	    *cp++ = '\n';
 	    int rc = write(fd, buf, cp-buf);
