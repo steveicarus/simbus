@@ -102,6 +102,21 @@ EXTERN uint32_t simbus_pci_read32(simbus_pci_t bus, uint64_t addr, int BEn);
 EXTERN uint64_t simbus_pci_read64(simbus_pci_t bus, uint64_t addr, int BEn);
 
 /*
+ * Set handlers for target cycles. These handlers are invoked when
+ * the device represented by the simbus_pci_t object is a target to a
+ * bus cycle. The needXX_fun_t functions are called by the library
+ * when the bus is reading from this device, and the recvXX_fun_t
+ * functions are called by the library when the bus is writing to this
+ * device.
+ */
+typedef uint32_t (*need32_fun_t) (simbus_pci_t bus, uint64_t addr, int BEn);
+typedef void (*recv32_fun_t) (simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn);
+
+
+EXTERN void simbus_pci_config_need32(simbus_pci_t bus, need32_fun_t fun);
+EXTERN void simbus_pci_config_recv32(simbus_pci_t bus, recv32_fun_t fun);
+
+/*
  * Send an end-of-simulation message to the simulator.
  */
 EXTERN void simbus_pci_end_simulation(simbus_pci_t bus);

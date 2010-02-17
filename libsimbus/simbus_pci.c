@@ -66,6 +66,20 @@ static void init_simbus_pci(struct simbus_pci_s*pci)
       for (idx = 0 ; idx < 64 ; idx += 1)
 	    pci->pci_ad[idx] = BIT_X;
 
+      pci->config_need32 = 0;
+      pci->config_recv32 = 0;
+
+      pci->target_state = TARG_IDLE;
+}
+
+void simbus_pci_config_need32(simbus_pci_t pci, need32_fun_t fun)
+{
+      pci->config_need32 = fun;
+}
+
+void simbus_pci_config_recv32(simbus_pci_t pci, recv32_fun_t fun)
+{
+      pci->config_recv32 = fun;
 }
 
 /*
@@ -173,6 +187,14 @@ static int send_ready_command(struct simbus_pci_s*pci)
 	    cp += strspn(cp, " ");
       }
       argv[argc] = 0;
+
+      if (strcmp(argv[0],"FINISH") == 0) {
+	    if (pci->debug) {
+		  fprintf(pci->debug, "Abort by FINISH command\n");
+		  fflush(pci->debug);
+	    }
+	    return -1;
+      }
 
       assert(strcmp(argv[0],"UNTIL") == 0);
 
@@ -340,8 +362,16 @@ void __pci_half_clock(simbus_pci_t pci)
 	    if (pci->out_par != BIT_Z) {
 		  for (idx = 0 ; idx < 32 ; idx += 1)
 			pci->out_par = bit_xor(pci->out_par, pci->out_ad[idx]);
-		  for (idx = 0 ; idx < 4 ; idx += 1)
-			pci->out_par = bit_xor(pci->out_par, pci->out_c_be[idx]);
+		    /* Include the C/BE# signals in the parity. If we
+		       are not driving the C/BE#, then assume this is
+		       a target cycle and include the C/BE# values
+		       driven from the outside. */
+		  if (pci->out_c_be[0] == BIT_Z)
+			for (idx = 0 ; idx < 4 ; idx += 1)
+			      pci->out_par = bit_xor(pci->out_par, pci->pci_c_be[idx]);
+		  else
+			for (idx = 0 ; idx < 4 ; idx += 1)
+			      pci->out_par = bit_xor(pci->out_par, pci->out_c_be[idx]);
 	    }
 
 	      /* The 64bit bus signals work similarly. */
@@ -361,20 +391,27 @@ void __pci_half_clock(simbus_pci_t pci)
 
 unsigned simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 {
-
+      int rc = 0;
 	/* Wait for the clock to go low, and to go high again. */
       assert(clks > 0);
       unsigned mask = 0;
       while (clks > 0 && ! (mask&irq)) {
-	    while (pci->pci_clk != BIT_0)
-		  send_ready_command(pci);
+	    while (pci->pci_clk != BIT_0 && rc >= 0)
+		  rc = send_ready_command(pci);
 
-	    while (pci->pci_clk != BIT_1)
-		  send_ready_command(pci);
+	    while (pci->pci_clk != BIT_1 && rc >= 0)
+		  rc = send_ready_command(pci);
+
+	    if (rc < 0) {
+		  return 0;
+	    }
 
 	    clks -= 1;
 
-	      /* Collect the interrupts that are now being drive. */
+	      /* Advance my target machine, if present. */
+	    __pci_target_state_machine(pci);
+
+	      /* Collect the interrupts that are now being driven. */
 	    mask = 0;
 	    int idx;
 	    for (idx = 0 ; idx < 16 ; idx += 1) {
@@ -568,11 +605,8 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
       }
 
 	/* Release all the signals I've been driving. */
-      __undrive_bus(pci);
-
-	/* This clocks the drivers to the next state, and clocks in
-	   the final parity from the target. */
       __pci_half_clock(pci);
+      __undrive_bus(pci);
       __pci_half_clock(pci);
 
 	/* XXXX Here we should check the pci_par parity bit */
@@ -611,6 +645,9 @@ void __undrive_bus(simbus_pci_t pci)
       pci->out_frame_n = BIT_Z;
       pci->out_req64_n = BIT_Z;
       pci->out_irdy_n  = BIT_Z;
+      pci->out_trdy_n  = BIT_Z;
+      pci->out_stop_n  = BIT_Z;
+      pci->out_devsel_n= BIT_Z;
 
       for (idx = 0 ; idx < 8 ; idx += 1)
 	    pci->out_c_be[idx] = BIT_Z;
@@ -651,8 +688,8 @@ int __generic_pci_write32(simbus_pci_t pci, uint64_t addr, int cmd,
       }
 
 	/* Release the bus and settle. */
-      __undrive_bus(pci);
       __pci_half_clock(pci);
+      __undrive_bus(pci);
       __pci_half_clock(pci);
 
       return 0;

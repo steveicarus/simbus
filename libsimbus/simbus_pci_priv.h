@@ -67,8 +67,21 @@ struct simbus_pci_s {
       bus_bitval_t pci_ad[64];
       bus_bitval_t pci_par;
       bus_bitval_t pci_par64;
+
+	/* Callback functions to handle target cycles. */
+      need32_fun_t config_need32;
+      recv32_fun_t config_recv32;
+
+      enum target_machine_e {
+	    TARG_IDLE = 0,
+	    TARG_BUS_BUSY
+      } target_state;
 };
 
+/*
+ * Run target state machine.
+ */
+extern void __pci_target_state_machine(simbus_pci_t pci);
 
 /*
  * Advance to the next PCI half-clock. After this function returns,
