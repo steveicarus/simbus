@@ -1,0 +1,21 @@
+
+bus {
+    protocol = "pci";
+    name = "primary";
+    pipe = "check.pipe";
+
+    host  15 "host";
+    device 0 "ramdev";
+}
+
+process {
+    name = "check";
+    exec = "./check_ramdev pipe:check.pipe";
+    stdout = "-";
+}
+
+process {
+    name = "ramdev";
+    exec = "./pci_ramdev -s pipe:check.pipe";
+    stdout = "check_ramdev-dut.txt";
+}
