@@ -112,9 +112,31 @@ EXTERN uint64_t simbus_pci_read64(simbus_pci_t bus, uint64_t addr, int BEn);
 typedef uint32_t (*need32_fun_t) (simbus_pci_t bus, uint64_t addr, int BEn);
 typedef void (*recv32_fun_t) (simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn);
 
+typedef uint64_t (*need64_fun_t) (simbus_pci_t bus, uint64_t addr, int BEn);
+typedef void (*recv64_fun_t) (simbus_pci_t bus, uint64_t addr, uint64_t val, int BEn);
 
 EXTERN void simbus_pci_config_need32(simbus_pci_t bus, need32_fun_t fun);
 EXTERN void simbus_pci_config_recv32(simbus_pci_t bus, recv32_fun_t fun);
+
+/*
+ * Memory regions are claimed by the target device by calling the
+ * simbus_pci_mem_xlate function with the region number and a pointer
+ * to the translation descriptor. The target API supports up to 8
+ * translation regions, each with their own base address and mask. An
+ * address matches the region if (addr&mask) == (base&mask).
+ */
+struct simbus_translation {
+      int flags;
+      uint64_t base;
+      uint64_t mask;
+      need32_fun_t need32;
+      need64_fun_t need64;
+      recv32_fun_t recv32;
+      recv64_fun_t recv64;
+};
+
+EXTERN void simbus_pci_mem_xlate(simbus_pci_t bus, unsigned idx,
+				 const struct simbus_translation*drv);
 
 /*
  * Send an end-of-simulation message to the simulator.

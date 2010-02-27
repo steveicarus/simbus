@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Stephen Williams (steve@icarus.com)
+ * Copyright (c) 2008-2010 Stephen Williams (steve@icarus.com)
  *
  *    This source code is free software; you can redistribute it
  *    and/or modify it in source code form under the terms of the GNU
@@ -68,6 +68,10 @@ static void init_simbus_pci(struct simbus_pci_s*pci)
 
       pci->config_need32 = 0;
       pci->config_recv32 = 0;
+
+      for (idx = 0 ; idx < TARGET_MEM_REGIONS ; idx += 1) {
+	    memset(&pci->mem_target[idx], 0, sizeof(pci->mem_target[idx]));
+      }
 
       pci->target_state = TARG_IDLE;
 }

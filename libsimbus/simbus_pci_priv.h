@@ -21,6 +21,8 @@
 
 typedef enum { BIT_0, BIT_1, BIT_X, BIT_Z } bus_bitval_t;
 
+# define TARGET_MEM_REGIONS 8
+
 struct simbus_pci_s {
 	/* The name given in the simbus_pci_connect function. This is
 	   also the name sent to the server in order to get my id. */
@@ -72,8 +74,15 @@ struct simbus_pci_s {
       need32_fun_t config_need32;
       recv32_fun_t config_recv32;
 
+	/* Description of target memory regions */
+      struct simbus_translation mem_target[TARGET_MEM_REGIONS];
+
+	/* Low bits of a 64bit DAC cycle */
+      uint64_t dac_addr_lo;
+
       enum target_machine_e {
 	    TARG_IDLE = 0,
+	    TARG_DAC,
 	    TARG_BUS_BUSY
       } target_state;
 };
