@@ -455,10 +455,10 @@ void __pci_request_bus(simbus_pci_t pci)
 /*
  * Send the address and command...
  */
-void __address_command32(simbus_pci_t pci, uint64_t addr, unsigned cmd)
+void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64)
 {
       int idx;
-      pci->out_req64_n = BIT_1;
+      pci->out_req64_n = flag64? BIT_0 : BIT_1;
       pci->out_frame_n = BIT_0;
       pci->out_irdy_n  = BIT_1;
       pci->out_trdy_n  = BIT_Z;
@@ -472,10 +472,20 @@ void __address_command32(simbus_pci_t pci, uint64_t addr, unsigned cmd)
 	    addr_tmp >>= (uint64_t)1;
       }
 
+	/* If this is intended to be a 64bit transaction, then fill in
+	   the high bits of the address as well. */
+      if (pci->out_req64_n == BIT_0) {
+	    uint64_t highbits = addr_tmp;
+	    for (idx = 32 ; idx < 64 ; idx += 1) {
+		  pci->out_ad[idx] = (highbits&1) ? BIT_1 : BIT_0;
+		  highbits >>= (uint64_t)1;
+	    }
+      }
+
 	/* Ah, there is more address data. That means this is a 64bit
-	   address and a DAC is necessary. Generate the DAC to clock
-	   out the low bits, and let the remaining bits be taken care
-	   of by the next clock. */
+	   address and a DAC is necessary. (Even if this is a 64bit
+	   cycle.) Generate the DAC to clock out the low bits, and let
+	   the remaining bits be taken care of by the next clock. */
       if (addr_tmp != 0) {
 	    pci->out_c_be[0] = BIT_1;
 	    pci->out_c_be[1] = BIT_0;
@@ -500,8 +510,14 @@ void __address_command32(simbus_pci_t pci, uint64_t addr, unsigned cmd)
       __pci_half_clock(pci);
       __pci_half_clock(pci);
 
-	/* Stage the IRDY# */
-      pci->out_frame_n = BIT_1;
+	/* Stage the IRDY#. If this is a 32bit transaction, then at
+	   the same time withdraw the FRAME# signal. If we are
+	   requesting a 64bit transaction, then leave the FRAME#
+	   active in case the target acknowledges only 32bits, and
+	   this turns into a burst. */
+      if (pci->out_req64_n!=BIT_0)
+	    pci->out_frame_n = BIT_1;
+
       pci->out_irdy_n  = BIT_0;
 }
 
@@ -524,13 +540,19 @@ int __wait_for_devsel(simbus_pci_t pci)
 	    }
       }
 
+	/* If the target is acknowledging a 64bit transaction, then
+	   we can release the FRAME# and transmit the data in a single
+	   clock. */
+      if (pci->out_req64_n==BIT_0 && pci->pci_ack64_n==BIT_0) {
+	    pci->out_frame_n = BIT_1;
+	    pci->out_req64_n = BIT_1;
+      }
+
       return 0;
 }
 
-static int __wait_for_read32(simbus_pci_t pci, uint32_t*val)
+int __wait_for_read(simbus_pci_t pci, uint64_t*val)
 {
-      pci->out_frame_n = BIT_1;
-      pci->out_req64_n = BIT_1;
 
 	/* Wait for TRDY# */
       int count = 256;
@@ -545,11 +567,19 @@ static int __wait_for_read32(simbus_pci_t pci, uint32_t*val)
       }
 
 	/* Collect the result read from the device. */
-      uint32_t result = 0;
+      uint64_t result = 0;
+      uint64_t mask = 1;
       int idx;
-      for (idx = 0 ; idx < 32 ; idx += 1) {
+      for (idx = 0 ; idx < 32 ; idx += 1, mask <<= 1) {
 	    if (pci->pci_ad[idx] != BIT_0)
-		  result |= 1 << idx;
+		  result |= mask;
+      }
+
+      if (pci->pci_ack64_n == BIT_0) {
+	    for (idx = 0 ; idx < 64 ; idx += 1, mask <<= 1) {
+		  if (pci->pci_ad[idx] != BIT_0)
+			result |= mask;
+	    }
       }
 
       *val = result;
@@ -575,7 +605,7 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 
       pci->out_req_n = BIT_1;
 
-      __address_command32(pci, addr, cmd);
+      __address_command(pci, addr, cmd, 0);
 
 	/* Collect the BE# bits. */
       pci->out_c_be[0] = BEn&0x1? BIT_1 : BIT_0;
@@ -596,7 +626,11 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 	    return GPCI_MASTER_ABORT;
       }
 
-      if ( (rc = __wait_for_read32(pci, result)) < 0) {
+      pci->out_frame_n = BIT_1;
+      pci->out_req64_n = BIT_1;
+
+      uint64_t val;
+      if ( (rc = __wait_for_read(pci, &val)) < 0) {
 	      /* Release all the signals I've been driving. */
 	    __undrive_bus(pci);
 
@@ -607,6 +641,8 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 	    *result = 0xffffffff;
 	    return rc;
       }
+
+      *result = val;
 
 	/* Release all the signals I've been driving. */
       __pci_half_clock(pci);
@@ -619,22 +655,34 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
       return 0;
 }
 
-void __setup_for_write32(simbus_pci_t pci, uint32_t val, int BEn)
+void __setup_for_write(simbus_pci_t pci, uint64_t val, int BEn, int flag64)
 {
       pci->out_c_be[0] = BEn&1 ? BIT_1 : BIT_0;
       pci->out_c_be[1] = BEn&2 ? BIT_1 : BIT_0;
       pci->out_c_be[2] = BEn&4 ? BIT_1 : BIT_0;
       pci->out_c_be[3] = BEn&8 ? BIT_1 : BIT_0;
-      pci->out_c_be[4] = BIT_1;
-      pci->out_c_be[5] = BIT_1;
-      pci->out_c_be[7] = BIT_1;
-      pci->out_c_be[8] = BIT_1;
+      if (flag64) {
+	    pci->out_c_be[4] = BEn&0x10 ? BIT_1 : BIT_0;
+	    pci->out_c_be[5] = BEn&0x20 ? BIT_1 : BIT_0;
+	    pci->out_c_be[7] = BEn&0x40 ? BIT_1 : BIT_0;
+	    pci->out_c_be[8] = BEn&0x80 ? BIT_1 : BIT_0;
+      } else {
+	    pci->out_c_be[4] = BIT_1;
+	    pci->out_c_be[5] = BIT_1;
+	    pci->out_c_be[7] = BIT_1;
+	    pci->out_c_be[8] = BIT_1;
+      }
 
       int idx;
       for (idx = 0 ; idx < 32 ; idx += 1, val >>= 1)
 	    pci->out_ad[idx] = (val&1) ? BIT_1 : BIT_0;
-      for (idx = 32 ; idx < 64; idx += 1)
-	    pci->out_ad[idx] = BIT_Z;
+      if (flag64) {
+	    for (idx = 32; idx < 64 ; idx += 1, val >>= 1)
+		  pci->out_ad[idx] = (val&1) ? BIT_1 : BIT_0;
+      } else {
+	    for (idx = 32 ; idx < 64; idx += 1)
+		  pci->out_ad[idx] = BIT_Z;
+      }
 
 	/* Clock the IRDY and BE#s (and PAR). */
       __pci_half_clock(pci);
@@ -677,10 +725,9 @@ int __generic_pci_write32(simbus_pci_t pci, uint64_t addr, int cmd,
 
       pci->out_req_n = BIT_1;
 
+      __address_command(pci, addr, cmd, 0);
 
-      __address_command32(pci, addr, cmd);
-
-      __setup_for_write32(pci, val, BEn);
+      __setup_for_write(pci, val, BEn, 0);
 
       if ( (rc = __wait_for_devsel(pci)) < 0)
 	    return rc;

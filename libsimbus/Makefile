@@ -17,7 +17,7 @@ uninstall:
 	rm -f $(DESTDIR)$(includedir)/simbus_pci.h
 	rm -f $(DESTDIR)$(includedir)/simbus_pci_memdev.h
 
-L = simbus.o simbus_pci.o simbus_pci_config.o simbus_pci_rw32.o simbus_pci_target.o simbus_pci_memdev.o
+L = simbus.o simbus_pci.o simbus_pci_config.o simbus_pci_rw32.o simbus_pci_rw64.o simbus_pci_target.o simbus_pci_memdev.o
 
 libsimbus.a: $L
 	rm -f libsimbus.a
@@ -27,6 +27,7 @@ simbus.o: simbus.c simbus_priv.h
 simbus_pci.o: simbus_pci.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
 simbus_pci_config.o: simbus_pci_config.c simbus_pci.h simbus_pci_priv.h
 simbus_pci_rw32.o: simbus_pci_rw32.c simbus_pci.h simbus_pci_priv.h
+simbus_pci_rw64.o: simbus_pci_rw64.c simbus_pci.h simbus_pci_priv.h
 simbus_pci_target.o: simbus_pci_target.c simbus_pci.h simbus_pci_priv.h
 
 simbus_pci_memdev.o: simbus_pci_memdev.c simbus_pci_memdev.h simbus_pci.h

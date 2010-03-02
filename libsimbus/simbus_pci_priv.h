@@ -100,14 +100,20 @@ extern void __pci_half_clock(simbus_pci_t pci);
 
 extern void __pci_request_bus(simbus_pci_t pci);
 
-extern void __address_command32(simbus_pci_t pci, uint64_t addr, unsigned cmd);
+/*
+ * Transmit the FRAME#, the address and the command. If the address
+ * needs 64bits then handle a DAC as well. If flag64!=0, then also
+ * attempt to start a 64bit (data) transaction.
+ */
+extern void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64);
 
 /*
  * Wait for the DEVSEL#. Return <0 if it doesn't arrive.
  */
 extern int __wait_for_devsel(simbus_pci_t pci);
 
-extern void __setup_for_write32(simbus_pci_t pci, uint32_t val, int BEn);
+extern void __setup_for_write(simbus_pci_t pci, uint64_t val, int BEn, int flag64);
+extern int __wait_for_read(simbus_pci_t pci, uint64_t*val);
 
 /*
  * The __generic_pci_read32 function performs a PCI read32 bus

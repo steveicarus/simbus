@@ -40,6 +40,8 @@ int main(int argc, char*argv[])
       FILE*debug = fopen("host-debug.log", "w");
       simbus_pci_debug(pci, debug);
 
+      uint64_t value64;
+
       simbus_pci_wait(pci, 4, 0);
       simbus_pci_reset(pci, 8, 8);
 
@@ -128,6 +130,14 @@ int main(int argc, char*argv[])
       value = simbus_pci_read32(pci, base1+8, 0);
       printf("0x%08x: %lx (should be 0xaa55aa55)\n", base1+8, value);
       if (value != 0xaa55aa55) printf("FAIL\n");
+
+	// Try 64bit write/read.
+      value64 = 0x1122334455667788;
+      simbus_pci_write64(pci, base1+16, value64, 0);
+      simbus_pci_wait(pci, 1, 0);
+
+      value64 = simbus_pci_read64(pci, base1+16, 0);
+      printf("0x%08x: %016llx (should be 0x1122334455667788)\n", base1+16, value64);
 
       simbus_pci_wait(pci, 4, 0);
       simbus_pci_end_simulation(pci);
