@@ -113,10 +113,24 @@ int main(int argc, char*argv[])
       simbus_pci_config_need32(bus, &config_read32);
       simbus_pci_config_recv32(bus, &config_recv32);
 
-	// Wait forever.
-      simbus_pci_wait(bus, 0xffffffff, 0);
+	// Wait forever. We act like a PCI device by responding to
+	// PCI transactions on the PCI bus, implemented in our
+	// callbacks. When the simulation finishes, the pci_wait will
+	// return, and we clean up.
+      int rc = simbus_pci_wait(bus, 0xffffffff, 0);
+      switch (rc) {
+	  case SIMBUS_PCI_FINISHED:
+	    printf("Simulation finished.\n");
+	    break;
+	  default:
+	    printf("simbus_pci_wait returned rc=%d\n", rc);
+	    break;
+      }
 
-      simbus_pci_end_simulation(bus);
+	// Close our connection to the simbus server/PCI bus with this
+	// command. Do *not* use the simbus_pci_end_simulation because
+	// we are not a host device.
+      simbus_pci_disconnect(bus);
 
       if (debug_fd) fclose(debug_fd);
 

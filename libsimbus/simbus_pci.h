@@ -46,11 +46,16 @@ EXTERN void simbus_pci_debug(simbus_pci_t pci, FILE*fd);
 /*
  * Advance the Verilog simulation some number of PCI clocks, or until
  * one of the interrupts in the irq_enable is active. The irq_enable
- * is a bit-mask of interrupts to be enabled (high bits enable the
+ * is a bit-mask of interrupts to be enabled (1-bits enable the
  * interrupt) and the return value is the mask of interrupts that
  * interrupted the wait, or 0 if the wait timed out.
+ *
+ * If the function returns because if an error, the function will
+ * return an error code.
  */
-EXTERN unsigned simbus_pci_wait(simbus_pci_t bus, unsigned clks, unsigned irq_enable);
+EXTERN int simbus_pci_wait(simbus_pci_t bus, unsigned clks, unsigned irq_enable);
+# define SIMBUS_PCI_ERROR (-1)
+# define SIMBUS_PCI_FINISHED (-2)
 
 /*
  * Cause a RESET# pulse to be generated on the PCI bus of the
@@ -139,9 +144,13 @@ EXTERN void simbus_pci_mem_xlate(simbus_pci_t bus, unsigned idx,
 				 const struct simbus_translation*drv);
 
 /*
- * Send an end-of-simulation message to the simulator.
+ * Send an end-of-simulation message to the simulator, then dosconnect
+ * and close the bus object. Only HOST devices should call the
+ * pci_end_simulation function. Other devices should call the
+ * simbus_pci_disconnect function instead.
  */
 EXTERN void simbus_pci_end_simulation(simbus_pci_t bus);
+EXTERN void simbus_pci_disconnect(simbus_pci_t bus);
 
 #undef EXTERN
 

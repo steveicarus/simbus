@@ -197,7 +197,7 @@ static int send_ready_command(struct simbus_pci_s*pci)
 		  fprintf(pci->debug, "Abort by FINISH command\n");
 		  fflush(pci->debug);
 	    }
-	    return -1;
+	    return SIMBUS_PCI_FINISHED;
       }
 
       assert(strcmp(argv[0],"UNTIL") == 0);
@@ -393,7 +393,7 @@ void __pci_half_clock(simbus_pci_t pci)
       }
 }
 
-unsigned simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
+int simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 {
       int rc = 0;
 	/* Wait for the clock to go low, and to go high again. */
@@ -407,7 +407,7 @@ unsigned simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 		  rc = send_ready_command(pci);
 
 	    if (rc < 0) {
-		  return 0;
+		  return rc;
 	    }
 
 	    clks -= 1;
@@ -717,6 +717,11 @@ void simbus_pci_end_simulation(simbus_pci_t pci)
       buf[rc] = 0;
       assert(strcmp(buf,"FINISH\n") == 0);
 
+      simbus_pci_disconnect(pci);
+}
+
+void simbus_pci_disconnect(simbus_pci_t pci)
+{
       close(pci->fd);
       free(pci->name);
       free(pci);
