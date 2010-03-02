@@ -102,20 +102,23 @@ int main(int argc, char*argv[])
 	// Enable Memory Space access and bus mastering
       simbus_pci_config_write(pci, 0x10004, 0xffff0006, 0);
 
-
+	// Now check that empty, uninitialized memory reads as zeros.
       printf("Should read zeros from uninitialized ramdev...\n");
       uint64_t base1 = BASE_BAR0_32;
       for (unsigned idx = 0 ;  idx < 512 ;  idx += 8) {
 	    uint32_t value1 = simbus_pci_read32(pci, base1 + idx, 0);
 	    uint32_t value2 = simbus_pci_read32(pci, base1 + idx + 4, 0);
 	    printf("0x%08x: %08lx %08lx\n", base1+idx, value1, value2);
+	    if (value1 != 0 || value2 != 0) printf("FAIL\n");
       }
 
+	// Try write/read of a few memory locations.
       simbus_pci_write32(pci, base1+8, 0xaaaa5555, 0);
       simbus_pci_wait(pci, 4, 0);
 
       value = simbus_pci_read32(pci, base1 + 8, 0);
       printf("0x%08x: %lx (should be 0xaaaa5555)\n", base1+8, value);
+      if (value != 0xaaaa5555) printf("FAIL\n");
 
       simbus_pci_wait(pci, 4, 0);
 
@@ -124,8 +127,11 @@ int main(int argc, char*argv[])
 
       value = simbus_pci_read32(pci, base1+8, 0);
       printf("0x%08x: %lx (should be 0xaa55aa55)\n", base1+8, value);
+      if (value != 0xaa55aa55) printf("FAIL\n");
 
       simbus_pci_wait(pci, 4, 0);
       simbus_pci_end_simulation(pci);
+
+      printf("Done\n");
       return 0;
 }
