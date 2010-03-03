@@ -6,6 +6,7 @@ all: Make.rules
 	cd libsimbus ; $(MAKE) all
 	cd vpi       ; $(MAKE) all
 	cd ver       ; $(MAKE) all
+	cd pci/ramdev ; $(MAKE) all
 	cd pcimem    ; $(MAKE) all
 
 clean:
@@ -13,6 +14,7 @@ clean:
 	cd libsimbus ; $(MAKE) clean
 	cd vpi       ; $(MAKE) clean
 	cd ver       ; $(MAKE) clean
+	cd pci/ramdev ; $(MAKE) clean
 	cd pcimem    ; $(MAKE) clean
 	rm -f *~
 
@@ -24,6 +26,7 @@ install:
 	cd libsimbus ; $(MAKE) install
 	cd vpi       ; $(MAKE) install
 	cd ver       ; $(MAKE) install
+	cd pci/ramdev ; $(MAKE) install
 	cd pcimem    ; $(MAKE) install
 
 uninstall:
@@ -31,6 +34,7 @@ uninstall:
 	cd libsimbus ; $(MAKE) uninstall
 	cd vpi       ; $(MAKE) uninstall
 	cd ver       ; $(MAKE) uninstall
+	cd pci/ramdev ; $(MAKE) uninstall
 	cd pcimem    ; $(MAKE) uninstall
 
 Make.rules: Make.rules.in
