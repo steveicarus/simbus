@@ -19,7 +19,7 @@
 #                 (Make the tag in the local git repository.)
 #
 #   sh scripts/MAKE_SNAPSHOT.sh YYYYMMDD ~/tmp
-#                 (Make the snapshot bundle verilog-YYYYMMDD.tar.gz)
+#                 (Make the snapshot bundle simbus-YYYYMMDD.tar.gz)
 #
 #   git push --tags
 #                 (Publish the tag to the repository.)
