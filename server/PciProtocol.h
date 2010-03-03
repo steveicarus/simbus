@@ -39,7 +39,7 @@ class PciProtocol  : public protocol_t {
 
     private:
 	// Current state of the PCI clock. (It toggles.)
-      bit_state_t pci_clk_;
+      int phase_;
 	// Device that is currently granted, or -1 if none.
       int granted_;
 };

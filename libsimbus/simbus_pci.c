@@ -347,50 +347,55 @@ static bus_bitval_t bit_xor(bus_bitval_t a, bus_bitval_t b)
       else return BIT_0;
 }
 
-void __pci_half_clock(simbus_pci_t pci)
+void __pci_next_posedge(simbus_pci_t pci)
 {
-      send_ready_command(pci);
+      int idx;
 
-      if (pci->pci_clk == BIT_1) {
-	    int idx;
-
-	      /* If the clock is 1, then we clocked out AD and C/BE#
-		 values. Now we can calculate the PAR and PAR64 bits
-		 that well me transmitted on the next clock. */
-
-	    pci->out_par = BIT_Z;
-	    for (idx = 0 ; idx < 32 && pci->out_par==BIT_Z ; idx += 1)
-		  if (pci->out_ad[idx] != BIT_Z)
-			pci->out_par = BIT_0;
-
-	    if (pci->out_par != BIT_Z) {
-		  for (idx = 0 ; idx < 32 ; idx += 1)
-			pci->out_par = bit_xor(pci->out_par, pci->out_ad[idx]);
-		    /* Include the C/BE# signals in the parity. If we
-		       are not driving the C/BE#, then assume this is
-		       a target cycle and include the C/BE# values
-		       driven from the outside. */
-		  if (pci->out_c_be[0] == BIT_Z)
-			for (idx = 0 ; idx < 4 ; idx += 1)
-			      pci->out_par = bit_xor(pci->out_par, pci->pci_c_be[idx]);
-		  else
-			for (idx = 0 ; idx < 4 ; idx += 1)
-			      pci->out_par = bit_xor(pci->out_par, pci->out_c_be[idx]);
-	    }
-
-	      /* The 64bit bus signals work similarly. */
-	    pci->out_par64 = BIT_Z;
-	    for (idx = 32 ; idx < 64 && pci->out_par64==BIT_Z ; idx += 1)
-		  if (pci->out_ad[idx] != BIT_Z)
-			pci->out_par64 = BIT_0;
-
-	    if (pci->out_par64 != BIT_Z) {
-		  for (idx = 32 ; idx < 64 ; idx += 1)
-			pci->out_par64 = bit_xor(pci->out_par64, pci->out_ad[idx]);
-		  for (idx = 4 ; idx < 8 ; idx += 1)
-			pci->out_par64 = bit_xor(pci->out_par64, pci->out_c_be[idx]);
-	    }
+      while (pci->pci_clk == BIT_1) {
+	    send_ready_command(pci);
       }
+
+      while (pci->pci_clk == BIT_0) {
+	    send_ready_command(pci);
+      }
+
+	/* On the clock posedge, we clocked out AD and C/BE#
+	   values. Now we can calculate the PAR and PAR64 bits
+	   that well me transmitted on the next clock. */
+
+      pci->out_par = BIT_Z;
+      for (idx = 0 ; idx < 32 && pci->out_par==BIT_Z ; idx += 1)
+	    if (pci->out_ad[idx] != BIT_Z)
+		  pci->out_par = BIT_0;
+
+      if (pci->out_par != BIT_Z) {
+	    for (idx = 0 ; idx < 32 ; idx += 1)
+		  pci->out_par = bit_xor(pci->out_par, pci->out_ad[idx]);
+	      /* Include the C/BE# signals in the parity. If we
+		 are not driving the C/BE#, then assume this is
+		 a target cycle and include the C/BE# values
+		 driven from the outside. */
+	    if (pci->out_c_be[0] == BIT_Z)
+		  for (idx = 0 ; idx < 4 ; idx += 1)
+			pci->out_par = bit_xor(pci->out_par, pci->pci_c_be[idx]);
+	    else
+		  for (idx = 0 ; idx < 4 ; idx += 1)
+			pci->out_par = bit_xor(pci->out_par, pci->out_c_be[idx]);
+      }
+
+	/* The 64bit bus signals work similarly. */
+      pci->out_par64 = BIT_Z;
+      for (idx = 32 ; idx < 64 && pci->out_par64==BIT_Z ; idx += 1)
+	    if (pci->out_ad[idx] != BIT_Z)
+		  pci->out_par64 = BIT_0;
+
+      if (pci->out_par64 != BIT_Z) {
+	    for (idx = 32 ; idx < 64 ; idx += 1)
+		  pci->out_par64 = bit_xor(pci->out_par64, pci->out_ad[idx]);
+	    for (idx = 4 ; idx < 8 ; idx += 1)
+		  pci->out_par64 = bit_xor(pci->out_par64, pci->out_c_be[idx]);
+      }
+
 }
 
 int simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
@@ -493,8 +498,7 @@ void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64
 	    pci->out_c_be[3] = BIT_1;
 
 	      /* Clock the DAC command and low address bits */
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
+	    __pci_next_posedge(pci);
 
 	      /* Get the remaining address bits ready. */
 	    for (idx = 0 ; idx < 32 ; idx += 1) {
@@ -507,8 +511,7 @@ void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64
 	    pci->out_c_be[idx] = (cmd & (1<<idx)) ? BIT_1 : BIT_0;
 
 	/* Clock the Command and address */
-      __pci_half_clock(pci);
-      __pci_half_clock(pci);
+      __pci_next_posedge(pci);
 
 	/* Stage the IRDY#. If this is a 32bit transaction, then at
 	   the same time withdraw the FRAME# signal. If we are
@@ -524,14 +527,11 @@ void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64
 int __wait_for_devsel(simbus_pci_t pci)
 {
       if (pci->pci_devsel_n != BIT_0) { /* FAST decode... */
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
+	    __pci_next_posedge(pci);
 	    if (pci->pci_devsel_n != BIT_0) { /* SLOW decode... */
-		  __pci_half_clock(pci);
-		  __pci_half_clock(pci);
+		  __pci_next_posedge(pci);
 		  if (pci->pci_devsel_n != BIT_0) { /* Subtractive decode... */
-			__pci_half_clock(pci);
-			__pci_half_clock(pci);
+			__pci_next_posedge(pci);
 			if (pci->pci_devsel_n != BIT_0) { /* give up. */
 			      __undrive_bus(pci);
 			      return GPCI_MASTER_ABORT;
@@ -560,8 +560,7 @@ int __wait_for_read(simbus_pci_t pci, uint64_t*val)
 	      /* If STOP# is low while TRDY# is high, then this is a Retry */
 	    if (pci->pci_stop_n == BIT_0)
 		  return GPCI_TARGET_RETRY;
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
+	    __pci_next_posedge(pci);
 	    count -= 1;
 	    assert(count > 0);
       }
@@ -597,12 +596,6 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 	   a REQ#/GNT# handshake. */
       __pci_request_bus(pci);
 
-	/* Advance to the low phase of the PCI clock. We do this
-	   because we want our outputs to change on the rising edges
-	   of the PCI clock. */
-      if (pci->pci_clk != BIT_1)
-	    __pci_half_clock(pci);
-
       pci->out_req_n = BIT_1;
 
       __address_command(pci, addr, cmd, 0);
@@ -618,8 +611,7 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
       }
 
 	/* Clock the IRDY and BE#s (and PAR), and un-drive the AD bits. */
-      __pci_half_clock(pci);
-      assert(pci->pci_clk == BIT_0);
+      __pci_next_posedge(pci);
 
       if (__wait_for_devsel(pci) < 0) {
 	    *result = 0xffffffff;
@@ -636,8 +628,7 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 
 	      /* This clocks the drivers to the next state, and clocks in
 		 the final parity from the target. */
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
+	    __pci_next_posedge(pci);
 	    *result = 0xffffffff;
 	    return rc;
       }
@@ -645,9 +636,8 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
       *result = val;
 
 	/* Release all the signals I've been driving. */
-      __pci_half_clock(pci);
       __undrive_bus(pci);
-      __pci_half_clock(pci);
+      __pci_next_posedge(pci);
 
 	/* XXXX Here we should check the pci_par parity bit */
 
@@ -685,8 +675,7 @@ void __setup_for_write(simbus_pci_t pci, uint64_t val, int BEn, int flag64)
       }
 
 	/* Clock the IRDY and BE#s (and PAR). */
-      __pci_half_clock(pci);
-      assert(pci->pci_clk == BIT_0);
+      __pci_next_posedge(pci);
 
 }
 
@@ -717,12 +706,6 @@ int __generic_pci_write32(simbus_pci_t pci, uint64_t addr, int cmd,
 	   a REQ#/GNT# handshake. */
       __pci_request_bus(pci);
 
-	/* Advance to the low phase of the PCI clock. We do this
-	   because we want our outputs to change on the rising edges
-	   of the PCI clock. */
-      if (pci->pci_clk != BIT_1)
-	    __pci_half_clock(pci);
-
       pci->out_req_n = BIT_1;
 
       __address_command(pci, addr, cmd, 0);
@@ -734,14 +717,12 @@ int __generic_pci_write32(simbus_pci_t pci, uint64_t addr, int cmd,
 
 	/* Wait for the target to TRDY# in order to clock the data out. */
       while (pci->pci_trdy_n != BIT_0) {
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
+	    __pci_next_posedge(pci);
       }
 
 	/* Release the bus and settle. */
-      __pci_half_clock(pci);
       __undrive_bus(pci);
-      __pci_half_clock(pci);
+      __pci_next_posedge(pci);
 
       return 0;
 }

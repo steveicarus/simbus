@@ -93,10 +93,10 @@ struct simbus_pci_s {
 extern void __pci_target_state_machine(simbus_pci_t pci);
 
 /*
- * Advance to the next PCI half-clock. After this function returns,
- * then pci_clk member will be different.
+ * Advance to the next PCI clock. After this function returns,
+ * the pci_clk will be high.
  */
-extern void __pci_half_clock(simbus_pci_t pci);
+extern void __pci_next_posedge(simbus_pci_t pci);
 
 extern void __pci_request_bus(simbus_pci_t pci);
 

@@ -136,8 +136,7 @@ static void do_target_config_read(simbus_pci_t pci)
       pci->out_trdy_n = BIT_1;
       pci->out_stop_n = BIT_1;
 
-      __pci_half_clock(pci);
-      __pci_half_clock(pci);
+      __pci_next_posedge(pci);
 
 	/* Drive TRDY# and the AD. */
       pci->out_trdy_n = BIT_0;
@@ -150,8 +149,7 @@ static void do_target_config_read(simbus_pci_t pci)
 
 	/* Wait for the master to read the data. */
       do {
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
+	    __pci_next_posedge(pci);
       } while (pci->pci_irdy_n == BIT_1);
 
       pci->out_devsel_n = BIT_1;
@@ -161,8 +159,7 @@ static void do_target_config_read(simbus_pci_t pci)
       for (idx = 0 ; idx < 64 ; idx += 1)
 	    pci->out_ad[idx] = BIT_Z;
 
-      __pci_half_clock(pci);
-      __pci_half_clock(pci);
+      __pci_next_posedge(pci);
 
 	/* Release the bus and settle. */
       __undrive_bus(pci);
@@ -185,8 +182,7 @@ static void do_target_config_write(simbus_pci_t pci)
 
 	/* Wait for the master to be ready with the data. */
       do {
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
+	    __pci_next_posedge(pci);
       } while (pci->pci_irdy_n == BIT_1);
 
       uint32_t val = get_addr32(pci);
@@ -203,8 +199,7 @@ static void do_target_config_write(simbus_pci_t pci)
       pci->out_trdy_n = BIT_1;
       pci->out_stop_n = BIT_1;
 
-      __pci_half_clock(pci);
-      __pci_half_clock(pci);
+      __pci_next_posedge(pci);
 
       pci->out_devsel_n = BIT_Z;
       pci->out_trdy_n   = BIT_Z;
@@ -225,8 +220,7 @@ static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translat
       pci->out_trdy_n = BIT_1;
       pci->out_stop_n = BIT_1;
 
-      __pci_half_clock(pci);
-      __pci_half_clock(pci);
+      __pci_next_posedge(pci);
 
       do {
 	    int BEn = 0;
@@ -247,8 +241,7 @@ static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translat
 
 	      /* Wait for the master to read the data. */
 	    do {
-		  __pci_half_clock(pci);
-		  __pci_half_clock(pci);
+		  __pci_next_posedge(pci);
 	    } while (pci->pci_irdy_n == BIT_1);
 
 	    addr += 4;
@@ -263,8 +256,7 @@ static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translat
       for (idx = 0 ; idx < 64 ; idx += 1)
 	    pci->out_ad[idx] = BIT_Z;
 
-      __pci_half_clock(pci);
-      __pci_half_clock(pci);
+      __pci_next_posedge(pci);
 
 	/* Release the bus and settle. */
       __undrive_bus(pci);
@@ -280,16 +272,12 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
       pci->out_devsel_n = BIT_0;
       pci->out_trdy_n = BIT_0;
       pci->out_stop_n = BIT_1;
-#if 0
-      __pci_half_clock(pci);
-      __pci_half_clock(pci);
-#endif
+
       do {
 	    int BEn = 0;
 	      /* Wait for the master to be ready with the data. */
 	    do {
-		  __pci_half_clock(pci);
-		  __pci_half_clock(pci);
+		  __pci_next_posedge(pci);
 	    } while (pci->pci_irdy_n == BIT_1);
 
 	    if (bar->recv32) {
@@ -312,8 +300,7 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
       pci->out_trdy_n = BIT_1;
       pci->out_stop_n = BIT_1;
 
-      __pci_half_clock(pci);
-      __pci_half_clock(pci);
+      __pci_next_posedge(pci);
 
 	/* Release the bus and settle. */
       pci->out_devsel_n = BIT_Z;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Stephen Williams (steve@icarus.com)
+ * Copyright (c) 2008-2010 Stephen Williams (steve@icarus.com)
  *
  *    This source code is free software; you can redistribute it
  *    and/or modify it in source code form under the terms of the GNU
@@ -23,8 +23,31 @@
 
 using namespace std;
 
+/*
+ * The clock_phase_map describes the phases of the clock. The phase
+ * states are chosen to give clients a chance to participate in the
+ * protocol in time.
+ *
+ *   Phase:         C        D A B        C
+ *                  |        | | |        |
+ *                  V        V V V        V
+ *       +----------+          +----------+
+ *       |          |          |          |
+ *       |          |          |          |
+ *  -----+          +----------+          +----------
+ */
+static struct {
+      bit_state_t clk_val;
+      uint64_t duration_ps;
+} clock_phase_map[4] = {
+      { BIT_1,   2000 }, // A  - Posedge
+      { BIT_1,  14500 }, // B  - Hold
+      { BIT_0,  14500 }, // C  - Negedge
+      { BIT_0,   2000 }  // D  - Setup
+};
+
 PciProtocol::PciProtocol(struct bus_state&b)
-: protocol_t(b), pci_clk_(BIT_1)
+: protocol_t(b), phase_(0)
 {
       granted_ = -1;
 }
@@ -143,6 +166,8 @@ void PciProtocol::run_run()
 	// Calculate the RESET# signal.
       bit_state_t reset_n = calculate_reset_n_();
 
+      bit_state_t pci_clk = clock_phase_map[phase_].clk_val;
+
 	// Run the arbitration state machine.
       arbitrate_();
 
@@ -161,7 +186,7 @@ void PciProtocol::run_run()
 
 	      // Common signals...
 
-	    curdev.send_signals["PCI_CLK"][0] = pci_clk_;
+	    curdev.send_signals["PCI_CLK"][0] = pci_clk;
 
 	    if (curdev.host_flag) {
 		    // Outputs to host nodes...
@@ -171,21 +196,17 @@ void PciProtocol::run_run()
 	    }
       }
 
-      set_trace_("PCI_CLK", pci_clk_);
+      set_trace_("PCI_CLK", pci_clk);
       set_trace_("RESET#",  reset_n);
 }
 
 void PciProtocol::advance_pci_clock_(void)
 {
-	// Advance time 1/2 a PCI clock.
-      advance_time_(16500, -12);
+	// Advance the phase pointer
+      phase_ = (phase_ + 1) % 4;
 
-	// Toggle the PCI clock
-      if (pci_clk_ == BIT_1) {
-	    pci_clk_ = BIT_0;
-      } else {
-	    pci_clk_ = BIT_1;
-      }
+	// Advance time for the next phase
+      advance_time_(clock_phase_map[phase_].duration_ps, -12);
 }
 
 bit_state_t PciProtocol::calculate_reset_n_()
@@ -224,7 +245,7 @@ bit_state_t PciProtocol::calculate_reset_n_()
 void PciProtocol::arbitrate_()
 {
 	// Only arbitrate on the rising edge of the clock.
-      if (pci_clk_ != BIT_1)
+      if (phase_ != 0)
 	    return;
 
 	// Collect all the REQ# signals from all the attached devices.

@@ -33,9 +33,6 @@ uint64_t simbus_pci_read64(simbus_pci_t pci, uint64_t addr, int BEn)
       while (retry) {
 	    __pci_request_bus(pci);
 
-	    if (pci->pci_clk != BIT_1)
-		  __pci_half_clock(pci);
-
 	    pci->out_req_n = BIT_1;
 
 	    __address_command(pci, addr, 0xf6, 1);
@@ -54,10 +51,6 @@ uint64_t simbus_pci_read64(simbus_pci_t pci, uint64_t addr, int BEn)
 		  pci->out_ad[idx] = BIT_Z;
 	    }
 
-	      /* Clock the IRDY and BE#s (and PAR), and un-drive the AD bits. */
-	    __pci_half_clock(pci);
-	    assert(pci->pci_clk == BIT_0);
-
 	    if (__wait_for_devsel(pci) < 0) {
 		    /* Master abort */
 		  return 0xffffffffffff;
@@ -70,8 +63,7 @@ uint64_t simbus_pci_read64(simbus_pci_t pci, uint64_t addr, int BEn)
 
 		    /* This clocks the drivers to the next state, and
 		       clocks in the final parity from the target. */
-		  __pci_half_clock(pci);
-		  __pci_half_clock(pci);
+		  __pci_next_posedge(pci);
 		  continue;
 	    }
 
@@ -82,10 +74,9 @@ uint64_t simbus_pci_read64(simbus_pci_t pci, uint64_t addr, int BEn)
 		  break;
 	    }
 
-	    __pci_half_clock(pci);
 	    pci->out_frame_n = BIT_1;
 	    pci->out_req64_n = BIT_1;
-	    __pci_half_clock(pci);
+	    __pci_next_posedge(pci);
 
 	      /* Target did not ACK64#, so we are reading a burst of 2
 		 32bit words. Read the next word and terminate the
@@ -99,9 +90,8 @@ uint64_t simbus_pci_read64(simbus_pci_t pci, uint64_t addr, int BEn)
       }
 
 	/* Release all the signals I've been driving. */
-      __pci_half_clock(pci);
       __undrive_bus(pci);
-      __pci_half_clock(pci);
+      __pci_next_posedge(pci);
 
       return val;
 }
@@ -111,12 +101,6 @@ void simbus_pci_write64(simbus_pci_t pci, uint64_t addr, uint64_t val, int BEn)
       int rc;
 
       __pci_request_bus(pci);
-
-	/* Advance to the low phase of the PCI clock. We do this
-	   because we want our outputs to change on the rising edges
-	   of the PCI clock. */
-      if (pci->pci_clk != BIT_1)
-	    __pci_half_clock(pci);
 
       pci->out_req_n = BIT_1;
 
@@ -129,8 +113,7 @@ void simbus_pci_write64(simbus_pci_t pci, uint64_t addr, uint64_t val, int BEn)
 
 	/* Wait for the target to TRDY# in order to clock the data out. */
       while (pci->pci_trdy_n != BIT_0) {
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
+	    __pci_next_posedge(pci);
       }
 
 	/* If the target accepted the 64bit transaction, then the
@@ -139,27 +122,23 @@ void simbus_pci_write64(simbus_pci_t pci, uint64_t addr, uint64_t val, int BEn)
 	   I'm done. */
       if (pci->out_frame_n == BIT_1) {
 	      /* Release the bus and settle. */
-	    __pci_half_clock(pci);
 	    __undrive_bus(pci);
-	    __pci_half_clock(pci);
+	    __pci_next_posedge(pci);
 	    return;
       }
 
 	/* The target only acknowledged a 32bit write, to complete the
 	   64bit write with another 32bit word. */
-      __pci_half_clock(pci);
       pci->out_frame_n = BIT_1;
       pci->out_req64_n = BIT_1;
       __setup_for_write(pci, val>>32, BEn>>4, 0);
 
 	/* Wait for the target to TRDY# in order to clock the data out. */
       while (pci->pci_trdy_n != BIT_0) {
-	    __pci_half_clock(pci);
-	    __pci_half_clock(pci);
+	    __pci_next_posedge(pci);
       }
 
 	/* Release the bus and settle. */
-      __pci_half_clock(pci);
       __undrive_bus(pci);
-      __pci_half_clock(pci);
+      __pci_next_posedge(pci);
 }
