@@ -26,6 +26,7 @@ PointToPoint::PointToPoint(struct bus_state&b)
 : protocol_t(b)
 {
       phase_ = 0;
+      master_clock_mode_ = CLOCK_RUN;
 
       string opt_width = b.options["WIDTH"];
       if (! opt_width.empty()) {
@@ -69,10 +70,27 @@ PointToPoint::~PointToPoint()
 {
 }
 
+string PointToPoint::clock_mode_string_(clock_mode_t mode)
+{
+      switch (mode) {
+	  case CLOCK_RUN:
+	    return "Run";
+	  case CLOCK_STOP_0:
+	    return "Stop-0";
+	  case CLOCK_STOP_1:
+	    return "Stop-1";
+	  case CLOCK_STOP_Z:
+	    return "HiZ";
+	  default:
+	    return "????";
+      }
+}
+
 void PointToPoint::run_init()
 {
       if (service_lxt) {
 	    make_trace_("CLOCK", PT_BITS);
+	    make_trace_("CLOCK_MODE", PT_STRING);
 	    if (wid_i_ > 0)
 		  make_trace_("DATA_I", PT_BITS, wid_i_);
 	    if (wid_o_ > 0)
@@ -111,6 +129,7 @@ void PointToPoint::run_init()
 	    slave_->second.send_signals["DATA_O"][idx] = BIT_Z;
 
       set_trace_("CLOCK", BIT_1);
+      set_trace_("CLOCK_MODE", clock_mode_string_(master_clock_mode_));
 }
 
 void PointToPoint::run_run()
@@ -122,7 +141,51 @@ void PointToPoint::run_run()
       bit_state_t bus_clk = phase_/2 ? BIT_0 : BIT_1;
 
       master_->second.send_signals["CLOCK"][0] = bus_clk;
-      slave_ ->second.send_signals["CLOCK"][0] = bus_clk;
+
+      switch (master_clock_mode_) {
+	  case CLOCK_RUN:
+	    slave_ ->second.send_signals["CLOCK"][0] = bus_clk;
+	    break;
+	  case CLOCK_STOP_0:
+	    slave_ ->second.send_signals["CLOCK"][0] = BIT_0;
+	    break;
+	  case CLOCK_STOP_1:
+	    slave_ ->second.send_signals["CLOCK"][0] = BIT_1;
+	    break;
+	  case CLOCK_STOP_Z:
+	    slave_ ->second.send_signals["CLOCK"][0] = BIT_Z;
+	    break;
+      }
+
+	// Interpret the CLOCK_MODE signal from the master. This is
+	// output-only from the master, the slave as no such control
+      valarray<bit_state_t>&clock_mode = master_->second.client_signals["CLOCK_MODE"];
+      if (clock_mode.size() > 0) {
+	    unsigned val = 0;
+	    for (unsigned idx = 0 ; idx < clock_mode.size() ; idx += 1) {
+		  if (clock_mode[idx] == BIT_1)
+			val |= 1<<idx;
+	    }
+	    switch (val) {
+		case 0:
+		  master_clock_mode_ = CLOCK_RUN;
+		  break;
+		case 1:
+		  master_clock_mode_ = CLOCK_STOP_0;
+		  break;
+		case 2:
+		  master_clock_mode_ = CLOCK_STOP_1;
+		  break;
+		case 3:
+		  master_clock_mode_ = CLOCK_STOP_Z;
+		  break;
+		default:
+		  master_clock_mode_ = CLOCK_RUN;
+		  break;
+	    }
+      } else {
+	    master_clock_mode_ = CLOCK_RUN;
+      }
 
 	// Copy DATA_O from master to slave...
       valarray<bit_state_t> data_o (wid_o_);
@@ -144,6 +207,7 @@ void PointToPoint::run_run()
 
 
       set_trace_("CLOCK", bus_clk);
+      set_trace_("CLOCK_MODE", clock_mode_string_(master_clock_mode_));
       if (wid_o_) set_trace_("DATA_O", data_o);
       if (wid_i_) set_trace_("DATA_I", data_i);
 }

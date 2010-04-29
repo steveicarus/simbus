@@ -35,6 +35,7 @@ struct simbus_p2p_s {
       int time_exp;
 
       bus_bitval_t clock;
+      bus_bitval_t clock_mode[2];
 
       unsigned width_o;
       bus_bitval_t*data_o;

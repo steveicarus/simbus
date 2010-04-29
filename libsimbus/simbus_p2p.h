@@ -65,6 +65,18 @@ EXTERN int simbus_p2p_in(simbus_p2p_t bus, uint32_t*data_i);
 EXTERN void simbus_p2p_out(simbus_p2p_t bus, const uint32_t*data_o);
 
 /*
+ * The master can control the clock for the slave. Use this function
+ * to set the clock running for the slave, or to stop it at 1, 0 or
+ * HiZ. This works as a signal that the server intercepts, so it will
+ * take effect at the next clock phase.
+ */
+EXTERN void simbus_p2p_clock_mode(simbus_p2p_t bus, int mode);
+# define SIMBUS_P2P_CLOCK_RUN   0
+# define SIMBUS_P2P_CLOCK_STOP0 1
+# define SIMBUS_P2P_CLOCK_STOP1 2
+# define SIMBUS_P2P_CLOCK_STOPZ 3
+
+/*
  * Advance the point-to-point bus clock for a number of cycles. When
  * this function is done, the clock has just risen/fallen. The
  * "cycles" count must be >= 1. If 1, then the clock is advanced to

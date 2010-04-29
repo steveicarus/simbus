@@ -1,0 +1,34 @@
+
+bus {
+    protocol = "point-to-point";
+
+    name = "primary";
+    pipe = "primary_p2p";
+
+    # We have t specify the bus clock. Here we define a clock
+    # with 30ns period.
+    CLOCK_high = 15000;
+    CLOCK_low  = 15000;
+
+    CLOCK_hold = 1000;
+    CLOCK_setup = 2000;
+
+    # We also need to specify the data widths.
+    WIDTH_I = "16";
+    WIDTH_O = "16";
+
+    host   15 "master";
+    device  0 "slave";
+}
+
+process {
+    name = "master";
+    exec = "./master pipe:primary_p2p";
+    stdout = "-";
+}
+
+process {
+    name = "slave";
+    exec = "vvp -m../../vpi/simbus.vpi slave.out -lxt2 +simbus-slave-bus=pipe:primary_p2p";
+    stdout = "slave.log";
+}

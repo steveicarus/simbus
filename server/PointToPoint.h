@@ -33,10 +33,18 @@ class PointToPoint  : public protocol_t {
     private:
       void advance_bus_clock_(void);
 
+
     private:
       int phase_;
 	// Timings for the phases, in ps.
       uint64_t clock_phase_map_[4];
+
+      enum clock_mode_t { CLOCK_RUN,
+			  CLOCK_STOP_0,
+			  CLOCK_STOP_1,
+			  CLOCK_STOP_Z };
+      clock_mode_t master_clock_mode_;
+      static std::string clock_mode_string_(clock_mode_t);
 
       unsigned wid_o_;
       unsigned wid_i_;

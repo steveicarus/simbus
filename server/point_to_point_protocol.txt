@@ -5,9 +5,9 @@ The point-to-point protocol is a simple synchronous protocol where
 data is sent synchronously through a single clock. There are no
 addresses, no interrupts, no bus arbitration, and the bus most contain
 exactly two nodes: a single host and a single device. In principle the
-bus is symmetric, to the host/device assignment is somewhat arbitrary.
+bus is symmetric, so the host/device assignment is somewhat arbitrary.
 
-The bus includes a CLOCK, a DATA_O vector and a DATA_O vector. The
+The bus includes a CLOCK, a DATA_O vector and a DATA_I vector. The
 DATA_O is data from the host to the device, and the DATA_I is data
 from the device to the master.
 
@@ -16,6 +16,7 @@ PointToPoint bus simulations have these signals:
 
       Name         host       device
       ----         ----       ------
+      CLOCK_MODE    O          n/a     (See Clock Mode below)
       CLOCK         O           I
       DATA_O        O           I
       DATA_I        I           O
@@ -58,7 +59,7 @@ clock posedge. This sketch shows the phases:
        earlier.
 
   B  - Signal hold. This is a chance for clients to change signals in
-       response to the posedge of the clock. This phase is 14.5ns.
+       response to the posedge of the clock.
 
   C  - The negedge of the clock. Another chance to change
        signals.
@@ -83,3 +84,19 @@ is A-C in the abive diagram. The total clock period is <high> + <low>.
 
 The <hold> time is B-A is the above diagram, and is the hold time for
 signals to be clocked.
+
+* Clock Mode
+
+It is possible for the master device to control the CLOCK that the
+slave sees. The master always receives its clock, but the master can
+hold the clock that the slave sees by sending a CLOCK_MODE signal. The
+server intercepts the 2-bit CLOCK_MODE and interprets it thus:
+
+   RUN   (00)  - The clock runs normally for the slave
+   STOP0 (01)  - The clock is held at logic zero for the slave
+   STOP1 (10)  - The clock is held at logic one
+   STOPZ (11)  - The clock is undriven (HiZ) by the bus at the slave.
+
+This allows the master to simulate gated or intermittent clocks to the
+slave. This can for example be handy to simulate power modes, software
+clock handshakes, or other unusual clocking situations.

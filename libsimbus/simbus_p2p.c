@@ -48,6 +48,8 @@ simbus_p2p_t simbus_p2p_connect(const char*server, const char*name,
       bus->time_exp = 0;
 
       bus->clock = BIT_X;
+      bus->clock_mode[0] = BIT_0;
+      bus->clock_mode[1] = BIT_0;
       bus->width_i = width_i;
       bus->width_o = width_o;
 
@@ -86,6 +88,12 @@ void simbus_p2p_disconnect(simbus_p2p_t bus)
       free(bus->data_i);
       free(bus->data_o);
       free(bus);
+}
+
+void simbus_p2p_clock_mode(simbus_p2p_t bus, int mode)
+{
+      bus->clock_mode[0] = (mode&1)? BIT_1 : BIT_0;
+      bus->clock_mode[1] = (mode&2)? BIT_1 : BIT_0;
 }
 
 int simbus_p2p_in(simbus_p2p_t bus, uint32_t*data)
@@ -139,6 +147,11 @@ static int send_ready_p2p(simbus_p2p_t bus)
       snprintf(buf, sizeof(buf), "READY %" PRIu64 "e%d", bus->time_mant, bus->time_exp);
 
       char*cp = buf + strlen(buf);
+
+      strcpy(cp, " CLOCK_MODE=");
+      cp += strlen(cp);
+      *cp++ = __bitval_to_char(bus->clock_mode[1]);
+      *cp++ = __bitval_to_char(bus->clock_mode[0]);
 
       if (bus->width_o > 0) {
 	    unsigned idx;
