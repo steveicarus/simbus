@@ -34,6 +34,13 @@
       return INTEGER;
   }
 
+  /* Identifiers are words that are not keywords. */
+[a-zA-Z_][a-zA-Z0-9_]* {
+      configlval.text = strdup(yytext);
+      fprintf(stderr, "IDENTIFIER: %s\n", configlval.text);
+      return IDENTIFIER;
+}
+
   /* strings are surrounded by quotes. */
 \".*\" {
       configlval.text = strdup(yytext+1);

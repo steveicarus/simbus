@@ -19,7 +19,6 @@
 
 # include  "simbus_pci.h"
 # include  "simbus_pci_priv.h"
-# include  "simbus_priv.h"
 # include  <unistd.h>
 # include  <limits.h>
 # include  <stdlib.h>
@@ -28,16 +27,6 @@
 # include  <assert.h>
 
 
-static const char bus_bitval_map[4] = { '0', '1', 'x', 'z' };
-static bus_bitval_t char_to_bitval(char ch)
-{
-      switch (ch) {
-	  case '0': return BIT_0;
-	  case '1': return BIT_1;
-	  case 'z': return BIT_Z;
-	  default:  return BIT_X;
-      }
-}
 static void init_simbus_pci(struct simbus_pci_s*pci)
 {
       int idx;
@@ -101,57 +90,57 @@ static int send_ready_command(struct simbus_pci_s*pci)
 
       strcpy(cp, " RESET#=");
       cp += strlen(cp);
-      *cp++ = bus_bitval_map[pci->out_reset_n];
+      *cp++ = __bitval_to_char(pci->out_reset_n);
 
       strcpy(cp, " REQ#=");
       cp += strlen(cp);
-      *cp++ = bus_bitval_map[pci->out_req_n];
+      *cp++ = __bitval_to_char(pci->out_req_n);
 
       strcpy(cp, " REQ64#=");
       cp += strlen(cp);
-      *cp++ = bus_bitval_map[pci->out_req64_n];
+      *cp++ = __bitval_to_char(pci->out_req64_n);
 
       strcpy(cp, " FRAME#=");
       cp += strlen(cp);
-      *cp++ = bus_bitval_map[pci->out_frame_n];
+      *cp++ = __bitval_to_char(pci->out_frame_n);
 
       strcpy(cp, " IRDY#=");
       cp += strlen(cp);
-      *cp++ = bus_bitval_map[pci->out_irdy_n];
+      *cp++ = __bitval_to_char(pci->out_irdy_n);
 
       strcpy(cp, " TRDY#=");
       cp += strlen(cp);
-      *cp++ = bus_bitval_map[pci->out_trdy_n];
+      *cp++ = __bitval_to_char(pci->out_trdy_n);
 
       strcpy(cp, " STOP#=");
       cp += strlen(cp);
-      *cp++ = bus_bitval_map[pci->out_stop_n];
+      *cp++ = __bitval_to_char(pci->out_stop_n);
 
       strcpy(cp, " DEVSEL#=");
       cp += strlen(cp);
-      *cp++ = bus_bitval_map[pci->out_devsel_n];
+      *cp++ = __bitval_to_char(pci->out_devsel_n);
 
       strcpy(cp, " ACK64#=");
       cp += strlen(cp);
-      *cp++ = bus_bitval_map[pci->out_ack64_n];
+      *cp++ = __bitval_to_char(pci->out_ack64_n);
 
       strcpy(cp, " C/BE#=");
       cp += strlen(cp);
       for (rc = 0 ; rc < 8 ; rc += 1)
-	    *cp++ = bus_bitval_map[pci->out_c_be[7-rc]];
+	    *cp++ = __bitval_to_char(pci->out_c_be[7-rc]);
 
       strcpy(cp, " AD=");
       cp += strlen(cp);
       for (rc = 0 ; rc < 64 ; rc += 1)
-	    *cp++ = bus_bitval_map[pci->out_ad[63-rc]];
+	    *cp++ = __bitval_to_char(pci->out_ad[63-rc]);
 
       strcpy(cp, " PAR=");
       cp += strlen(cp);
-      *cp++ = bus_bitval_map[pci->out_par];
+      *cp++ = __bitval_to_char(pci->out_par);
 
       strcpy(cp, " PAR64=");
       cp += strlen(cp);
-      *cp++ = bus_bitval_map[pci->out_par64];
+      *cp++ = __bitval_to_char(pci->out_par64);
 
       if (pci->debug) {
 	    *cp = 0;
@@ -162,35 +151,9 @@ static int send_ready_command(struct simbus_pci_s*pci)
       *cp++ = '\n';
       *cp = 0;
 
-      rc = write(pci->fd, buf, cp-buf);
-      assert(rc == cp-buf);
-
-	/* Now read the response, which should be an UNTIL command */
-      rc = read(pci->fd, buf, sizeof(buf)-1);
-      assert( rc >= 0 );
-
-      buf[rc] = 0;
-
-      cp = strchr(buf, '\n');
-      assert(cp && *cp=='\n');
-
-      *cp = 0;
-      if (pci->debug) {
-	    fprintf(pci->debug, "RECV %s\n", buf);
-      }
-
-      cp = buf;
-      int argc = 0;
       char*argv[2048];
-
-      cp = buf + strspn(buf, " ");
-      while (*cp) {
-	    argv[argc++] = cp;
-	    cp += strcspn(cp, " ");
-	    *cp++ = 0;
-	    cp += strspn(cp, " ");
-      }
-      argv[argc] = 0;
+      int argc = __simbus_server_send_recv(pci->fd, buf, sizeof(buf),
+					   2048, argv, pci->debug);
 
       if (strcmp(argv[0],"FINISH") == 0) {
 	    if (pci->debug) {
@@ -204,18 +167,8 @@ static int send_ready_command(struct simbus_pci_s*pci)
 
 	/* Parse the time token */
       assert(argc >= 1);
-      if (sizeof(uint64_t) <= sizeof(unsigned long)) {
-	    pci->time_mant = strtoul(argv[1], &cp, 10);
-      } else if (sizeof(uint64_t) <= sizeof(unsigned long long)) {
-	    pci->time_mant = strtoull(argv[1], &cp, 10);
-      } else {
-	    pci->time_mant = strtoull(argv[1], &cp, 10);
-	    assert(pci->time_mant < ULLONG_MAX);
-      }
+      __parse_time_token(argv[1], &pci->time_mant, &pci->time_exp);
 
-      assert(*cp == 'e');
-      cp += 1;
-      pci->time_exp = strtol(cp, 0, 10);
 
       int idx;
       for (idx = 2 ; idx < argc ; idx += 1) {
@@ -225,44 +178,44 @@ static int send_ready_command(struct simbus_pci_s*pci)
 	    *cp++ = 0;
 
 	    if (strcmp(argv[idx],"PCI_CLK") == 0) {
-		  pci->pci_clk = char_to_bitval(*cp);
+		  pci->pci_clk = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"GNT#") == 0) {
-		  pci->pci_gnt_n = char_to_bitval(*cp);
+		  pci->pci_gnt_n = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"INTA#") == 0) {
 		  assert(strlen(cp) == 16);
 		  int bit;
 		  for (bit = 0 ; bit < 16 ; bit += 1)
-			pci->pci_inta_n[bit] = char_to_bitval(cp[15-bit]);
+			pci->pci_inta_n[bit] = __char_to_bitval(cp[15-bit]);
 
 	    } else if (strcmp(argv[idx],"FRAME#") == 0) {
-		  pci->pci_frame_n = char_to_bitval(*cp);
+		  pci->pci_frame_n = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"REQ64#") == 0) {
-		  pci->pci_req64_n = char_to_bitval(*cp);
+		  pci->pci_req64_n = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"IRDY#") == 0) {
-		  pci->pci_irdy_n = char_to_bitval(*cp);
+		  pci->pci_irdy_n = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"TRDY#") == 0) {
-		  pci->pci_trdy_n = char_to_bitval(*cp);
+		  pci->pci_trdy_n = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"STOP#") == 0) {
-		  pci->pci_stop_n = char_to_bitval(*cp);
+		  pci->pci_stop_n = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"DEVSEL#") == 0) {
-		  pci->pci_devsel_n = char_to_bitval(*cp);
+		  pci->pci_devsel_n = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"ACK64#") == 0) {
-		  pci->pci_ack64_n = char_to_bitval(*cp);
+		  pci->pci_ack64_n = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"C/BE#") == 0) {
 		  assert(strlen(cp) == 8);
 		  int bit;
 		  for (bit = 0 ; bit < 8 ; bit += 1) {
 			assert(*cp);
-			pci->pci_c_be[7-bit] = char_to_bitval(*cp);
+			pci->pci_c_be[7-bit] = __char_to_bitval(*cp);
 			cp += 1;
 		  }
 
@@ -271,15 +224,15 @@ static int send_ready_command(struct simbus_pci_s*pci)
 		  int bit;
 		  for (bit = 0 ; bit < 64 ; bit += 1) {
 			assert(*cp);
-			pci->pci_ad[63-bit] = char_to_bitval(*cp);
+			pci->pci_ad[63-bit] = __char_to_bitval(*cp);
 			cp += 1;
 		  }
 
 	    } else if (strcmp(argv[idx],"PAR") == 0) {
-		  pci->pci_par = char_to_bitval(*cp);
+		  pci->pci_par = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"PAR64") == 0) {
-		  pci->pci_par64 = char_to_bitval(*cp);
+		  pci->pci_par64 = __char_to_bitval(*cp);
 
 	    } else {
 		    /* Skip signals not of interest to me. */
@@ -294,32 +247,11 @@ simbus_pci_t simbus_pci_connect(const char*server, const char*name)
       int server_fd = __simbus_server_socket(server);
       assert(server_fd >= 0);
 
-      char buf[4096];
-
-	/* Send HELLO message to the server. */
-      snprintf(buf, sizeof buf, "HELLO %s\n", name);
-
-      int rc = write(server_fd, buf, strlen(buf));
-      assert(rc == strlen(buf));
-
-	/* Read response from server. */
-      rc = read(server_fd, buf, sizeof buf);
-      assert(rc > 0);
-      assert(strchr(buf, '\n'));
-
-	/* If the server NAKs me, then give up. */
-      if (strcmp(buf, "NAK\n") == 0) {
-	    close(server_fd);
-	    return 0;
-      }
-
       unsigned ident = 0;
-      if (strncmp(buf, "YOU-ARE ", 8) == 0) {
-	    sscanf(buf, "YOU-ARE %u", &ident);
-      } else {
-	    close(server_fd);
+      int rc = __simbus_server_hello(server_fd, name, &ident);
+
+      if (rc < 0)
 	    return 0;
-      }
 
       struct simbus_pci_s*pci = calloc(1, sizeof(struct simbus_pci_s));
       assert(pci);
@@ -729,22 +661,9 @@ int __generic_pci_write32(simbus_pci_t pci, uint64_t addr, int cmd,
 
 void simbus_pci_end_simulation(simbus_pci_t pci)
 {
-      int rc;
-
 	/* Send the FINISH command */
-      rc = write(pci->fd, "FINISH\n", 7);
-      assert(rc >= 0);
-      assert(rc == 7);
-
-	/* Now read the response, which should be a FINISH command */
-      char buf[128];
-      rc = read(pci->fd, buf, sizeof(buf)-1);
-      assert( rc >= 0 );
-
-	/* The response from the server should be FINISH. */
-      buf[rc] = 0;
-      assert(strcmp(buf,"FINISH\n") == 0);
-
+      __simbus_server_finish(pci->fd);
+	/* Clean up connection. */
       simbus_pci_disconnect(pci);
 }
 

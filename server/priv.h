@@ -92,6 +92,9 @@ struct bus_state {
 	// Pointer to the protocol implementation instance for this
 	// bus.
       protocol_t*proto;
+	// map of options set in the config file. These are
+	// interpreted by the specific protocol.
+      std::map<std::string,std::string> options;
 	// posix fd for the bus socket. This is only used for
 	// listening for new clients.
       int fd;
@@ -119,7 +122,8 @@ typedef std::map<std::string, bus_state>::iterator bus_map_idx_t;
  */
 extern void service_add_bus(const std::string&port, const std::string&name,
 			    const std::string&bus_protocol_name,
-			    const bus_device_map_t&dev);
+			    const bus_device_map_t&dev,
+			    const std::map<std::string,std::string>&options);
 
 
 /*

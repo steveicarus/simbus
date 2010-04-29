@@ -18,13 +18,30 @@
  */
 
 # include  "simbus_priv.h"
+# include  <unistd.h>
 # include  <sys/types.h>
 # include  <sys/socket.h>
 # include  <sys/un.h>
 # include  <netdb.h>
 # include  <stdlib.h>
 # include  <string.h>
+# include  <stdio.h>
 # include  <assert.h>
+
+char __bitval_to_char(bus_bitval_t val)
+{
+      return "01xz"[val];
+}
+
+bus_bitval_t __char_to_bitval(char val)
+{
+      switch (val) {
+	  case '0': return BIT_0;
+	  case '1': return BIT_1;
+	  case 'z': return BIT_Z;
+	  default:  return BIT_X;
+      }
+}
 
 static int tcp_socket(const char*addr)
 {
@@ -113,4 +130,115 @@ int __simbus_server_socket(const char*addr)
       }
 
       return server_fd;
+}
+
+
+int __simbus_server_hello(int server_fd, const char*name, unsigned*ident)
+{
+      char buf[4096];
+
+      	/* Send HELLO message to the server. */
+      snprintf(buf, sizeof buf, "HELLO %s\n", name);
+
+      int rc = write(server_fd, buf, strlen(buf));
+      assert(rc == strlen(buf));
+
+	/* Read response from server. */
+      rc = read(server_fd, buf, sizeof buf);
+      assert(rc > 0);
+      assert(strchr(buf, '\n'));
+
+	/* If the server NAKs me, then give up. */
+      if (strcmp(buf, "NAK\n") == 0) {
+	    close(server_fd);
+	    return -1;
+      }
+
+      *ident = 0;
+      if (strncmp(buf, "YOU-ARE ", 8) == 0) {
+	    sscanf(buf, "YOU-ARE %u", ident);
+      } else {
+	    close(server_fd);
+	    return -1;
+      }
+
+      return 0;
+}
+
+int __simbus_server_finish(int server_fd)
+{
+      int rc;
+
+	/* Send the FINISH command */
+      rc = write(server_fd, "FINISH\n", 7);
+      assert(rc >= 0);
+      assert(rc == 7);
+
+	/* Now read the response, which should be a FINISH command */
+      char buf[128];
+      rc = read(server_fd, buf, sizeof(buf)-1);
+      assert( rc >= 0 );
+
+	/* The response from the server should be FINISH. */
+      buf[rc] = 0;
+      assert(strcmp(buf,"FINISH\n") == 0);
+
+      return 0;
+}
+
+int __simbus_server_send_recv(int server_fd, char*buf, size_t buf_size,
+			      int max_argc, char*argv[], FILE*debug)
+{
+      int rc;
+      size_t buf_len = strlen(buf);
+
+	/* Send the READY command */
+      rc = write(server_fd, buf, buf_len);
+      assert(rc == buf_len);
+
+	/* Now read the response, which should be an UNTIL command */
+      rc = read(server_fd, buf, buf_size-1);
+      assert( rc >= 0 );
+
+      buf[rc] = 0;
+
+      char*cp = strchr(buf, '\n');
+      assert(cp && *cp=='\n');
+
+      *cp = 0;
+      if (debug) {
+	    fprintf(debug, "RECV %s\n", buf);
+      }
+
+	/* Chop the response int tokens. */
+      int cur_argc = 0;
+
+      cp = buf + strspn(buf, " ");
+      while (*cp && cur_argc < max_argc) {
+	    argv[cur_argc++] = cp;
+	    cp += strcspn(cp, " ");
+	    *cp++ = 0;
+	    cp += strspn(cp, " ");
+      }
+      argv[cur_argc] = 0;
+
+      return cur_argc;
+}
+
+void __parse_time_token(const char*token, uint64_t*time_mant, int*time_exp)
+{
+      char*cp;
+
+      if (sizeof(uint64_t) <= sizeof(unsigned long)) {
+	    *time_mant = strtoul(token, &cp, 10);
+      } else if (sizeof(uint64_t) <= sizeof(unsigned long long)) {
+	    *time_mant = strtoull(token, &cp, 10);
+      } else {
+	    *time_mant = strtoull(token, &cp, 10);
+	    assert(*time_mant < ULLONG_MAX);
+      }
+
+      assert(*cp == 'e');
+      cp += 1;
+      *time_exp = strtol(cp, 0, 10);
 }

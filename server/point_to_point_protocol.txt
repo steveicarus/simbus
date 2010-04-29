@@ -1,0 +1,85 @@
+
+POINT-TO-POINT PROTOCOL
+
+The point-to-point protocol is a simple synchronous protocol where
+data is sent synchronously through a single clock. There are no
+addresses, no interrupts, no bus arbitration, and the bus most contain
+exactly two nodes: a single host and a single device. In principle the
+bus is symmetric, to the host/device assignment is somewhat arbitrary.
+
+The bus includes a CLOCK, a DATA_O vector and a DATA_O vector. The
+DATA_O is data from the host to the device, and the DATA_I is data
+from the device to the master.
+
+PointToPoint bus simulations have these signals:
+
+
+      Name         host       device
+      ----         ----       ------
+      CLOCK         O           I
+      DATA_O        O           I
+      DATA_I        I           O
+
+The widths of the DATA_O and DATA_I vectors can be controlled by
+options in the configuration file.
+
+  WIDTH_O = <wido> ;
+  WIDTH_I = <widi> ;
+
+The width values are numbers given in bits. Either value may be zero,
+implying that the vector is not present. Alternatively, you can set
+the width of both directions simultaneously with the option:
+
+  WIDTH = <width> ;
+
+* The Bus Clock
+
+This is entirely under the control of the server. The server generates
+the clock and 4 phase points where the bus device can receive/report
+signals. The server uses "UNTIL" messages to advance through the
+phases of the PCI clock. The "UNTIL" message starts the phase and
+includes the signal values that the client should use within that
+phase. The client should assume that those signal values were valid at
+least dT before the phase starts. This is most pertinent for phase-A,
+clock posedge. This sketch shows the phases:
+
+                   C        D A B        C
+                   |        | | |        |
+                   V        V V V        V
+        +----------+          +----------+
+        |          |          |          |
+        |          |          |          |
+   -----+          +----------+          +----------
+
+  A  - The posedge of the clock. At this point, since the bus is
+       synchronous, all the signals should be stable and can be
+       tested. The values that the client receives from the server to
+       start this phase were reported at the beginning of phase-D, or
+       earlier.
+
+  B  - Signal hold. This is a chance for clients to change signals in
+       response to the posedge of the clock. This phase is 14.5ns.
+
+  C  - The negedge of the clock. Another chance to change
+       signals.
+
+  D  - Signal Setup. This is the last chance for clients to change
+       signal values for the upcoming posedge. Signal values in the
+       "READY" message will arrive at other clients with the start of
+       phase-A.
+
+The precise timings of these phases is controlled by option
+assignments in the bus description file. These are the options that
+control the clock behavior:
+
+  CLOCK_high = <high>
+  CLOCK_low  = <low>
+  CLOCK_hold = <hold>
+  CLOCK_setup= <setup>
+
+The <high> time is the time that the clock is high, and is C-A in the
+diagram above. The <low> time is the time that the clock is low, and
+is A-C in the abive diagram. The total clock period is <high> + <low>.
+
+The <hold> time is B-A is the above diagram, and is the hold time for
+signals to be clocked.

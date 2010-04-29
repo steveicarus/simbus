@@ -33,6 +33,7 @@
 # include  "client.h"
 # include  "protocol.h"
 # include  "PciProtocol.h"
+# include  "PointToPoint.h"
 # include  "lxt2_write.h"
 # include  <assert.h>
 
@@ -92,7 +93,8 @@ void service_init(const char*trace_path)
  */
 void service_add_bus(const std::string&port, const std::string&name,
 		     const std::string&bus_protocol_name,
-		     const bus_device_map_t&dev)
+		     const bus_device_map_t&dev,
+		     const std::map<std::string,std::string>&options)
 {
 	// The bus is stored in the bus_map with its port string as
 	// the key. Each bus has its own port.
@@ -103,9 +105,14 @@ void service_add_bus(const std::string&port, const std::string&name,
       tmp.need_initialization = true;
       tmp.finished = false;
       tmp.device_map = dev;
+      tmp.options = options;
 
       if (bus_protocol_name == "pci") {
 	    tmp.proto = new PciProtocol(tmp);
+
+      } else if (bus_protocol_name == "point-to-point") {
+	    tmp.proto = new PointToPoint(tmp);
+
       } else {
 	    tmp.proto = 0;
       }

@@ -17,6 +17,7 @@ static unsigned use_bus_port;
 static string use_bus_pipe;
 static string use_bus_protocol;
 static bus_device_map_t use_bus_devices;
+static map<string,string> use_bus_options;
 
 static string use_proc_exec;
 static string use_proc_stdin;
@@ -31,6 +32,22 @@ static void start_new_bus(void)
       use_name = "";
       use_bus_protocol = "";
       use_bus_devices.clear();
+      use_bus_options.clear();
+}
+
+static void add_bus_option(char*key, char*value)
+{
+	use_bus_options[key] = value;
+	free(key);
+	free(value);
+}
+
+static void add_bus_option(char*key, unsigned value)
+{
+	char val_buf[64];
+	snprintf(val_buf, sizeof val_buf, "%u", value);
+	use_bus_options[key] = val_buf;
+	free(key);
 }
 
 static void add_device_to_bus(unsigned devid, char*devname, bool host_flag)
@@ -55,7 +72,7 @@ static void wrap_up_new_bus(void)
       }
 
       service_add_bus(bus_key.str(), use_name,
-		      use_bus_protocol, use_bus_devices);
+		      use_bus_protocol, use_bus_devices, use_bus_options);
 }
 
 static void start_new_process(void)
@@ -84,7 +101,7 @@ static void wrap_up_new_process(void)
 %token K_bus K_device K_env K_exec K_host K_name
 %token K_pipe K_port K_process K_protocol K_stderr K_stdin K_stdout
 %token <integer> INTEGER
-%token <text>    STRING
+%token <text>    STRING IDENTIFIER
 
 %%
 
@@ -114,6 +131,8 @@ bus_item
   | K_protocol '=' STRING ';'   { use_bus_protocol = string($3); free($3); }
   | K_device INTEGER STRING ';' { add_device_to_bus($2, $3, false); }
   | K_host   INTEGER STRING ';' { add_device_to_bus($2, $3, true); }
+  | IDENTIFIER '=' STRING ';'   { add_bus_option($1, $3); }
+  | IDENTIFIER '=' INTEGER ';'   { add_bus_option($1, $3); }
   ;
 
 process

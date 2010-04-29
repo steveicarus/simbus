@@ -10,14 +10,16 @@ clean:
 install: all installdirs \
 	$(libdir)/libsimbus.a \
 	$(includedir)/simbus_pci.h \
-	$(includedir)/simbus_pci_memdev.h
+	$(includedir)/simbus_pci_memdev.h \
+	$(includedir)/simbus_p2p.h
 
 uninstall:
 	rm -f $(DESTDIR)$(libdir)/libsimbus.a
 	rm -f $(DESTDIR)$(includedir)/simbus_pci.h
 	rm -f $(DESTDIR)$(includedir)/simbus_pci_memdev.h
+	rm -f $(DESTDIR)$(includedir)/simbus_p2p.h
 
-L = simbus.o simbus_pci.o simbus_pci_config.o simbus_pci_rw32.o simbus_pci_rw64.o simbus_pci_target.o simbus_pci_memdev.o
+L = simbus.o simbus_pci.o simbus_pci_config.o simbus_pci_rw32.o simbus_pci_rw64.o simbus_pci_target.o simbus_pci_memdev.o simbus_p2p.o
 
 libsimbus.a: $L
 	rm -f libsimbus.a
@@ -25,10 +27,11 @@ libsimbus.a: $L
 
 simbus.o: simbus.c simbus_priv.h
 simbus_pci.o: simbus_pci.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
-simbus_pci_config.o: simbus_pci_config.c simbus_pci.h simbus_pci_priv.h
-simbus_pci_rw32.o: simbus_pci_rw32.c simbus_pci.h simbus_pci_priv.h
-simbus_pci_rw64.o: simbus_pci_rw64.c simbus_pci.h simbus_pci_priv.h
-simbus_pci_target.o: simbus_pci_target.c simbus_pci.h simbus_pci_priv.h
+simbus_pci_config.o: simbus_pci_config.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
+simbus_pci_rw32.o: simbus_pci_rw32.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
+simbus_pci_rw64.o: simbus_pci_rw64.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
+simbus_pci_target.o: simbus_pci_target.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
+simbus_p2p.o: simbus_p2p.c simbus_p2p.h simbus_p2p_priv.h simbus_priv.h
 
 simbus_pci_memdev.o: simbus_pci_memdev.c simbus_pci_memdev.h simbus_pci.h
 
@@ -40,6 +43,9 @@ $(includedir)/simbus_pci.h: simbus_pci.h
 
 $(includedir)/simbus_pci_memdev.h: simbus_pci_memdev.h
 	$(INSTALL_DATA) simbus_pci_memdev.h $(DESTDIR)$(includedir)/simbus_pci_memdev.h
+
+$(includedir)/simbus_p2p.h: simbus_p2p.h
+	$(INSTALL_DATA) simbus_p2p.h $(DESTDIR)$(includedir)/simbus_p2p.h
 
 
 installdirs: ../mkinstalldirs

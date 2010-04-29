@@ -13,7 +13,7 @@ install: all installdirs $(bindir)/simbus_server
 uninstall:
 	rm -f $(DESTDIR)$(bindir)/simbus_server
 
-O = main.o service.o client.o protocol.o process.o PciProtocol.o \
+O = main.o service.o client.o protocol.o process.o PciProtocol.o PointToPoint.o \
 config.tab.o lex.config.o lxt2_write.o
 
 simbus_server: $O
@@ -31,6 +31,7 @@ client.o: client.cc priv.h client.h
 process.o: process.cc priv.h
 protocol.o: protocol.cc priv.h protocol.h client.h lxt2_write.h
 PciProtocol.o: PciProtocol.cc priv.h protocol.h PciProtocol.h
+PointToPoint.o: PointToPoint.cc priv.h protocol.h PointToPoint.h
 config.tab.o: config.tab.cpp lex.config.c priv.h
 lex.config.o: lex.config.c config.tab.hpp
 lxt2_write.o: lxt2_write.c lxt2_write.h

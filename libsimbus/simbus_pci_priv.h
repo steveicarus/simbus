@@ -19,7 +19,7 @@
  *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
 
-typedef enum { BIT_0, BIT_1, BIT_X, BIT_Z } bus_bitval_t;
+# include  "simbus_priv.h"
 
 # define TARGET_MEM_REGIONS 8
 
