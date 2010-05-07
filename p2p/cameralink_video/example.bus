@@ -1,0 +1,61 @@
+
+#
+# This is a sample simbus configuration file that shows how to
+# configure and use the cameralink camera and capture simulation
+# modules.
+
+bus {
+    # The CameraLink protocol is implemented useing the build-in
+    # point-to-point protocol.
+    protocol = "point-to-point";
+
+    name = "video";
+    pipe = "video_p2p";
+
+    # We have t specify the bus clock. Here we define a clock
+    # with 12ns period. That corresponds to am 83.3MHz capture
+    # clock.
+    CLOCK_high = 6000;
+    CLOCK_low  = 6000;
+
+    CLOCK_hold = 500;
+    CLOCK_setup = 500;
+
+    # We also need to specify the data widths. The CameraLink
+    # modules expect exactly these settings.
+    WIDTH_I = "8";
+    WIDTH_O = "27";
+
+    # The C API requires that the host have an ID 0. This is
+    # how the library can tell that it is the host.
+    host    0 "camera";
+    device  1 "capture";
+}
+
+# These are configurations to run the camera and capture modules.
+# In a real setup, you'll presumably replace one of these with
+# your device under test.
+
+process {
+    # The cameralink_camera module always calls itself "camera",
+    # so always use that name here. If you are writing your own
+    # DUT with the verilog cameralink camera module, it also
+    # uses this name.
+    name = "camera";
+
+    exec = "./cameralink_camera -s pipe:video_p2p -w 64+16 -g 4 flag64x64.png";
+
+    stdout = "-";
+}
+
+process {
+    # The cameralink_capture module always calls itself "capture",
+    # so always use that name here. Ifyou are writing your own
+    # DUT with the verilog cameralink capture module, it also
+    # uses this name.
+    name = "capture";
+
+    exec = "./cameralink_capture -s pipe:video_p2p -c 4";
+
+    stdout = "capture.log";
+}
