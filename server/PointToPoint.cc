@@ -188,20 +188,22 @@ void PointToPoint::run_run()
       }
 
 	// Copy DATA_O from master to slave...
+      valarray<bit_state_t>master_data_o = master_->second.client_signals["DATA_O"];
       valarray<bit_state_t> data_o (wid_o_);
       for (unsigned idx = 0 ; idx < wid_o_ ; idx += 1) {
 	    data_o[idx] = BIT_Z;
-	    if (idx < master_->second.client_signals["DATA_O"].size())
-		  data_o[idx] = master_->second.client_signals["DATA_O"][idx];
+	    if (idx < master_data_o.size())
+		  data_o[idx] = master_data_o[idx];
       }
       slave_->second.send_signals["DATA_O"] = data_o;
 
 	// Copy DATA_I from slave to master...
+      valarray<bit_state_t>slave_data_i = slave_->second.client_signals["DATA_I"];
       valarray<bit_state_t> data_i (wid_i_);
       for (unsigned idx = 0 ; idx < wid_i_ ; idx += 1) {
 	    data_i[idx] = BIT_Z;
-	    if (idx < slave_->second.client_signals["DATA_I"].size())
-		  data_i[idx] = slave_->second.client_signals["DATA_I"][idx];
+	    if (idx < slave_data_i.size())
+		  data_i[idx] = slave_data_i[idx];
       }
       master_->second.send_signals["DATA_I"] = data_i;
 
