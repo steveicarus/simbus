@@ -17,8 +17,10 @@ bus {
     WIDTH_I = "16";
     WIDTH_O = "16";
 
-    host   15 "master";
-    device  0 "slave";
+    # The C API requires that the host have an ID 0. This is
+    # how the library can tell that it is the host.
+    host    0 "master";
+    device  1 "slave";
 }
 
 process {

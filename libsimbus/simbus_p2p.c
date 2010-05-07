@@ -43,6 +43,7 @@ simbus_p2p_t simbus_p2p_connect(const char*server, const char*name,
 
       bus->name = strdup(name);
       bus->fd = server_fd;
+      bus->ident = ident;
 
       bus->time_mant = 0;
       bus->time_exp = 0;
@@ -63,7 +64,7 @@ simbus_p2p_t simbus_p2p_connect(const char*server, const char*name,
       }
       if (width_o > 0) {
 	    unsigned idx;
-	    bus->data_o = calloc(width_i, sizeof(bus->data_o[0]));
+	    bus->data_o = calloc(width_o, sizeof(bus->data_o[0]));
 	    for (idx = 0 ; idx < width_o ; idx += 1)
 		  bus->data_o[idx] = BIT_X;
       } else {
@@ -71,6 +72,11 @@ simbus_p2p_t simbus_p2p_connect(const char*server, const char*name,
       }
 
       return bus;
+}
+
+int simbus_p2p_is_host(simbus_p2p_t bus)
+{
+      return bus->ident == 0;
 }
 
 void simbus_p2p_end_simulation(simbus_p2p_t bus)
@@ -92,6 +98,7 @@ void simbus_p2p_disconnect(simbus_p2p_t bus)
 
 void simbus_p2p_clock_mode(simbus_p2p_t bus, int mode)
 {
+      assert(bus->ident == 0);
       bus->clock_mode[0] = (mode&1)? BIT_1 : BIT_0;
       bus->clock_mode[1] = (mode&2)? BIT_1 : BIT_0;
 }
@@ -110,7 +117,33 @@ int simbus_p2p_in(simbus_p2p_t bus, uint32_t*data)
 		case BIT_0:
 		  break;
 		case BIT_1:
-		  data[word] |= 1 << idx;
+		  data[word] |= 1 << wbit;
+		  break;
+		case BIT_X:
+		case BIT_Z:
+		  rc -= 1;
+		  break;
+	    }
+      }
+
+      return rc;
+}
+
+int simbus_p2p_out_peek(simbus_p2p_t bus, uint32_t*data)
+{
+      int rc = 0;
+      unsigned idx;
+      for (idx = 0 ; idx < bus->width_o ; idx += 1) {
+	    int word = idx/32;
+	    int wbit = idx%32;
+	    if (wbit == 0)
+		  data[word] = 0;
+
+	    switch (bus->data_o[idx]) {
+		case BIT_0:
+		  break;
+		case BIT_1:
+		  data[word] |= 1 << wbit;
 		  break;
 		case BIT_X:
 		case BIT_Z:
@@ -140,6 +173,24 @@ void simbus_p2p_out(simbus_p2p_t bus, const uint32_t*data)
 
 }
 
+void simbus_p2p_in_poke(simbus_p2p_t bus, const uint32_t*data)
+{
+      unsigned idx;
+
+      for (idx = 0 ; idx < bus->width_i ; idx += 1) {
+	    int word = idx/32;
+	    int wbit = idx%32;
+	    uint32_t mask = 1;
+	    mask <<= wbit;
+
+	    if (data[word] & mask)
+		  bus->data_i[idx] = BIT_1;
+	    else
+		  bus->data_i[idx] = BIT_0;
+      }
+
+}
+
 static int send_ready_p2p(simbus_p2p_t bus)
 {
       char buf[4096];
@@ -148,12 +199,14 @@ static int send_ready_p2p(simbus_p2p_t bus)
 
       char*cp = buf + strlen(buf);
 
-      strcpy(cp, " CLOCK_MODE=");
-      cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->clock_mode[1]);
-      *cp++ = __bitval_to_char(bus->clock_mode[0]);
+      if (bus->ident == 0) { /* Only the host can send this */
+	    strcpy(cp, " CLOCK_MODE=");
+	    cp += strlen(cp);
+	    *cp++ = __bitval_to_char(bus->clock_mode[1]);
+	    *cp++ = __bitval_to_char(bus->clock_mode[0]);
+      }
 
-      if (bus->width_o > 0) {
+      if (bus->ident == 0 && bus->width_o > 0) {
 	    unsigned idx;
 	    strcpy(cp, " DATA_O=");
 	    cp += strlen(cp);
@@ -161,6 +214,17 @@ static int send_ready_p2p(simbus_p2p_t bus)
 	      /* Note that the protocol vector is MSB order. */
 	    for (idx = 0 ; idx < bus->width_o ; idx += 1) {
 		  *cp++ = __bitval_to_char(bus->data_o[bus->width_o-idx-1]);
+	    }
+      }
+
+      if (bus->ident != 0 && bus->width_i > 0) {
+	    unsigned idx;
+	    strcpy(cp, " DATA_I=");
+	    cp += strlen(cp);
+
+	      /* Note that the protocol vector is MSB order. */
+	    for (idx = 0 ; idx < bus->width_i ; idx += 1) {
+		  *cp++ = __bitval_to_char(bus->data_i[bus->width_i-idx-1]);
 	    }
       }
 
@@ -203,6 +267,22 @@ static int send_ready_p2p(simbus_p2p_t bus)
 			bus_bitval_t bit = __char_to_bitval(cp[top-1]);
 			if (top <= bus->width_i)
 			      bus->data_i[bus->width_i-top] = bit;
+			top -= 1;
+		  }
+
+	    } else if (strcmp(argv[idx], "DATA_O") == 0) {
+		  int top = strlen(cp);
+		  assert(top > 0);
+
+		    /* If vector is short, pad with X */
+		  int pad;
+		  for (pad = top ; pad < bus->width_o ; pad += 1)
+			bus->data_o[pad] = BIT_X;
+
+		  while (top > 0) {
+			bus_bitval_t bit = __char_to_bitval(cp[top-1]);
+			if (top <= bus->width_o)
+			      bus->data_o[bus->width_o-top] = bit;
 			top -= 1;
 		  }
 

@@ -39,6 +39,14 @@ EXTERN simbus_p2p_t simbus_p2p_connect(const char*server, const char*name,
 				       unsigned width_i, unsigned width_o);
 
 /*
+ * Whether this device is a host or device depends on the ident that
+ * was configured in the server. The point-to-point protocol requires
+ * that hosts have ident of zero so that this library can detect which
+ * it is and act accordingly.
+ */
+EXTERN int simbus_p2p_is_host(simbus_p2p_t bus);
+
+/*
  * Read the current input (from the client) data values, or set the
  * output values. These functions do not move the clock, so time is
  * not advanced and output data is not sent until the clock is
@@ -63,6 +71,14 @@ EXTERN simbus_p2p_t simbus_p2p_connect(const char*server, const char*name,
  */
 EXTERN int simbus_p2p_in(simbus_p2p_t bus, uint32_t*data_i);
 EXTERN void simbus_p2p_out(simbus_p2p_t bus, const uint32_t*data_o);
+
+/*
+ * These are versions of the in/out functions for bus clients. Whereas
+ * the host writes to the bus output and reads from the bus input,
+ * clients write to the bus input and read from the bus output.
+ */
+EXTERN void simbus_p2p_in_poke(simbus_p2p_t bus, const uint32_t*data);
+EXTERN int simbus_p2p_out_peek(simbus_p2p_t bus, uint32_t*data);
 
 /*
  * The master can control the clock for the slave. Use this function

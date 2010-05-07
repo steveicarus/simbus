@@ -5,7 +5,9 @@ The point-to-point protocol is a simple synchronous protocol where
 data is sent synchronously through a single clock. There are no
 addresses, no interrupts, no bus arbitration, and the bus most contain
 exactly two nodes: a single host and a single device. In principle the
-bus is symmetric, so the host/device assignment is somewhat arbitrary.
+bus is symmetric, so the host/device assignment is somewhat arbitrary,
+but the simbus_p2p.h API uses the device number as a signal that it is
+host or device. So always configure the host width ident 0.
 
 The bus includes a CLOCK, a DATA_O vector and a DATA_I vector. The
 DATA_O is data from the host to the device, and the DATA_I is data
@@ -17,7 +19,7 @@ PointToPoint bus simulations have these signals:
       Name         host       device
       ----         ----       ------
       CLOCK_MODE    O          n/a     (See Clock Mode below)
-      CLOCK         O           I
+      CLOCK         I           I
       DATA_O        O           I
       DATA_I        I           O
 
