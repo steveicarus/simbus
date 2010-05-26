@@ -72,8 +72,10 @@ void PciProtocol::run_init()
 	    make_trace_("ACK64#",  PT_BITS);
 	    make_trace_("PAR",     PT_BITS);
 	    make_trace_("PAR64",   PT_BITS);
-	    make_trace_("AD",      PT_BITS, 64);
-	    make_trace_("C/BE#",   PT_BITS, 8);
+	    make_trace_("AD",      PT_BITS, 32);
+	    make_trace_("AD64",    PT_BITS, 32);
+	    make_trace_("C/BE#",   PT_BITS, 4);
+	    make_trace_("C/BE64#", PT_BITS, 4);
 	    make_trace_("INTA#",   PT_BITS, 16);
 	    make_trace_("INTB#",   PT_BITS, 16);
 	    make_trace_("INTC#",   PT_BITS, 16);
@@ -513,8 +515,10 @@ void PciProtocol::blend_bi_signals_(void)
 	    for (int idx = 0 ; idx < 8 ; idx += 1)
 		  tmp_cbe[idx] = subtract_feedback(cbe[idx], cli_cbe[idx]);
 
-	    set_trace_("AD", ad);
-	    set_trace_("C/BE#", cbe);
+	    set_trace_("AD",   ad[slice( 0,32,1)]);
+	    set_trace_("AD64", ad[slice(32,32,1)]);
+	    set_trace_("C/BE#",   cbe[slice(0,4,1)]);
+	    set_trace_("C/BE64#", cbe[slice(4,4,1)]);
 
 	    curdev.send_signals["PAR"][0]   = subtract_feedback(par, curdev.client_signals["PAR"][0]);
 	    curdev.send_signals["PAR64"][0] = subtract_feedback(par64, curdev.client_signals["PAR64"][0]);
