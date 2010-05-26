@@ -80,6 +80,8 @@ struct simbus_pci_s {
 	/* Low bits of a 64bit DAC cycle */
       uint64_t dac_addr_lo;
 
+      int break_flag;
+
       enum target_machine_e {
 	    TARG_IDLE = 0,
 	    TARG_DAC,

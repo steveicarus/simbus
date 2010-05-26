@@ -17,6 +17,44 @@
  *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
 
+/*
+ * Usage: ramdev <flags>...
+ * Flags:
+ *
+ *   -s <server-path>
+ *      This is the address (pipe or tcp) to connect to the bus server
+ *
+ *   -n <name>
+ *      Use this device name when connecting to the bus. The default
+ *      name is "ramdev".
+ *
+ *   -i <ident>
+ *      Use this value as the PCI identifier. The default is 0xffc112c5.
+ *
+ *   -d <path>
+ *      Path to a debug log file. simbus_pci_debug messages are
+ *      written to this log file.
+ */
+
+/*
+ * After the command region, The BAR2 region has registers of a DMA
+ * controller. The DMA controller supports a single linear read.
+ *
+ *    0x1000  : Cmd/Status
+ *       [0] GO
+ *       [1] FIFO Mode (0 - linear external addresses, 1 - fixed address)
+ *       [2] Enable Count Interrupt
+ *       [3] DAC64 addresses
+ *       [4] Write flag (0 - DMA read, 1 - DMA write)
+ *
+ *    0x1008  : External Address (low 32 bits)
+ *    0x100c  : External Address (high 32 bits, defaults to 0)
+ *
+ *    0x1010  : Memory Offset (bytes)
+ *
+ *    0x1004  : Transfer count (bytes)
+ */
+
 # define __STDC_FORMAT_MACROS 1
 # include  <unistd.h>
 # include  <simbus_pci.h>
@@ -38,10 +76,15 @@ const uint32_t BAR2_FLAGS = 0x0000000c;
 static uint32_t config_mem[CONFIG_WORDS];
 
 static uint32_t*memory_space = 0;
-static size_t memory_size = 0;
+static size_t memory_size = 0; // Size of memory in BYTES
+
+const int BAR2_WORDS = 0x2000/4;
+static uint32_t bar2_mem[BAR2_WORDS] = { 0 };
 
 static uint32_t config_read32(simbus_pci_t, uint64_t, int);
 static void config_recv32(simbus_pci_t, uint64_t, uint32_t, int);
+
+static void do_bus_master_operations(simbus_pci_t bus);
 
 int main(int argc, char*argv[])
 {
@@ -117,12 +160,16 @@ int main(int argc, char*argv[])
 	// PCI transactions on the PCI bus, implemented in our
 	// callbacks. When the simulation finishes, the pci_wait will
 	// return, and we clean up.
-      int rc = simbus_pci_wait(bus, 0xffffffff, 0);
-      switch (rc) {
-	  case SIMBUS_PCI_FINISHED:
-	    printf("Simulation finished.\n");
-	    break;
-	  default:
+      for (;;) {
+	    int rc = simbus_pci_wait(bus, 0xffffffff, 0);
+	    if (rc == SIMBUS_PCI_FINISHED) {
+		  printf("Simulation finished.\n");
+		  break;
+	    }
+	    if (rc == SIMBUS_PCI_BREAK) {
+		  do_bus_master_operations(bus);
+		  continue;
+	    }
 	    printf("simbus_pci_wait returned rc=%d\n", rc);
 	    break;
       }
@@ -137,6 +184,11 @@ int main(int argc, char*argv[])
       return 0;
 }
 
+/*
+ * The bar0_needXX functions implement reads from BAR0, the memory of
+ * the device. The reads are free of side effects, so it is harmless
+ * to ignore the BEn bits.
+ */
 static uint32_t bar0_need32(simbus_pci_t bus, uint64_t addr, int BEn)
 {
       uint32_t use_addr = addr;
@@ -145,17 +197,30 @@ static uint32_t bar0_need32(simbus_pci_t bus, uint64_t addr, int BEn)
       use_addr /= 4;
 
       uint32_t val = memory_space[use_addr];
-
+#if 0
       printf("Memory read32 from 0x%04" PRIx64 ": 0x%08" PRIx32 " (BE#=0x%x)\n",
 	     addr, val, BEn);
       fflush(stdout);
-
+#endif
       return val;
 }
 
 static uint64_t bar0_need64(simbus_pci_t bus, uint64_t addr, int BEn)
 {
-      return 0;
+      uint32_t use_addr = addr;
+      use_addr &= ~bar0_mask;
+      assert(use_addr < memory_size);
+      use_addr /= 4;
+
+      uint64_t val = memory_space[use_addr+1];
+      val <<= 32;
+      val |= memory_space[use_addr+0];
+#if 0
+      printf("Memory read64 from 0x%04" PRIx64 ": 0x%08" PRIx64 " (BE#=0x%x)\n",
+	     addr, val, BEn);
+      fflush(stdout);
+#endif
+      return val;
 }
 
 static void bar0_recv32(simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn)
@@ -170,19 +235,129 @@ static void bar0_recv32(simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn)
       if (BEn & 2) be_mask &= 0xffff00ff;
       if (BEn & 4) be_mask &= 0xff00ffff;
       if (BEn & 8) be_mask &= 0x00ffffff;
-
+#if 0
       printf("Memory write32 to 0x%04" PRIx64 ": 0x%08" PRIx32 " (BE#=0x%x)\n",
 	     addr, val, BEn);
       fflush(stdout);
-
+#endif
       memory_space[use_addr] = (val&be_mask) | (memory_space[use_addr]&~be_mask);
 }
 
 static void bar0_recv64(simbus_pci_t bus, uint64_t addr, uint64_t val, int BEn)
 {
+      uint32_t use_addr = addr;
+      use_addr &= ~bar0_mask;
+      assert(use_addr < memory_size);
+      use_addr /= 4;
+
+      uint32_t be0_mask = 0xffffffff;
+      if (BEn & 0x01) be0_mask &= 0xffffff00;
+      if (BEn & 0x02) be0_mask &= 0xffff00ff;
+      if (BEn & 0x04) be0_mask &= 0xff00ffff;
+      if (BEn & 0x08) be0_mask &= 0x00ffffff;
+      uint32_t val0 = val >>  0;
+
+      uint32_t be1_mask = 0xffffffff;
+      if (BEn & 0x10) be1_mask &= 0xffffff00;
+      if (BEn & 0x20) be1_mask &= 0xffff00ff;
+      if (BEn & 0x40) be1_mask &= 0xff00ffff;
+      if (BEn & 0x80) be1_mask &= 0x00ffffff;
+      uint32_t val1 = val >> 32;
+#if 0
+      printf("Memory write32 to 0x%04" PRIx64 ": 0x%08" PRIx64 " (BE#=0x%x)\n",
+	     addr, val, BEn);
+      fflush(stdout);
+#endif
+      memory_space[use_addr+0] = (val0&be0_mask) | (memory_space[use_addr+0]&~be0_mask);
+      memory_space[use_addr+1] = (val1&be1_mask) | (memory_space[use_addr+1]&~be1_mask);
 }
 
+/*
+ * Reading BAR2 is idempotent.
+ */
+static uint32_t bar2_need32(simbus_pci_t bus, uint64_t addr, int BEn)
+{
+      uint32_t use_addr = addr;
+      use_addr &= ~BAR2_MASK;
+      use_addr /= 4;
+
+      uint32_t val = bar2_mem[use_addr];
+
+      printf("BAR2 read32 from 0x%04" PRIx64 ": 0x%08" PRIx32 " (BE#=0x%x)\n",
+	     addr, val, BEn);
+      fflush(stdout);
+
+      return val;
+}
+
+static uint64_t bar2_need64(simbus_pci_t bus, uint64_t addr, int BEn)
+{
+      uint32_t use_addr = addr;
+      use_addr &= ~BAR2_MASK;
+      assert(use_addr < BAR2_WORDS);
+      use_addr /= 4;
+
+      uint64_t val = bar2_mem[use_addr+1];
+      val <<= 32;
+      val |= bar2_mem[use_addr+0];
+
+      printf("BAR2 read64 from 0x%04" PRIx64 ": 0x%08" PRIx64 " (BE#=0x%x)\n",
+	     addr, val, BEn);
+      fflush(stdout);
+
+      return 0;
+}
+
+/*
+ * Writing BAR2 may trigger actions. Perform the write, then perform
+ * any actions that are triggered by the command.
+ */
+static void bar2_recv32(simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn)
+{
+      uint32_t use_addr = addr;
+      use_addr &= ~BAR2_MASK;
+      use_addr /= 4;
+
+      uint32_t be_mask = 0xffffffff;
+      if (BEn & 1) be_mask &= 0xffffff00;
+      if (BEn & 2) be_mask &= 0xffff00ff;
+      if (BEn & 4) be_mask &= 0xff00ffff;
+      if (BEn & 8) be_mask &= 0x00ffffff;
+
+      printf("BAR2 write32 to 0x%04" PRIx64 ": 0x%08" PRIx32 " (BE#=0x%x)\n",
+	     addr, val, BEn);
+      fflush(stdout);
+
+      bar2_mem[use_addr] = (val&be_mask) | (memory_space[use_addr]&~be_mask);
+
+      switch (use_addr) {
+	  case 0x1000/4: // Cmd/Status
+	    simbus_pci_wait_break(bus);
+	    break;
+	  case 0x1004/4: // Transfer count
+	    bar2_mem[use_addr] %= ~3; // Mask to multiple of 4
+	    break;
+	  case 0x1010/4: // Memory Offset
+	    bar2_mem[use_addr] %= ~3; // Mask to multiple of 4
+	    break;
+	  default:
+	    break;
+      }
+}
+
+static void bar2_recv64(simbus_pci_t bus, uint64_t addr, uint64_t val, int BEn)
+{
+      int BEnL = (BEn>>0) & 0x0f;
+      int BEnH = (BEn>>4) & 0x0f;
+      uint32_t valL = (val>> 0) & 0xffffffff;
+      uint32_t valH = (val>>32) & 0xffffffff;
+      bar2_recv32(bus, addr+0, valL, BEnL);
+      bar2_recv32(bus, addr+4, valH, BEnH);
+}
+
+
 struct simbus_translation bar0_map;
+struct simbus_translation bar2_map;
 
 static uint32_t config_read32(simbus_pci_t bus, uint64_t addr, int BEn)
 {
@@ -246,7 +421,61 @@ static void config_recv32(simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn
 	    bar0_map.base |= config_mem[4];
 	    bar0_map.mask = 0xffffffff00000000ULL | bar0_mask;
 	    simbus_pci_mem_xlate(bus, 0, &bar0_map);
+
+	    bar2_map.need32 = &bar2_need32;
+	    bar2_map.need64 = &bar2_need64;
+	    bar2_map.recv32 = &bar2_recv32;
+	    bar2_map.recv64 = &bar2_recv64;
+	    bar2_map.base = config_mem[7];
+	    bar2_map.base <<= 32;
+	    bar2_map.base |= config_mem[6];
+	    bar2_map.mask = 0xffffffff00000000ULL | BAR2_MASK;
+	    simbus_pci_mem_xlate(bus, 2, &bar2_map);
       } else {
 	    simbus_pci_mem_xlate(bus, 0, &bar0_map);
+	    simbus_pci_mem_xlate(bus, 2, &bar2_map);
+      }
+}
+
+static void do_bus_master_operations(simbus_pci_t bus)
+{
+#if 0
+      printf("Break and do bus mastering...\n");
+      fflush(stdout);
+#endif
+      if (bar2_mem[0x1000/4] & 0x01) { // DMA in progress
+	      // While the transfer count > 0...
+	    while (bar2_mem[0x1004/4] > 0) {
+		  uint64_t addr = bar2_mem[0x100c/4];
+		  addr <<= 32;
+		  addr |= bar2_mem[0x1008/4];
+		  uint32_t off = bar2_mem[0x1010/4];
+
+		  bar2_mem[0x1010/4] += 4;
+		  bar2_mem[0x1008/4] += 4;
+		  bar2_mem[0x1004/4] -= 4;
+
+		  if (bar2_mem[0x1000/4] & 0x10) { // DMA Write
+			uint32_t val = 0xffffffff;
+			if (off < memory_size) {
+			      off /= 4;
+			      val = memory_space[off];
+			}
+			simbus_pci_write32(bus, addr, val, 0);
+		  } else { // DMA Read
+			uint32_t val = simbus_pci_read32(bus, addr, 0);
+			if (off < memory_size) {
+			      off /= 4;
+#if 0
+			      printf("Write 0x%08lx to off=0x%x remain=%lu\n",
+				     val, off, bar2_mem[0x1004/4]);
+#endif
+			      memory_space[off] = val;
+			}
+		  }
+	    }
+
+	      // Clear the GO bit
+	    bar2_mem[0x1000/4] &= ~0x01;
       }
 }

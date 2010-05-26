@@ -50,12 +50,32 @@ EXTERN void simbus_pci_debug(simbus_pci_t pci, FILE*fd);
  * interrupt) and the return value is the mask of interrupts that
  * interrupted the wait, or 0 if the wait timed out.
  *
+ * If the simbus_pci_wait returns due to an interrupt, the low 16 bits
+ * of the return code are a mask of the currently active
+ * interrupts. bit-N is the INTA interrupt for device N.
+ *
  * If the function returns because if an error, the function will
  * return an error code.
+ *
+ *   SIMBUS_PCI_ERROR
+ *     Some error occurred on the PCI bus.
+ *
+ *   SIMBUS_PCI_FINISH
+ *     The simulation terminated by a FINISH command by the host. The
+ *     proper response to this is to simbus_pci_disconnect().
+ *
+ *   SIMBUS_PCI_BREAK
+ *     A callback has called the simbus_pci_wait_break()
+ *     function. This means that some action in the target handler
+ *     wants to break out of the wait so that a master operation can
+ *     be performed.
  */
 EXTERN int simbus_pci_wait(simbus_pci_t bus, unsigned clks, unsigned irq_enable);
-# define SIMBUS_PCI_ERROR (-1)
+# define SIMBUS_PCI_ERROR    (-1)
 # define SIMBUS_PCI_FINISHED (-2)
+# define SIMBUS_PCI_BREAK    (-3)
+
+EXTERN int simbus_pci_wait_break(simbus_pci_t bus);
 
 /*
  * Cause a RESET# pulse to be generated on the PCI bus of the

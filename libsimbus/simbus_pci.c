@@ -335,6 +335,7 @@ int simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
       int rc = 0;
 	/* Wait for the clock to go low, and to go high again. */
       assert(clks > 0);
+      pci->break_flag = 0;
       unsigned mask = 0;
       while (clks > 0 && ! (mask&irq)) {
 	    while (pci->pci_clk != BIT_0 && rc >= 0)
@@ -352,6 +353,9 @@ int simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 	      /* Advance my target machine, if present. */
 	    __pci_target_state_machine(pci);
 
+	    if (pci->break_flag && pci->target_state==TARG_IDLE)
+		  return SIMBUS_PCI_BREAK;
+
 	      /* Collect the interrupts that are now being driven. */
 	    mask = 0;
 	    int idx;
@@ -362,6 +366,12 @@ int simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
       }
 
       return mask & irq;
+}
+
+int simbus_pci_wait_break(simbus_pci_t pci)
+{
+      pci->break_flag = 1;
+      return 0;
 }
 
 void simbus_pci_reset(simbus_pci_t pci, unsigned width, unsigned settle)
