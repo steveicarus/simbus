@@ -54,14 +54,25 @@ int client_state_t::read_from_socket(int fd)
 
       int rc = read(fd, buffer_ + buffer_fill_, trans);
       assert(rc >= 0);
-      if (rc == 0)
+      if (rc == 0) {
+	      // Locate the bus that I'm part of.
+	    bus_map_idx_t bus_info = bus_map.find(bus_);
+	    assert(bus_info != bus_map.end());
+	    cerr << "EOF from "
+		 << (bus_interface_->host_flag? "host" : "device")
+		 << " " << dev_name_
+		 << ", forcing detach from bus " << bus_info->second.name
+		 << "." << endl;
+	    bus_interface_->ready_flag  = true;
+	    bus_interface_->finish_flag = true;
 	    return rc;
+      }
 
       buffer_fill_ += rc;
       *(buffer_+buffer_fill_) = 0;
 
       if (char*eol = strchr(buffer_, '\n')) {
-	      // Remote the new-line.
+	      // Remove the new-line.
 	    *eol++ = 0;
 	    int argc = 0;
 	    char*argv[2048];
