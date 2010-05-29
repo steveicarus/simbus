@@ -43,7 +43,7 @@ uint32_t simbus_pci_read32(simbus_pci_t pci, uint64_t addr, int BEn)
 
 	    if (rc < 0) {
 		  fprintf(stderr, "simbus_pci_read32: "
-			  "No response to addr=0x%x, rc=%d\n", addr, rc);
+			  "No response from addr=0x%x, rc=%d\n", addr, rc);
 		  return 0xffffffff;
 	    }
       }

@@ -312,13 +312,11 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
 
 static void do_target_memory_read_multiple(simbus_pci_t pci, const struct simbus_translation*bar)
 {
-      printf("XXXX do_target_memory_read_multiple not implemented\n");
       do_target_memory_read(pci, bar);
 }
 
 static void do_target_memory_read_line(simbus_pci_t pci, const struct simbus_translation*bar)
 {
-      printf("XXXX do_target_memory_read_line not implemented\n");
       do_target_memory_read(pci, bar);
 }
 
