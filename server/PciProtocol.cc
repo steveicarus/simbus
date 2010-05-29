@@ -277,32 +277,41 @@ void PciProtocol::arbitrate_()
       if (count_requests == 0)
 	    return;
 
-      int old_grant = granted_;
-
-      if (granted_ < 0)
-	    granted_ = 0;
-
-      do {
-	    granted_ = (granted_+1) % 16;
-      } while (req_n[granted_] != BIT_0);
-
-      if (granted_ == old_grant)
+	// If the current grantee is still requesting, then don't take
+	// the bus away from it.
+      if (granted_ >= 0 && req_n[granted_] == BIT_0)
 	    return;
 
-      string master_name = "?";
-      for (bus_device_map_t::iterator dev = device_map().begin()
-		 ; dev != device_map().end() ; dev ++ ) {
+      int old_grant = granted_;
+      int new_grant = granted_;
 
-	    struct bus_device_plug&curdev = dev->second;
-	    if (old_grant >= 0 && curdev.ident == old_grant) {
-		  curdev.send_signals["GNT#"][0] = BIT_1;
-	    } else if (curdev.ident == granted_) {
-		  curdev.send_signals["GNT#"][0] = BIT_0;
-		  master_name = dev->first;
-	    }
+      if (new_grant < 0)
+	    new_grant = 0;
+
+      do {
+	    new_grant = (new_grant+1) % 16;
+      } while (req_n[new_grant] != BIT_0);
+
+      if (new_grant == old_grant)
+	    return;
+
+	// Get the device object for the new grantee and the old grantee.
+      bus_device_map_t::iterator old_dev = device_map().end();
+      bus_device_map_t::iterator new_dev = device_map().end();
+      for (bus_device_map_t::iterator dev = device_map().begin()
+		 ; dev != device_map().end() ; dev++) {
+	    if (dev->second.ident == old_grant)
+		  old_dev = dev;
+	    if (dev->second.ident == new_grant)
+		  new_dev = dev;
       }
 
-      cout << "Arbiter: Grant bus to " << granted_ << endl;
+      string master_name = new_dev->first;
+      new_dev->second.send_signals["GNT#"][0] = BIT_0;
+      if (old_dev != device_map().end())
+	    old_dev->second.send_signals["GNT#"][0] = BIT_1;
+
+      granted_ = new_grant;
       set_trace_("Bus owner", master_name);
 }
 
