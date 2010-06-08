@@ -38,6 +38,16 @@ class PciProtocol  : public protocol_t {
       void blend_bi_signals_(void);
 
     private:
+      typedef struct {
+	    bit_state_t clk_val;
+	    uint64_t duration_ps;
+      } clock_phase_map_t;
+
+      static const clock_phase_map_t clock_phase_map33[4];
+      static const clock_phase_map_t clock_phase_map66[4];
+
+      const clock_phase_map_t*clock_phase_map_;
+
 	// Current state of the PCI clock. (It toggles.)
       int phase_;
 	// Device that is currently granted, or -1 if none.

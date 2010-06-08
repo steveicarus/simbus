@@ -55,16 +55,18 @@ clock posedge. This sketch shows the phases:
        earlier. This phase is 2ns wide.
 
   B  - Signal hold. This is a chance for clients to change signals in
-       response to the posedge of the clock. This phase is 14.5ns.
+       response to the posedge of the clock. This phase is 13ns.
 
   C  - The negedge of the clock. Another chance to change
-       signals. This phase is 14.5ns.
+       signals. This phase is 13ns.
 
   D  - Signal Setup. This is the last chance for clients to change
        signal values for the upcoming posedge. Signal values in the
        "READY" message will arrive at other clients with the start of
        phase-A. This phase is 2ns.
 
+The clock can also be configured for 66MHz operation. Set the option
+"bus_speed=66" to enable a 66MHz clock.
 
 * IDSEL mapping
 

@@ -36,13 +36,19 @@ using namespace std;
  *       |          |          |          |
  *  -----+          +----------+          +----------
  */
-static struct {
-      bit_state_t clk_val;
-      uint64_t duration_ps;
-} clock_phase_map[4] = {
+
+
+const PciProtocol::clock_phase_map_t PciProtocol::clock_phase_map33[4] = {
       { BIT_1,   2000 }, // A  - Posedge
-      { BIT_1,  14500 }, // B  - Hold
-      { BIT_0,  14500 }, // C  - Negedge
+      { BIT_1,  13000 }, // B  - Hold
+      { BIT_0,  13000 }, // C  - Negedge
+      { BIT_0,   2000 }  // D  - Setup
+};
+
+const PciProtocol::clock_phase_map_t PciProtocol::clock_phase_map66[4] = {
+      { BIT_1,   2000 }, // A  - Posedge
+      { BIT_1,   5500 }, // B  - Hold
+      { BIT_0,   5500 }, // C  - Negedge
       { BIT_0,   2000 }  // D  - Setup
 };
 
@@ -50,6 +56,16 @@ PciProtocol::PciProtocol(struct bus_state&b)
 : protocol_t(b), phase_(0)
 {
       granted_ = -1;
+      clock_phase_map_ = clock_phase_map33;
+
+      string bus_speed = b.options["bus_speed"];
+      if (bus_speed == "") {
+	    clock_phase_map_ = clock_phase_map33;
+      } else if (bus_speed == "33") {
+	    clock_phase_map_ = clock_phase_map33;
+      } else if (bus_speed == "66") {
+	    clock_phase_map_ = clock_phase_map66;
+      }
 }
 
 PciProtocol::~PciProtocol()
@@ -168,7 +184,7 @@ void PciProtocol::run_run()
 	// Calculate the RESET# signal.
       bit_state_t reset_n = calculate_reset_n_();
 
-      bit_state_t pci_clk = clock_phase_map[phase_].clk_val;
+      bit_state_t pci_clk = clock_phase_map_[phase_].clk_val;
 
 	// Run the arbitration state machine.
       arbitrate_();
@@ -208,7 +224,7 @@ void PciProtocol::advance_pci_clock_(void)
       phase_ = (phase_ + 1) % 4;
 
 	// Advance time for the next phase
-      advance_time_(clock_phase_map[phase_].duration_ps, -12);
+      advance_time_(clock_phase_map_[phase_].duration_ps, -12);
 }
 
 bit_state_t PciProtocol::calculate_reset_n_()
