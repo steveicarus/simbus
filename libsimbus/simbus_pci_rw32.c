@@ -43,7 +43,7 @@ uint32_t simbus_pci_read32(simbus_pci_t pci, uint64_t addr, int BEn)
 
 	    if (rc < 0) {
 		  fprintf(stderr, "simbus_pci_read32: "
-			  "No response from addr=0x%x, rc=%d\n", addr, rc);
+			  "No response from addr=0x%" PRIx64 ", rc=%d\n", addr, rc);
 		  return 0xffffffff;
 	    }
       }
@@ -53,14 +53,31 @@ uint32_t simbus_pci_read32(simbus_pci_t pci, uint64_t addr, int BEn)
 
 void simbus_pci_write32(simbus_pci_t pci, uint64_t addr, uint32_t val, int BEn)
 {
-      int idx;
-
       int rc;
 
       rc = __generic_pci_write32(pci, addr, 0xf7, val, BEn);
       if (rc < 0) {
 	    fprintf(stderr, "simbus_pci_write32: "
-		    "No response to addr=0x%x\n", addr);
+		    "No response to addr=0x%" PRIx64 "\n", addr);
 	    return ;
       }
+}
+
+int simbus_pci_write32b(simbus_pci_t pci, uint64_t addr,
+			 const uint32_t*val, int words,
+			 int BEFn, int BELn)
+{
+      assert(words > 0);
+      assert(words > 1 || BEFn==BELn);
+
+      int idx;
+      for (idx = 0 ; idx < words ; idx += 1, addr += 4) {
+	    int use_BEn = 0;
+	    if (idx == 0) use_BEn = BEFn;
+	    else if (idx+1 == words) use_BEn = BELn;
+
+	    simbus_pci_write32(pci, addr, val[idx], use_BEn);
+      }
+
+      return words;
 }

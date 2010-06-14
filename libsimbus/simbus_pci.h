@@ -110,9 +110,25 @@ EXTERN void simbus_pci_config_write(simbus_pci_t bus, uint64_t addr, uint32_t va
  *
  * The write32 uses 32bit PCI only. If the address is more then
  * 32bits, then use a DAC to write the 64bit address.
+ *
+ * The write32b and write64b functions write words in a burst. The
+ * "words" argument is the number of words to write. The BEFn and BELn
+ * are the byte enables for the first and last words. Intermediate
+ * words have all bytes enabled. If words==1 (legal but degenerate)
+ * then BEFn and BELn must be equal. The write32b/write64b function
+ * returns the number of words actually written. Note that it is
+ * possible for the target to stop a transaction, so the return value
+ * may be less then the total word count.
  */
 EXTERN void simbus_pci_write32(simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn);
 EXTERN void simbus_pci_write64(simbus_pci_t bus, uint64_t addr, uint64_t val, int BEn);
+
+EXTERN int simbus_pci_write32b(simbus_pci_t bus, uint64_t addr,
+			       const uint32_t*val, int words,
+			       int BEFn, int BELn);
+EXTERN int simbus_pci_write64b(simbus_pci_t bus, uint64_t addr,
+			       const uint64_t*val, int words,
+			       int BEFn, int BELn);
 
 /*
  * Read 32/64 bit values from the bus.

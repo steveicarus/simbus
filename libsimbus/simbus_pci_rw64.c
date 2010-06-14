@@ -142,3 +142,22 @@ void simbus_pci_write64(simbus_pci_t pci, uint64_t addr, uint64_t val, int BEn)
       __undrive_bus(pci);
       __pci_next_posedge(pci);
 }
+
+int simbus_pci_write64b(simbus_pci_t pci, uint64_t addr,
+			 const uint64_t*val, int words,
+			 int BEFn, int BELn)
+{
+      assert(words > 0);
+      assert(words > 1 || BEFn==BELn);
+
+      int idx;
+      for (idx = 0 ; idx < words ; idx += 1, addr += 4) {
+	    int use_BEn = 0;
+	    if (idx == 0) use_BEn = BEFn;
+	    else if (idx+1 == words) use_BEn = BELn;
+
+	    simbus_pci_write64(pci, addr, val[idx], use_BEn);
+      }
+
+      return words;
+}
