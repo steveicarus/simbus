@@ -70,14 +70,57 @@ int simbus_pci_write32b(simbus_pci_t pci, uint64_t addr,
       assert(words > 0);
       assert(words > 1 || BEFn==BELn);
 
-      int idx;
-      for (idx = 0 ; idx < words ; idx += 1, addr += 4) {
-	    int use_BEn = 0;
-	    if (idx == 0) use_BEn = BEFn;
-	    else if (idx+1 == words) use_BEn = BELn;
-
-	    simbus_pci_write32(pci, addr, val[idx], use_BEn);
+	/* Special case: If there is exactly 1 word to transfer, then
+	   use the single-word cycle. */
+      if (words == 1) {
+	    simbus_pci_write32(pci, addr, val[0], BEFn);
+	    return 1;
       }
 
-      return words;
+      __pci_request_bus(pci);
+      pci->out_req_n = BIT_1;
+
+      __address_command(pci, addr, 0xf7, 0);
+
+      __setup_for_write(pci, val[0], BEFn, 0);
+
+	/* The first word involves waiting for the devsel. */
+      int rc;
+      if ( (rc = __wait_for_devsel(pci)) < 0)
+	    return rc;
+
+      while (pci->pci_trdy_n != BIT_0)
+	    __pci_next_posedge(pci);
+
+      int remain = words - 1;
+      val += 1;
+
+      while (remain > 0) {
+	      /* If this is the last work, say so by deasserting
+		 FRAME#. Otherwise, the words are all the same. */
+	    if (remain > 1) {
+		  __setup_for_write(pci, *val, 0, 0);
+	    } else {
+		  pci->out_frame_n = BIT_1;
+		  __setup_for_write(pci, *val, BELn, 0);
+	    }
+
+	    while (pci->pci_trdy_n != BIT_0)
+		  __pci_next_posedge(pci);
+
+	      /* Disconnect from the target */
+	    if (pci->pci_stop_n == BIT_0) {
+		  pci->out_frame_n = BIT_1;
+		  pci->out_irdy_n = BIT_1;
+		  __pci_next_posedge(pci);
+		  break;
+	    }
+	    remain -= 1;
+	    val += 1;
+      }
+
+      __undrive_bus(pci);
+      __pci_next_posedge(pci);
+
+      return words - remain;
 }
