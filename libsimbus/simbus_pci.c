@@ -402,7 +402,7 @@ void __pci_request_bus(simbus_pci_t pci)
 /*
  * Send the address and command...
  */
-void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64)
+void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64, int burst_flag)
 {
       int idx;
       pci->out_req64_n = flag64? BIT_0 : BIT_1;
@@ -460,7 +460,7 @@ void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64
 	   requesting a 64bit transaction, then leave the FRAME#
 	   active in case the target acknowledges only 32bits, and
 	   this turns into a burst. */
-      if (pci->out_req64_n!=BIT_0)
+      if (pci->out_req64_n!=BIT_0 && burst_flag==0)
 	    pci->out_frame_n = BIT_1;
 
       pci->out_irdy_n  = BIT_0;
@@ -540,7 +540,7 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 
       pci->out_req_n = BIT_1;
 
-      __address_command(pci, addr, cmd, 0);
+      __address_command(pci, addr, cmd, 0, 0);
 
 	/* Collect the BE# bits. */
       pci->out_c_be[0] = BEn&0x1? BIT_1 : BIT_0;
@@ -596,13 +596,13 @@ void __setup_for_write(simbus_pci_t pci, uint64_t val, int BEn, int flag64)
       if (flag64) {
 	    pci->out_c_be[4] = BEn&0x10 ? BIT_1 : BIT_0;
 	    pci->out_c_be[5] = BEn&0x20 ? BIT_1 : BIT_0;
-	    pci->out_c_be[7] = BEn&0x40 ? BIT_1 : BIT_0;
-	    pci->out_c_be[8] = BEn&0x80 ? BIT_1 : BIT_0;
+	    pci->out_c_be[6] = BEn&0x40 ? BIT_1 : BIT_0;
+	    pci->out_c_be[7] = BEn&0x80 ? BIT_1 : BIT_0;
       } else {
 	    pci->out_c_be[4] = BIT_1;
 	    pci->out_c_be[5] = BIT_1;
+	    pci->out_c_be[6] = BIT_1;
 	    pci->out_c_be[7] = BIT_1;
-	    pci->out_c_be[8] = BIT_1;
       }
 
       int idx;
@@ -650,7 +650,7 @@ int __generic_pci_write32(simbus_pci_t pci, uint64_t addr, int cmd,
 
       pci->out_req_n = BIT_1;
 
-      __address_command(pci, addr, cmd, 0);
+      __address_command(pci, addr, cmd, 0, 0);
 
       __setup_for_write(pci, val, BEn, 0);
 
