@@ -332,6 +332,20 @@ void __pci_next_posedge(simbus_pci_t pci)
 
 int simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 {
+	/* Special case: if the clks is 0, then we are not really here
+	   to wait, but just to test if there are any interrupts
+	   pending. */
+      if (clks == 0) {
+	    unsigned mask = 0;
+	    int idx;
+	    for (idx = 0 ; idx < 16 ; idx += 1) {
+		  if (pci->pci_inta_n[idx] == BIT_0)
+			mask |= 1<<idx;
+	    }
+
+	    return mask & irq;
+      }
+
       int rc = 0;
 	/* Wait for the clock to go low, and to go high again. */
       assert(clks > 0);

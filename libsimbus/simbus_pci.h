@@ -54,6 +54,10 @@ EXTERN void simbus_pci_debug(simbus_pci_t pci, FILE*fd);
  * of the return code are a mask of the currently active
  * interrupts. bit-N is the INTA interrupt for device N.
  *
+ * Special case: if the clks argument is zero, then this function only
+ * probes for pending interrupts. It does not wait for a clock edge or
+ * allow any other bus activity to progress.
+ *
  * If the function returns because if an error, the function will
  * return an error code.
  *
