@@ -96,7 +96,7 @@ int simbus_pci_write32b(simbus_pci_t pci, uint64_t addr,
       val += 1;
 
       while (remain > 0) {
-	      /* If this is the last work, say so by deasserting
+	      /* If this is the last word, say so by deasserting
 		 FRAME#. Otherwise, the words are all the same. */
 	    if (remain > 1) {
 		  __setup_for_write(pci, *val, 0, 0);
@@ -108,15 +108,17 @@ int simbus_pci_write32b(simbus_pci_t pci, uint64_t addr,
 	    while (pci->pci_trdy_n != BIT_0)
 		  __pci_next_posedge(pci);
 
-	      /* Disconnect from the target */
+	    remain -= 1;
+	    val += 1;
+
+	      /* If Disconnect is signalled by target, then the past
+		 word was the last word. Clock out a completion. */
 	    if (pci->pci_stop_n == BIT_0) {
 		  pci->out_frame_n = BIT_1;
 		  pci->out_irdy_n = BIT_1;
 		  __pci_next_posedge(pci);
 		  break;
 	    }
-	    remain -= 1;
-	    val += 1;
       }
 
       __undrive_bus(pci);
