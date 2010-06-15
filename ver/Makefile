@@ -11,6 +11,7 @@ install: all installdirs $(datadir)/pci_slot.v $(datadir)/point_slave_io.v $(dat
 uninstall:
 	rm -f $(DESTDIR)$(datadir)/pci_slot.v
 	rm -f $(DESTDIR)$(datadir)/point_slave_io.v
+	rm -f $(DESTDIR)$(datadir)/cameralink_recv.v
 
 
 $(datadir)/pci_slot.v: pci_slot.v

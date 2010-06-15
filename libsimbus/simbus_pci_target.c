@@ -265,7 +265,6 @@ static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translat
 
 static void do_target_memory_write(simbus_pci_t pci, const struct simbus_translation*bar)
 {
-      int idx;
       uint64_t addr = get_addr(pci);
 
 	/* Emit DEVSEL# and TRDY# */
@@ -274,7 +273,6 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
       pci->out_stop_n = BIT_1;
 
       do {
-	    int BEn = 0;
 	      /* Wait for the master to be ready with the data. */
 	    do {
 		  __pci_next_posedge(pci);

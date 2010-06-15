@@ -28,7 +28,7 @@ uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
       int rc = __generic_pci_read32(pci, addr, 0xfa, 0xf0, &val);
       if (rc < 0) {
 	    fprintf(stderr, "simbus_pci_config_read: "
-		    "No response to addr=0x%x, rc=%d\n", addr, rc);
+		    "No response to addr=0x%" PRIx64 ", rc=%d\n", addr, rc);
 	    return 0xffffffff;
       }
 
@@ -43,7 +43,7 @@ void simbus_pci_config_write(simbus_pci_t pci, uint64_t addr, uint32_t val, int 
       rc = __generic_pci_write32(pci, addr, 0xfb, val, BEn);
       if (rc < 0) {
 	    fprintf(stderr, "simbus_pci_config_write: "
-		    "No response to addr=0x%x\n", addr);
+		    "No response to addr=0x%" PRIx64 "\n", addr);
 	    return ;
       }
 }
