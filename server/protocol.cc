@@ -28,7 +28,7 @@
 
 using namespace std;
 
-protocol_t::protocol_t(struct bus_state&b)
+protocol_t::protocol_t(struct bus_state*b)
 : bus_(b)
 {
 }
@@ -39,7 +39,7 @@ protocol_t::~protocol_t()
 
 bus_device_map_t& protocol_t::device_map()
 {
-      return bus_.device_map;
+      return bus_->device_map;
 }
 
 void protocol_t::make_trace_(const char*lab, trace_type_t lt_type, int wid)
@@ -53,7 +53,7 @@ void protocol_t::make_trace_(const char*lab, trace_type_t lt_type, int wid)
 	    use_lt_type = LXT2_WR_SYM_F_STRING;
 	    break;
       }
-      string tmp_name = bus_.name + "." + lab;
+      string tmp_name = bus_->name + "." + lab;
       struct lxt2_wr_symbol*sym = lxt2_wr_symbol_add(service_lxt,
 						     tmp_name.c_str(),
 						     0, wid-1, 0, use_lt_type);
@@ -107,8 +107,8 @@ void protocol_t::bus_ready()
 	// First, clear the ready flags for all the devices. This will
 	// force the expectation of a new READY message from all the
 	// devices.
-      for (bus_device_map_t::iterator dev = bus_.device_map.begin()
-		 ; dev != bus_.device_map.end() ;  dev ++) {
+      for (bus_device_map_t::iterator dev = bus_->device_map.begin()
+		 ; dev != bus_->device_map.end() ;  dev ++) {
 	    dev->second.ready_flag = false;
       }
 
@@ -134,9 +134,9 @@ void protocol_t::bus_ready()
 
 	// If the bus is finished, then just send FINISH commands to
 	// all the clients and close their ports.
-      if (bus_.finished) {
-	    for (bus_device_map_t::iterator dev = bus_.device_map.begin()
-		       ; dev != bus_.device_map.end() ;  dev ++) {
+      if (bus_->finished) {
+	    for (bus_device_map_t::iterator dev = bus_->device_map.begin()
+		       ; dev != bus_->device_map.end() ;  dev ++) {
 
 		  int fd = dev->second.fd;
 		  int rc = write(fd, "FINISH\n", 7);
@@ -148,8 +148,8 @@ void protocol_t::bus_ready()
 	    }
 
 	      // Close the bus.
-	    close(bus_.fd);
-	    bus_.fd = -1;
+	    close(bus_->fd);
+	    bus_->fd = -1;
 
 	    if (service_lxt) lxt2_wr_flush(service_lxt);
 	    return;
@@ -158,8 +158,8 @@ void protocol_t::bus_ready()
 	// Send the new signal state to the client. This scans through
 	// the signal map for each device, and sends the state for all
 	// the signals to the client through the UNTIL message.
-      for (bus_device_map_t::iterator dev = bus_.device_map.begin()
-		 ; dev != bus_.device_map.end() ;  dev ++) {
+      for (bus_device_map_t::iterator dev = bus_->device_map.begin()
+		 ; dev != bus_->device_map.end() ;  dev ++) {
 
 	    int fd = dev->second.fd;
 	    signal_state_map_t&sigs = dev->second.send_signals;
@@ -213,6 +213,10 @@ void protocol_t::bus_ready()
       }
 
       if (service_lxt) lxt2_wr_flush(service_lxt);
+}
+
+void protocol_t::trace_init()
+{
 }
 
 void protocol_t::run_init()

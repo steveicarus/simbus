@@ -98,9 +98,6 @@ struct bus_state {
 	// posix fd for the bus socket. This is only used for
 	// listening for new clients.
       int fd;
-	// Start out true, then turn this false when the bus is fully
-	// assembled and initialized.
-      bool need_initialization;
 	// when initializing, unlink all the paths in this list.
       std::list<std::string>unlink_on_initialization;
 	// True if the bus is finished (by finish command)
@@ -113,8 +110,12 @@ struct bus_state {
       void assembly_complete();
 };
 
-extern std::map <std::string, bus_state> bus_map;
-typedef std::map<std::string, bus_state>::iterator bus_map_idx_t;
+/*
+ * Keep a list of all the busses in the system, indexed by their port
+ * string.
+ */
+extern std::map <std::string, bus_state*> bus_map;
+typedef std::map<std::string, bus_state*>::iterator bus_map_idx_t;
 
 /*
  * This function is used by the service config file to add a new bus

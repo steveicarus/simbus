@@ -52,13 +52,13 @@ const PciProtocol::clock_phase_map_t PciProtocol::clock_phase_map66[4] = {
       { BIT_0,   2000 }  // D  - Setup
 };
 
-PciProtocol::PciProtocol(struct bus_state&b)
+PciProtocol::PciProtocol(struct bus_state*b)
 : protocol_t(b), phase_(0)
 {
       granted_ = -1;
       clock_phase_map_ = clock_phase_map33;
 
-      string bus_speed = b.options["bus_speed"];
+      string bus_speed = b->options["bus_speed"];
       if (bus_speed == "") {
 	    clock_phase_map_ = clock_phase_map33;
       } else if (bus_speed == "33") {
@@ -72,32 +72,33 @@ PciProtocol::~PciProtocol()
 {
 }
 
+void PciProtocol::trace_init()
+{
+      make_trace_("PCI_CLK", PT_BITS);
+      make_trace_("RESET#",  PT_BITS);
+      make_trace_("FRAME#",  PT_BITS);
+      make_trace_("REQ64#",  PT_BITS);
+      make_trace_("IRDY#",   PT_BITS);
+      make_trace_("TRDY#",   PT_BITS);
+      make_trace_("STOP#",   PT_BITS);
+      make_trace_("DEVSEL#", PT_BITS);
+      make_trace_("ACK64#",  PT_BITS);
+      make_trace_("PAR",     PT_BITS);
+      make_trace_("PAR64",   PT_BITS);
+      make_trace_("AD",      PT_BITS, 32);
+      make_trace_("AD64",    PT_BITS, 32);
+      make_trace_("C/BE#",   PT_BITS, 4);
+      make_trace_("C/BE64#", PT_BITS, 4);
+      make_trace_("INTA#",   PT_BITS, 16);
+      make_trace_("INTB#",   PT_BITS, 16);
+      make_trace_("INTC#",   PT_BITS, 16);
+      make_trace_("INTD#",   PT_BITS, 16);
+      make_trace_("Bus owner",PT_STRING);
+}
+
 void PciProtocol::run_init()
 {
       granted_ = -1;
-
-      if (service_lxt) {
-	    make_trace_("PCI_CLK", PT_BITS);
-	    make_trace_("RESET#",  PT_BITS);
-	    make_trace_("FRAME#",  PT_BITS);
-	    make_trace_("REQ64#",  PT_BITS);
-	    make_trace_("IRDY#",   PT_BITS);
-	    make_trace_("TRDY#",   PT_BITS);
-	    make_trace_("STOP#",   PT_BITS);
-	    make_trace_("DEVSEL#", PT_BITS);
-	    make_trace_("ACK64#",  PT_BITS);
-	    make_trace_("PAR",     PT_BITS);
-	    make_trace_("PAR64",   PT_BITS);
-	    make_trace_("AD",      PT_BITS, 32);
-	    make_trace_("AD64",    PT_BITS, 32);
-	    make_trace_("C/BE#",   PT_BITS, 4);
-	    make_trace_("C/BE64#", PT_BITS, 4);
-	    make_trace_("INTA#",   PT_BITS, 16);
-	    make_trace_("INTB#",   PT_BITS, 16);
-	    make_trace_("INTC#",   PT_BITS, 16);
-	    make_trace_("INTD#",   PT_BITS, 16);
-	    make_trace_("Bus owner",PT_STRING);
-      }
 
       for (bus_device_map_t::iterator dev = device_map().begin()
 		 ; dev != device_map().end() ; dev ++ ) {

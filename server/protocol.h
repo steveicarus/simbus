@@ -25,8 +25,11 @@ struct bus_state;
 class protocol_t  {
 
     public:
-      explicit protocol_t(struct bus_state&);
+      explicit protocol_t(struct bus_state*);
       virtual ~protocol_t();
+
+	// Called by the server to set up LXT traces.
+      virtual void trace_init();
 
 	// Call this called by the server once before the first call
 	// to bus_ready. The derived class uses this opportunity to
@@ -66,7 +69,7 @@ class protocol_t  {
       virtual void run_run() =0;
 
     private:
-      struct bus_state&bus_;
+      struct bus_state*bus_;
 
       uint64_t time_mant_;
       int time_exp_;

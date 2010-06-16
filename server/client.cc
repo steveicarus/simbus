@@ -58,10 +58,11 @@ int client_state_t::read_from_socket(int fd)
 	      // Locate the bus that I'm part of.
 	    bus_map_idx_t bus_info = bus_map.find(bus_);
 	    assert(bus_info != bus_map.end());
+	    bus_state*bus = bus_info->second;
 	    cerr << "EOF from "
 		 << (bus_interface_->host_flag? "host" : "device")
 		 << " " << dev_name_
-		 << ", forcing detach from bus " << bus_info->second.name
+		 << ", forcing detach from bus " << bus->name
 		 << "." << endl;
 	    bus_interface_->ready_flag  = true;
 	    bus_interface_->finish_flag = true;
@@ -138,13 +139,15 @@ void client_state_t::process_client_hello_(int fd, int argc, char*argv[])
       bus_map_idx_t bus_info = bus_map.find(bus_);
       assert(bus_info != bus_map.end());
 
+      struct bus_state*bus = bus_info->second;
+
 	// Find my device_map record on the bus. If it is not found,
 	// then send a NAK message back to the client.
-      bus_device_map_t::iterator cur = bus_info->second.device_map.find(use_name);
-      if (cur == bus_info->second.device_map.end()) {
+      bus_device_map_t::iterator cur = bus->device_map.find(use_name);
+      if (cur == bus->device_map.end()) {
 	    write(fd, "NAK\n", 4);
 	    cerr << "Device " << use_name
-		 << " not found in bus " << bus_info->second.name
+		 << " not found in bus " << bus->name
 		 << endl;
 	    return;
       }
@@ -171,7 +174,7 @@ void client_state_t::process_client_hello_(int fd, int argc, char*argv[])
 		   << bus_interface_->ident << endl;
 
       cerr << "Device " << use_name
-	   << " is attached to bus " << bus_info->second.name
+	   << " is attached to bus " << bus->name
 	   << " as " << (bus_interface_->host_flag? "host" : "device")
 	   << " " << bus_interface_->ident << "." << endl;
 }
@@ -236,9 +239,10 @@ void client_state_t::process_client_finish_(int fd, int argc, char*argv[])
 	// Locate the bus that I'm part of.
       bus_map_idx_t bus_info = bus_map.find(bus_);
       assert(bus_info != bus_map.end());
+      struct bus_state*bus = bus_info->second;
 
       cerr << "Device " << dev_name_
-	   << " detached from bus " << bus_info->second.name
+	   << " detached from bus " << bus->name
 	   << " as " << (bus_interface_->host_flag? "host" : "device")
 	   << " " << bus_interface_->ident
 	   << " with FINISH command." << endl;

@@ -28,6 +28,7 @@
 
 # include  <iostream>
 # include  <map>
+# include  <set>
 
 # include  "priv.h"
 # include  "client.h"
@@ -55,7 +56,14 @@ static void sigint_handler(int)
  * attach to the system use the port id to identify their bus when
  * they first attach.
  */
-map <string, struct bus_state> bus_map;
+map <string, struct bus_state*> bus_map;
+
+/*
+ * Keep a heap of the busses that need initialization. When a bus is
+ * created it is put into this set, and they are polled out as they
+ * are initialized.
+ */
+set <struct bus_state*> need_initialization;
 
 /*
  * If the server is supposed to write lxt output, this is the pointer
@@ -98,24 +106,31 @@ void service_add_bus(const std::string&port, const std::string&name,
 {
 	// The bus is stored in the bus_map with its port string as
 	// the key. Each bus has its own port.
-      bus_state&tmp = bus_map[port];
+      bus_state*tmp = bus_map[port];
+      assert(tmp == 0);
 
-      tmp.name = name;
-      tmp.fd = -1;
-      tmp.need_initialization = true;
-      tmp.finished = false;
-      tmp.device_map = dev;
-      tmp.options = options;
+      tmp = new bus_state;
+
+      tmp->name = name;
+      tmp->fd = -1;
+      tmp->finished = false;
+      tmp->device_map = dev;
+      tmp->options = options;
 
       if (bus_protocol_name == "pci") {
-	    tmp.proto = new PciProtocol(tmp);
+	    tmp->proto = new PciProtocol(tmp);
 
       } else if (bus_protocol_name == "point-to-point") {
-	    tmp.proto = new PointToPoint(tmp);
+	    tmp->proto = new PointToPoint(tmp);
 
       } else {
-	    tmp.proto = 0;
+	    tmp->proto = 0;
       }
+
+      bus_map[port] = tmp;
+      need_initialization.insert(tmp);
+
+      cout << "Define bus " << name << " on port " << port << endl;
 }
 
 /*
@@ -125,7 +140,7 @@ void service_add_bus(const std::string&port, const std::string&name,
  *     tcp:<number>         -- TCP/IP port stream (port = <number>)
  *     pipe:<path>          -- named pipe         (pipe = <path>)
  */
-static int socket_from_string(string astr, struct bus_state&bus_obj)
+static int socket_from_string(string astr, struct bus_state*bus_obj)
 {
       int fd = -2;
       int rc;
@@ -201,7 +216,7 @@ static int socket_from_string(string astr, struct bus_state&bus_obj)
 	    }
 
 	      // Save the path to be unlinked on setup complete.
-	    bus_obj.unlink_on_initialization.push_back(astr);
+	    bus_obj->unlink_on_initialization.push_back(astr);
 
       } else {
 	    assert(0);
@@ -223,11 +238,11 @@ static int service_setup(void)
 
 	      // Bind the service port address to the socket.
 	      // The port is the map key.
-	    cur->second.fd = socket_from_string(cur->first, cur->second);
-	    if (cur->second.fd < 0) return -1;
+	    cur->second->fd = socket_from_string(cur->first, cur->second);
+	    if (cur->second->fd < 0) return -1;
 
 	      // Put the socket into listen mode.
-	    rc = listen(cur->second.fd, 2);
+	    rc = listen(cur->second->fd, 2);
 	    if (rc < 0) {
 		  perror(cur->first.c_str());
 		  return -1;
@@ -249,7 +264,7 @@ static void listen_ready(bus_map_idx_t&cur)
       struct sockaddr remote_addr;
       socklen_t remote_addr_len;
 
-      int use_fd = accept(cur->second.fd, &remote_addr, &remote_addr_len);
+      int use_fd = accept(cur->second->fd, &remote_addr, &remote_addr_len);
       assert(use_fd >= 0);
 
       client_state_t tmp;
@@ -278,6 +293,15 @@ int service_run(void)
 	// Run processes that the user might have requested
       process_run();
 
+	// Make up lxt traces that might be needed.
+      if (service_lxt) {
+	    for (bus_map_idx_t idx = bus_map.begin()
+		       ; idx != bus_map.end() ; idx ++) {
+		  cout << idx->second->name << ": Initialize traces..." << endl;
+		  idx->second->proto->trace_init();
+	    }
+      }
+
       struct sigaction sigint_new, sigint_old;
       sigint_new.sa_handler = &sigint_handler;
       sigint_new.sa_flags = 0;
@@ -298,7 +322,7 @@ int service_run(void)
 	      // Add the server ports to the fd list.
 	    for (bus_map_idx_t idx = bus_map.begin()
 		       ; idx != bus_map.end(); idx++) {
-		  int fd = idx->second.fd;
+		  int fd = idx->second->fd;
 		  if (fd >= 0) {
 			FD_SET(fd, &rfds);
 			if (fd >= nfds)
@@ -311,6 +335,7 @@ int service_run(void)
 		       ; idx != client_state_t::client_map.end() ; idx ++) {
 		  int fd = idx->first;
 		  if (! idx->second.is_exited()) {
+			assert(fd >= 0);
 			FD_SET(fd, &rfds);
 			if (fd >= nfds)
 			      nfds = fd + 1;
@@ -340,10 +365,12 @@ int service_run(void)
 	    assert(rc >= 0);
 
 	      // Bus sockets that become ready...
+	      // Note that dead clients will set their fd to -1. Those
+	      // clients cannot possibly be listening.
 	    for (bus_map_idx_t idx = bus_map.begin()
 		       ; idx != bus_map.end(); idx++) {
-		  int fd = idx->second.fd;
-		  if (FD_ISSET(fd, &rfds))
+		  int fd = idx->second->fd;
+		  if (fd >= 0 && FD_ISSET(fd, &rfds))
 			listen_ready(idx);
 	    }
 
@@ -351,8 +378,33 @@ int service_run(void)
 	    for (client_state_t::client_map_idx_t idx = client_state_t::client_map.begin()
 		       ; idx != client_state_t::client_map.end() ; idx ++) {
 		  int fd = idx->first;
+		  assert(fd >= 0);
 		  if (FD_ISSET(fd, &rfds))
 			client_ready(idx);
+	    }
+
+	      // Check to see if there are any busses that need
+	      // initialization, and are ready. If so, initialize them.
+	    for (set<bus_state*>::iterator idx = need_initialization.begin()
+		       ; idx != need_initialization.end() ;  idx ++) {
+
+		  bus_state*bus = *idx;
+		  bool flag = true;
+		  for (bus_device_map_t::iterator dev = bus->device_map.begin()
+			     ; dev != bus->device_map.end() ;  dev ++) {
+			if (dev->second.ready_flag == false) {
+			      flag = false;
+			      break;
+			}
+
+			if (dev->second.finish_flag)
+			      bus->finished = true;
+		  }
+
+		  if (flag) {
+			bus->assembly_complete();
+			need_initialization.erase(idx);
+		  }
 	    }
 
 	      // Now check the busses to see if they can have their
@@ -362,28 +414,22 @@ int service_run(void)
 	    for (bus_map_idx_t idx = bus_map.begin()
 		       ; idx != bus_map.end() ; idx ++) {
 
+		  bus_state*bus = idx->second;
 		  bool flag = true;
-		  for (bus_device_map_t::iterator dev = idx->second.device_map.begin()
-			     ; dev != idx->second.device_map.end() ;  dev ++) {
+		  for (bus_device_map_t::iterator dev = bus->device_map.begin()
+			     ; dev != bus->device_map.end() ;  dev ++) {
 			if (dev->second.ready_flag == false) {
 			      flag = false;
 			      break;
 			}
 
 			if (dev->second.finish_flag)
-			      idx->second.finished = true;
+			      bus->finished = true;
 		  }
 
-		  if (flag == true) {
-			  // If this is the first time all the devices
-			  // are ready, then the bus is finally
-			  // assembled, and needs final initialization.
-			if (idx->second.need_initialization)
-			      idx->second.assembly_complete();
-
-			  // Run the first bus state.
-			idx->second.proto->bus_ready();
-		  }
+		    // Run the first bus state.
+		  if (flag == true)
+			bus->proto->bus_ready();
 	    }
 
       }
@@ -403,6 +449,4 @@ void bus_state::assembly_complete()
 	    unlink_on_initialization.pop_front();
 	    unlink(path.c_str());
       }
-
-      need_initialization = false;
 }

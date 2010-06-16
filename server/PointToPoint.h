@@ -24,9 +24,10 @@
 class PointToPoint  : public protocol_t {
 
     public:
-      PointToPoint(struct bus_state&);
+      PointToPoint(struct bus_state*);
       ~PointToPoint();
 
+      void trace_init();
       void run_init();
       void run_run();
 

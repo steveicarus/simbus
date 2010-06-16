@@ -24,9 +24,10 @@
 class PciProtocol  : public protocol_t {
 
     public:
-      PciProtocol(struct bus_state&);
+      PciProtocol(struct bus_state*);
       ~PciProtocol();
 
+      void trace_init();
       void run_init();
       void run_run();
 

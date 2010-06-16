@@ -18,17 +18,18 @@
  */
 
 # include  "PointToPoint.h"
+# include  <iostream>
 # include  <cassert>
 
 using namespace std;
 
-PointToPoint::PointToPoint(struct bus_state&b)
+PointToPoint::PointToPoint(struct bus_state*b)
 : protocol_t(b)
 {
       phase_ = 0;
       master_clock_mode_ = CLOCK_RUN;
 
-      string opt_width = b.options["WIDTH"];
+      string opt_width = b->options["WIDTH"];
       if (! opt_width.empty()) {
 	    wid_i_ = strtoul(opt_width.c_str(), 0, 0);
 	    wid_o_ = wid_i_;
@@ -37,20 +38,20 @@ PointToPoint::PointToPoint(struct bus_state&b)
 	    wid_o_ = 0;
       }
 
-      opt_width = b.options["WIDTH_O"];
+      opt_width = b->options["WIDTH_O"];
       if (! opt_width.empty()) {
 	    wid_o_ = strtoul(opt_width.c_str(), 0, 0);
       }
 
-      opt_width = b.options["WIDTH_I"];
+      opt_width = b->options["WIDTH_I"];
       if (! opt_width.empty()) {
 	    wid_i_ = strtoul(opt_width.c_str(), 0, 0);
       }
 
-      string clock_high_str  = b.options["CLOCK_high"];
-      string clock_low_str   = b.options["CLOCK_low"];
-      string clock_hold_str  = b.options["CLOCK_hold"];
-      string clock_setup_str = b.options["CLOCK_setup"];
+      string clock_high_str  = b->options["CLOCK_high"];
+      string clock_low_str   = b->options["CLOCK_low"];
+      string clock_hold_str  = b->options["CLOCK_hold"];
+      string clock_setup_str = b->options["CLOCK_setup"];
 
       uint64_t clock_hold = strtoul(clock_hold_str.c_str(), 0, 10);
       uint64_t clock_high = strtoul(clock_high_str.c_str(), 0, 10);
@@ -86,17 +87,18 @@ string PointToPoint::clock_mode_string_(clock_mode_t mode)
       }
 }
 
+void PointToPoint::trace_init()
+{
+      make_trace_("CLOCK", PT_BITS);
+      make_trace_("CLOCK_MODE", PT_STRING);
+      if (wid_i_ > 0)
+	    make_trace_("DATA_I", PT_BITS, wid_i_);
+      if (wid_o_ > 0)
+	    make_trace_("DATA_O", PT_BITS, wid_o_);
+}
+
 void PointToPoint::run_init()
 {
-      if (service_lxt) {
-	    make_trace_("CLOCK", PT_BITS);
-	    make_trace_("CLOCK_MODE", PT_STRING);
-	    if (wid_i_ > 0)
-		  make_trace_("DATA_I", PT_BITS, wid_i_);
-	    if (wid_o_ > 0)
-		  make_trace_("DATA_O", PT_BITS, wid_o_);
-      }
-
       assert(device_map().size() == 2);
 
       bus_device_map_t::iterator dev0 = device_map().begin();
@@ -206,7 +208,6 @@ void PointToPoint::run_run()
 		  data_i[idx] = slave_data_i[idx];
       }
       master_->second.send_signals["DATA_I"] = data_i;
-
 
       set_trace_("CLOCK", bus_clk);
       set_trace_("CLOCK_MODE", clock_mode_string_(master_clock_mode_));
