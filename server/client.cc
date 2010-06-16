@@ -20,6 +20,7 @@
 # include  "client.h"
 # include  "priv.h"
 # include  <iostream>
+# include  <errno.h>
 # include  <assert.h>
 
 using namespace std;
@@ -53,6 +54,26 @@ int client_state_t::read_from_socket(int fd)
       assert(trans > 0);
 
       int rc = read(fd, buffer_ + buffer_fill_, trans);
+	// Treat a connection reset as an EOF.
+      if (rc < 0 && errno==ECONNRESET) {
+	    rc = 0;
+      }
+
+      if (rc < 0) {
+	      // Locate the bus that I'm part of.
+	    bus_map_idx_t bus_info = bus_map.find(bus_);
+	    assert(bus_info != bus_map.end());
+	    bus_state*bus = bus_info->second;
+	    cerr << "Error (errno=" << errno << ") from "
+		 << (bus_interface_->host_flag? "host" : "device")
+		 << " " << dev_name_
+		 << ", forcing detach from bus " << bus->name
+		 << "." << endl;
+	    bus_interface_->ready_flag  = true;
+	    bus_interface_->finish_flag = true;
+	    return rc;
+      }
+
       assert(rc >= 0);
       if (rc == 0) {
 	      // Locate the bus that I'm part of.

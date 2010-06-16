@@ -27,6 +27,11 @@
  *
  * Command line flags:
  *
+ *    -c run|stop0|stop1|stopZ
+ *       Specify the clock state when the camera_enable input is
+ *       false. If this is "run" (the default) then the clock is
+ *       effectively always on.
+ *
  *    -g <gap>
  *       Specify the minimum gap between image frames. The default is
  *       1, and must be greater then 0.
