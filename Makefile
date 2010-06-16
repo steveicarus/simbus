@@ -27,6 +27,7 @@ install:
 	cd vpi       ; $(MAKE) install
 	cd ver       ; $(MAKE) install
 	cd pci/ramdev ; $(MAKE) install
+	cd p2p/cameralink_video ; $(MAKE) install
 	cd pcimem    ; $(MAKE) install
 
 uninstall:
@@ -35,6 +36,7 @@ uninstall:
 	cd vpi       ; $(MAKE) uninstall
 	cd ver       ; $(MAKE) uninstall
 	cd pci/ramdev ; $(MAKE) uninstall
+	cd p2p/cameralink_video ; $(MAKE) uninstall
 	cd pcimem    ; $(MAKE) uninstall
 
 Make.rules: Make.rules.in
