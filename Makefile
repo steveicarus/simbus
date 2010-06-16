@@ -7,6 +7,7 @@ all: Make.rules
 	cd vpi       ; $(MAKE) all
 	cd ver       ; $(MAKE) all
 	cd pci/ramdev ; $(MAKE) all
+	cd p2p/cameralink_video ; $(MAKE) all
 	cd pcimem    ; $(MAKE) all
 
 clean:
@@ -15,6 +16,7 @@ clean:
 	cd vpi       ; $(MAKE) clean
 	cd ver       ; $(MAKE) clean
 	cd pci/ramdev ; $(MAKE) clean
+	cd p2p/cameralink_video ; $(MAKE) clean
 	cd pcimem    ; $(MAKE) clean
 	rm -f *~
 

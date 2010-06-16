@@ -112,6 +112,7 @@ static int clear_image(struct cameralink_master*cam)
       cam->video_hei = 0;
       free(cam->video_data);
       cam->video_data = 0;
+      return 0;
 }
 
 int main(int argc, char*argv[])
@@ -120,13 +121,28 @@ int main(int argc, char*argv[])
       unsigned use_wid = 0;
       unsigned use_mar = 1;
       unsigned use_gap = 1;
+      int use_clock_when_disable = SIMBUS_P2P_CLOCK_RUN;
+      int cur_clock = 0;
 
       int errors = 0;
       int arg;
       char*cp;
-      while ( (arg = getopt(argc, argv, "g:s:w:")) != -1 ) {
+      while ( (arg = getopt(argc, argv, "c:g:s:w:")) != -1 ) {
 
 	    switch (arg) {
+
+		case 'c': /* -c run|stop0|stop1|stopz */
+		  if (strcmp(optarg, "run") == 0)
+			use_clock_when_disable = SIMBUS_P2P_CLOCK_RUN;
+		  else if (strcmp(optarg,"stop0") == 0)
+			use_clock_when_disable = SIMBUS_P2P_CLOCK_STOP0;
+		  else if (strcmp(optarg,"stop1") == 0)
+			use_clock_when_disable = SIMBUS_P2P_CLOCK_STOP1;
+		  else if (strcmp(optarg,"stopZ") == 0)
+			use_clock_when_disable = SIMBUS_P2P_CLOCK_STOPZ;
+		  else
+			use_clock_when_disable = SIMBUS_P2P_CLOCK_RUN;
+		  break;
 
 		case 'g': /* -g <gap> */
 		  use_gap = strtoul(optarg, &cp, 10);
@@ -175,6 +191,8 @@ int main(int argc, char*argv[])
 	    return -1;
       }
 
+      cur_clock = use_clock_when_disable;
+
 	/* The remaining arguments are files to use as scan data. */
       for (arg = optind ; arg < argc ; arg += 1) {
 	    struct image_file_cell*cell = calloc(1, sizeof (struct image_file_cell));
@@ -206,7 +224,7 @@ int main(int argc, char*argv[])
       camera->video_mar = use_mar;
 
 	/* Make the clock visible to the capture board. */
-      simbus_p2p_clock_mode(bus, SIMBUS_P2P_CLOCK_RUN);
+      simbus_p2p_clock_mode(bus, cur_clock);
 
 	/* Advance the clock an initial amount to get things going. */
       camera_step(bus, camera);
@@ -249,6 +267,12 @@ int main(int argc, char*argv[])
 		  camera->red   = pix[0];
 		  camera->green = pix[1];
 		  camera->blue  = pix[2];
+	    }
+
+	    int try_mode = camera->cam_enable? SIMBUS_P2P_CLOCK_RUN : use_clock_when_disable;
+	    if (try_mode != cur_clock) {
+		  cur_clock = try_mode;
+		  simbus_p2p_clock_mode(bus, cur_clock);
 	    }
 
 	    camera_step(bus, camera);

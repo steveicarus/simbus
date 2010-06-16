@@ -60,7 +60,7 @@ module cameralink_recv
    // The CameraLink is really just a variation of the point-to-point
    // bus protocol. Connect my details nets to the generic ports.
    point_slave_io #(.name(name), .WIDTH_O(27), .WIDTH_I(8)) port
-     (.clock(clock), .data_o(data_o), .data_i(data_i));
+     (.clock(CLOCK), .data_o(data_o), .data_i(data_i));
 
    // Break out the CameraLink signals from the p2p data_o.
    assign red   = data_o[7:0];
