@@ -4,7 +4,7 @@
 # include  <string.h>
 %}
 
-%option noyywrap
+%option noyywrap yylineno
 
 %%
 
@@ -31,13 +31,14 @@
   /* Integers are tokens. */
 [0123456789]+ {
       configlval.integer = strtoul(yytext,0,0);
+      configlloc.first_line = yylineno;
       return INTEGER;
   }
 
   /* Identifiers are words that are not keywords. */
 [a-zA-Z_][a-zA-Z0-9_]* {
       configlval.text = strdup(yytext);
-      fprintf(stderr, "IDENTIFIER: %s\n", configlval.text);
+      configlloc.first_line = yylineno;
       return IDENTIFIER;
 }
 
@@ -46,10 +47,12 @@
       configlval.text = strdup(yytext+1);
 	/* Remove trailing quote. */
       configlval.text[strlen(yytext+1)-1] = 0;
+      configlloc.first_line = yylineno;
       return STRING;
   }
 
   /* Single-character tokens */
-. { return yytext[0]; }
+. {   configlloc.first_line = yylineno;
+      return yytext[0]; }
 
 %%
