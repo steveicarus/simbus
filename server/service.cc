@@ -407,6 +407,8 @@ int service_run(void)
 		  }
 	    }
 
+	    multimap<simtime_t, bus_state*> run;
+
 	      // Now check the busses to see if they can have their
 	      // protocol run. The *_ready() function may have changed
 	      // the bus state such that the protocol has something
@@ -427,12 +429,27 @@ int service_run(void)
 			      bus->finished = true;
 		  }
 
-		    // Run the first bus state.
+		    // This bus is ready, to put it in the run list.
 		  if (flag == true)
-			bus->proto->bus_ready();
+			run.insert(pair<simtime_t,bus_state*>(bus->proto->peek_time(), bus));
 	    }
 
+	      // Run the busses in the run list, in time order.
+	    for (multimap<simtime_t,bus_state*>::iterator cur = run.begin()
+		       ; cur != run.end() ; cur ++) {
+
+		    // If the lxt dumper is active, then advance the
+		    // LXT time to the bus time.
+		  if (service_lxt) {
+			unsigned long long use_time = cur->first.units_value(SERVICE_TIME_PRECISION);
+			lxt2_wr_set_time(service_lxt, use_time);
+		  }
+
+		  cur->second->proto->bus_ready();
+	    }
       }
+
+      if (service_lxt) lxt2_wr_flush(service_lxt);
 
       rc = sigaction(SIGINT, &sigint_old, 0);
       service_uninit();

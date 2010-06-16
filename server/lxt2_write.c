@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2007 Tony Bybell.
+ * Copyright (c) 2003-2008 Tony Bybell.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,6 +24,7 @@
 #pragma alloca
 #endif
 
+//#include <config.h>
 #include "lxt2_write.h"
 
 
@@ -727,7 +728,7 @@ if((lt)&&(lt->numfacs))
 		lt->numfacs = facs_encountered;				/* don't process alias value changes ever */
 		}
 
-	if(aliascache) free(aliascache);
+	free(aliascache);
 	}
 }
 
@@ -1384,17 +1385,17 @@ if((lt->timegranule>=lt->maxgranule)||(do_finalize)||(early_flush))
 
 	if(using_partial_zip)
 		{
-		off_t clen;
+		off_t c_len;
 	
 		gzflush_buffered(lt, 1);
 		fseeko(lt->handle, 0L, SEEK_END);
 		lt->position=ftello(lt->handle);
 	
-		clen = lt->position - current_iter_pos - 12;
+		c_len = lt->position - current_iter_pos - 12;
 		fseeko(lt->handle, current_iter_pos, SEEK_SET);
 
 		lt->zpackcount_cumulative+=lt->zpackcount;
-		lxt2_wr_emit_u32(lt, clen);
+		lxt2_wr_emit_u32(lt, c_len);
 		lxt2_wr_emit_u32(lt, lt->zpackcount);
 		}
 		else
@@ -2149,8 +2150,8 @@ if(lt)
 		
 		while(s)
 			{
-			if(s->name) { free(s->name); }
-			if(s->value) { free(s->value); }
+			free(s->name);
+			free(s->value);
 			s2=s->symchain;
 			free(s);
 			s=s2;
@@ -2180,8 +2181,14 @@ if(lt)
 }
 
 /*
- * $Id: lxt2_write.c,v 1.1.1.1 2007/05/30 04:28:21 gtkwave Exp $
+ * $Id: lxt2_write.c,v 1.3 2010/05/03 20:11:03 gtkwave Exp $
  * $Log: lxt2_write.c,v $
+ * Revision 1.3  2010/05/03 20:11:03  gtkwave
+ * cppcheck warning fixes
+ *
+ * Revision 1.2  2008/12/20 05:08:26  gtkwave
+ * -Wshadow warning cleanups
+ *
  * Revision 1.1.1.1  2007/05/30 04:28:21  gtkwave
  * Imported sources
  *

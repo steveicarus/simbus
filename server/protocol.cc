@@ -88,18 +88,9 @@ void protocol_t::set_trace_(const char*lab, const string&bit)
 				const_cast<char*>(bit.c_str()));
 }
 
-void protocol_t::advance_time_(uint64_t mant, int exp)
+void protocol_t::advance_time_(uint64_t use_mant, int use_exp)
 {
-      while (exp < time_exp_) {
-	    time_mant_ *= 10;
-	    time_exp_ -= 1;
-      }
-      while (time_exp_ < exp) {
-	    mant *= 10;
-	    exp -= 1;
-      }
-
-      time_mant_ += mant;
+      time_ += simtime_t(use_mant, use_exp);
 }
 
 void protocol_t::bus_ready()
@@ -110,23 +101,6 @@ void protocol_t::bus_ready()
       for (bus_device_map_t::iterator dev = bus_->device_map.begin()
 		 ; dev != bus_->device_map.end() ;  dev ++) {
 	    dev->second.ready_flag = false;
-      }
-
-	// If the lxt dumper is active, then advance the LXT time to
-	// the bus time.
-      if (service_lxt) {
-	    unsigned long long use_time = time_mant_;
-	    int use_exp = time_exp_;
-	    while (use_exp < SERVICE_TIME_PRECISION) {
-		  use_time += 5ULL;
-		  use_time /= 10ULL;
-		  use_exp += 1;
-	    }
-	    while (use_exp > SERVICE_TIME_PRECISION) {
-		  use_time *= 10ULL;
-		  use_exp -= 1;
-	    }
-	    lxt2_wr_set_time(service_lxt, use_time);
       }
 
 	// Call the protocol engine.
@@ -151,7 +125,6 @@ void protocol_t::bus_ready()
 	    close(bus_->fd);
 	    bus_->fd = -1;
 
-	    if (service_lxt) lxt2_wr_flush(service_lxt);
 	    return;
       }
 
@@ -165,7 +138,8 @@ void protocol_t::bus_ready()
 	    signal_state_map_t&sigs = dev->second.send_signals;
 
 	    char buf[4097];
-	    snprintf(buf, sizeof buf, "UNTIL %" PRIu64 "e%d", time_mant_, time_exp_);
+	    snprintf(buf, sizeof buf, "UNTIL %" PRIu64 "e%d",
+		     time_.peek_mant(), time_.peek_exp());
 
 	    char*cp = buf + strlen(buf);
 	    for (signal_state_map_t::iterator cur_sig = sigs.begin()
@@ -211,8 +185,6 @@ void protocol_t::bus_ready()
 	    int rc = write(fd, buf, cp-buf);
 	    assert(rc == (cp-buf));
       }
-
-      if (service_lxt) lxt2_wr_flush(service_lxt);
 }
 
 void protocol_t::trace_init()

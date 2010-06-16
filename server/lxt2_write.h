@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Tony Bybell.
+ * Copyright (c) 2003-2010 Tony Bybell.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,10 @@
 #ifndef DEFS_LXTW_H
 #define DEFS_LXTW_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,12 +39,6 @@
 #ifndef HAVE_FSEEKO
 #define fseeko fseek
 #define ftello ftell
-#endif
-
-#ifdef __cplusplus
-#define EXTERN extern "C"
-#else
-#define EXTERN extern
 #endif
 
 #include "wavealloca.h"
@@ -260,9 +258,9 @@ unsigned int chg[LXT2_WR_GRANULE_SIZE];
 
 
 			/* file I/O */
-EXTERN struct lxt2_wr_trace *	lxt2_wr_init(const char *name);
-EXTERN void 			lxt2_wr_flush(struct lxt2_wr_trace *lt);
-EXTERN void 			lxt2_wr_close(struct lxt2_wr_trace *lt);
+struct lxt2_wr_trace *	lxt2_wr_init(const char *name);
+void 			lxt2_wr_flush(struct lxt2_wr_trace *lt);
+void 			lxt2_wr_close(struct lxt2_wr_trace *lt);
 
 			/* for dealing with very large traces, split into multiple files approximately "siz" in length */
 void 			lxt2_wr_set_break_size(struct lxt2_wr_trace *lt, off_t siz);
@@ -282,7 +280,7 @@ void			lxt2_wr_set_checkpoint_on(struct lxt2_wr_trace *lt);
 			/* facility creation */
 void                    lxt2_wr_set_initial_value(struct lxt2_wr_trace *lt, char value);
 struct lxt2_wr_symbol *	lxt2_wr_symbol_find(struct lxt2_wr_trace *lt, const char *name);
-EXTERN struct lxt2_wr_symbol *	lxt2_wr_symbol_add(struct lxt2_wr_trace *lt, const char *name, unsigned int rows, int msb, int lsb, int flags);
+struct lxt2_wr_symbol *	lxt2_wr_symbol_add(struct lxt2_wr_trace *lt, const char *name, unsigned int rows, int msb, int lsb, int flags);
 struct lxt2_wr_symbol *	lxt2_wr_symbol_alias(struct lxt2_wr_trace *lt, const char *existing_name, const char *alias, int msb, int lsb);
 void			lxt2_wr_symbol_bracket_stripping(struct lxt2_wr_trace *lt, int doit);
 
@@ -290,10 +288,10 @@ void			lxt2_wr_symbol_bracket_stripping(struct lxt2_wr_trace *lt, int doit);
 void 			lxt2_wr_set_maxgranule(struct lxt2_wr_trace *lt, unsigned int maxgranule);
 
 			/* time ops */
-EXTERN void 			lxt2_wr_set_timescale(struct lxt2_wr_trace *lt, int timescale);
-EXTERN int 			lxt2_wr_set_time(struct lxt2_wr_trace *lt, unsigned int timeval);
+void 			lxt2_wr_set_timescale(struct lxt2_wr_trace *lt, int timescale);
+int 			lxt2_wr_set_time(struct lxt2_wr_trace *lt, unsigned int timeval);
 int 			lxt2_wr_inc_time_by_delta(struct lxt2_wr_trace *lt, unsigned int timeval);
-EXTERN int 			lxt2_wr_set_time64(struct lxt2_wr_trace *lt, lxttime_t timeval);
+int 			lxt2_wr_set_time64(struct lxt2_wr_trace *lt, lxttime_t timeval);
 int 			lxt2_wr_inc_time_by_delta64(struct lxt2_wr_trace *lt, lxttime_t timeval);
 
                         /* allows blackout regions in LXT files */
@@ -301,16 +299,26 @@ void                    lxt2_wr_set_dumpoff(struct lxt2_wr_trace *lt);
 void                    lxt2_wr_set_dumpon(struct lxt2_wr_trace *lt);
 
 			/* left fill on bit_string uses vcd semantics (left fill with value[0] unless value[0]=='1', then use '0') */
-EXTERN int 			lxt2_wr_emit_value_int(struct lxt2_wr_trace *lt, struct lxt2_wr_symbol *s, unsigned int row, int value);
-EXTERN int 			lxt2_wr_emit_value_double(struct lxt2_wr_trace *lt, struct lxt2_wr_symbol *s, unsigned int row, double value);
-EXTERN int 			lxt2_wr_emit_value_string(struct lxt2_wr_trace *lt, struct lxt2_wr_symbol *s, unsigned int row, char *value);
-EXTERN int 			lxt2_wr_emit_value_bit_string(struct lxt2_wr_trace *lt, struct lxt2_wr_symbol *s, unsigned int row, char *value);
+int 			lxt2_wr_emit_value_int(struct lxt2_wr_trace *lt, struct lxt2_wr_symbol *s, unsigned int row, int value);
+int 			lxt2_wr_emit_value_double(struct lxt2_wr_trace *lt, struct lxt2_wr_symbol *s, unsigned int row, double value);
+int 			lxt2_wr_emit_value_string(struct lxt2_wr_trace *lt, struct lxt2_wr_symbol *s, unsigned int row, char *value);
+int 			lxt2_wr_emit_value_bit_string(struct lxt2_wr_trace *lt, struct lxt2_wr_symbol *s, unsigned int row, char *value);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
 /*
- * $Id: lxt2_write.h,v 1.1.1.1 2007/05/30 04:28:25 gtkwave Exp $
+ * $Id: lxt2_write.h,v 1.3 2010/04/27 23:10:56 gtkwave Exp $
  * $Log: lxt2_write.h,v $
+ * Revision 1.3  2010/04/27 23:10:56  gtkwave
+ * made inttype.h inclusion conditional
+ *
+ * Revision 1.2  2010/02/18 17:27:07  gtkwave
+ * extern "C" headers / version bump
+ *
  * Revision 1.1.1.1  2007/05/30 04:28:25  gtkwave
  * Imported sources
  *
@@ -318,4 +326,3 @@ EXTERN int 			lxt2_wr_emit_value_bit_string(struct lxt2_wr_trace *lt, struct lxt
  * initial release
  *
  */
-

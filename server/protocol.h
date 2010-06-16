@@ -20,6 +20,7 @@
  */
 
 # include  "priv.h"
+# include  "simtime.h"
 struct bus_state;
 
 class protocol_t  {
@@ -27,6 +28,10 @@ class protocol_t  {
     public:
       explicit protocol_t(struct bus_state*);
       virtual ~protocol_t();
+
+	// Return the current protocol/bus time for this protocol
+	// instance.
+      const simtime_t& peek_time() const { return time_; }
 
 	// Called by the server to set up LXT traces.
       virtual void trace_init();
@@ -71,8 +76,7 @@ class protocol_t  {
     private:
       struct bus_state*bus_;
 
-      uint64_t time_mant_;
-      int time_exp_;
+      simtime_t time_;
 
       std::map<std::string,struct lxt2_wr_symbol*>signal_trace_map;
 
