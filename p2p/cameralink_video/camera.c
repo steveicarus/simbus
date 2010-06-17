@@ -80,6 +80,11 @@ void camera_step(simbus_p2p_t bus, struct cameralink_master*cam)
       cam->cam_enable  = (val & 0x01) ? 1 : 0;
       cam->cam_request = (val & 0x02) ? 1 : 0;
 
+	/* Lowering the cam_request arms the next cam_request rising
+	   edge. */
+      if (cam->cam_request == 0) {
+	    cam->arm_request = 1;
+      }
 
 	/* Advance the video pointer. If there is no video, then
 	   restrict the video_ptr to marking time within a blanking
@@ -106,9 +111,15 @@ static int acquire_next_image(struct cameralink_master*cam)
 	    image_next = image_list->next;
       }
 
+      printf("Prepare image from %s...\n", image_next->path);
+      cam->arm_request = 0;
       load_image_file(cam, image_next->path);
       image_next = image_next->next;
 
+      printf("   Width : %u\n", cam->video_wid);
+      printf("   Margin: %u\n", cam->video_mar);
+      printf("   Height: %u\n", cam->video_hei);
+      printf("   Gap   : %u\n", cam->video_gap);
       return 0;
 }
 
@@ -227,6 +238,8 @@ int main(int argc, char*argv[])
 
       camera->video_wid = use_wid;
       camera->video_mar = use_mar;
+      camera->video_gap = use_gap;
+      camera->arm_request = 0;
 
 	/* Make the clock visible to the capture board. */
       simbus_p2p_clock_mode(bus, cur_clock);
@@ -238,7 +251,7 @@ int main(int argc, char*argv[])
 	      /* If we are receiving a video request from the client,
 		 and we are not already in the midst of an image, then
 		 acquire the next image to be transmitted. */
-	    if (camera->video_data == 0 && camera->cam_request != 0 && camera->video_ptr==0)
+	    if (camera->video_data == 0 && camera->arm_request && camera->cam_request && camera->video_ptr==0)
 		  acquire_next_image(camera);
 
 	      /* Calculate the address of the pixel being
