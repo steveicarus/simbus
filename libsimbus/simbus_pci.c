@@ -155,6 +155,14 @@ static int send_ready_command(struct simbus_pci_s*pci)
       int argc = __simbus_server_send_recv(pci->fd, buf, sizeof(buf),
 					   2048, argv, pci->debug);
 
+      if (argc == 0) {
+	    if (pci->debug) {
+		  fprintf(pci->debug, "Abort by error on stream\n");
+		  fflush(pci->debug);
+	    }
+	    return SIMBUS_PCI_FINISHED;
+      }
+
       if (strcmp(argv[0],"FINISH") == 0) {
 	    if (pci->debug) {
 		  fprintf(pci->debug, "Abort by FINISH command\n");

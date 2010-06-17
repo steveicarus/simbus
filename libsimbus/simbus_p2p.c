@@ -234,6 +234,10 @@ static int send_ready_p2p(simbus_p2p_t bus)
       char*argv[2048];
       int argc = __simbus_server_send_recv(bus->fd, buf, sizeof(buf), 2048, argv, 0);
 
+      if (argc == 0) {
+	    return -1;
+      }
+
       if (strcmp(argv[0],"FINISH") == 0) {
 	    return -1;
       }

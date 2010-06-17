@@ -200,6 +200,11 @@ int __simbus_server_send_recv(int server_fd, char*buf, size_t buf_size,
       rc = read(server_fd, buf, buf_size-1);
       assert( rc >= 0 );
 
+	/* Detect an EOF from the connection. */
+      if (rc == 0) {
+	    return 0;
+      }
+
       buf[rc] = 0;
 
       char*cp = strchr(buf, '\n');
