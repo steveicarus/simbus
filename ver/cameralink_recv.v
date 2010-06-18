@@ -64,7 +64,7 @@ module cameralink_recv
 
    // Break out the CameraLink signals from the p2p data_o.
    assign red   = data_o[7:0];
-   assign green = data_o[15:0];
+   assign green = data_o[15:8];
    assign blue  = data_o[23:16];
    assign VCE   = data_o[24];
    assign LVV   = data_o[25];
