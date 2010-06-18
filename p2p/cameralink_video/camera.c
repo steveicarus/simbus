@@ -36,6 +36,12 @@
  *       Specify the minimum gap between image frames. The default is
  *       1, and must be greater then 0.
  *
+ *    -l <lanes>
+ *       Number of gray lanes to transmit when sending a gray
+ *       image. Valid values are 1, 2 or 3. If 1, then the gray value
+ *       is repeated on all three physical lanes. If 2, the third lane
+ *       is filled with 0.
+ *
  *    -s <server>
  *       Server string for connecting with the simbus server.
  *
@@ -137,13 +143,14 @@ int main(int argc, char*argv[])
       unsigned use_wid = 0;
       unsigned use_mar = 1;
       unsigned use_gap = 1;
+      unsigned use_lanes = 1;
       int use_clock_when_disable = SIMBUS_P2P_CLOCK_RUN;
       int cur_clock = 0;
 
       int errors = 0;
       int arg;
       char*cp;
-      while ( (arg = getopt(argc, argv, "c:g:s:w:")) != -1 ) {
+      while ( (arg = getopt(argc, argv, "c:g:l:s:w:")) != -1 ) {
 
 	    switch (arg) {
 
@@ -169,6 +176,10 @@ int main(int argc, char*argv[])
 			fprintf(stderr, "Gap must be greater then zero.\n");
 			use_gap = 0;
 		  }
+		  break;
+
+		case 'l': /* -l <lanes> */
+		  use_lanes = strtoul(optarg, 0, 10);
 		  break;
 
 		case 's': /* -s <server> */
@@ -207,6 +218,11 @@ int main(int argc, char*argv[])
 	    return -1;
       }
 
+      if (use_lanes < 1 || use_lanes > 3) {
+	    fprintf(stderr, "Invalid gray-lanes: %u\n", use_lanes);
+	    return -1;
+      }
+
       cur_clock = use_clock_when_disable;
 
 	/* The remaining arguments are files to use as scan data. */
@@ -239,6 +255,7 @@ int main(int argc, char*argv[])
       camera->video_wid = use_wid;
       camera->video_mar = use_mar;
       camera->video_gap = use_gap;
+      camera->gray_lanes= use_lanes;
       camera->arm_request = 0;
 
 	/* Make the clock visible to the capture board. */

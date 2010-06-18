@@ -55,26 +55,55 @@ int load_image_file(struct cameralink_master*cam, const char*path)
       cam->video_hei = png_get_image_height(png, pinfo);
       cam->video_wid = png_get_image_width(png, pinfo);
 
+      int color_type = png_get_color_type(png, pinfo) & ~PNG_COLOR_MASK_ALPHA;
+
+	/* The video_wid is measured in video clocks. For RGB color
+	   that is exactly 1 pixel per clock. But for grayscale a
+	   clock may carry 1-3 pixels per clock, depending on the
+	   gray_lanes setting. Scale the video_wid appropriately. */
+      if (color_type == PNG_COLOR_TYPE_GRAY) {
+	    cam->video_wid = (cam->video_wid+cam->gray_lanes-1) / cam->gray_lanes;
+      }
+
       cam->video_data = malloc(3 * cam->video_wid * cam->video_hei);
       assert(cam->video_data);
 
       uint8_t*pix = cam->video_data;
       unsigned ydx;
 
-      switch (png_get_color_type(png, pinfo)) {
+      switch (color_type) {
 	  case PNG_COLOR_TYPE_GRAY:
-	  case PNG_COLOR_TYPE_GRAY_ALPHA:
 	    for (ydx = 0 ; ydx < cam->video_hei ; ydx += 1) {
 		  unsigned xdx;
-		  for (xdx = 0 ; xdx < cam->video_wid ; xdx += 1) {
-			*pix++ = row_pointers[ydx][xdx];
-			*pix++ = row_pointers[ydx][xdx];
-			*pix++ = row_pointers[ydx][xdx];
+		  switch (cam->gray_lanes) {
+		      case 1:
+			for (xdx = 0 ; xdx < cam->video_wid ; xdx += 1) {
+			      *pix++ = row_pointers[ydx][xdx];
+			      *pix++ = row_pointers[ydx][xdx];
+			      *pix++ = row_pointers[ydx][xdx];
+			}
+			break;
+		      case 2:
+			for (xdx = 0 ; xdx < cam->video_wid ; xdx += 1) {
+			      *pix++ = row_pointers[ydx][2*xdx+0];
+			      *pix++ = row_pointers[ydx][2*xdx+1];
+			      *pix++ = 0;
+			}
+			break;
+		      case 3:
+			for (xdx = 0 ; xdx < cam->video_wid ; xdx += 1) {
+			      *pix++ = row_pointers[ydx][3*xdx+0];
+			      *pix++ = row_pointers[ydx][3*xdx+1];
+			      *pix++ = row_pointers[ydx][3*xdx+2];
+			}
+			break;
+		      default:
+			assert(0);
+			break;
 		  }
 	    }
 	    break;
 	  case PNG_COLOR_TYPE_RGB:
-	  case PNG_COLOR_TYPE_RGB_ALPHA:
 	    for (ydx = 0 ; ydx < cam->video_hei ; ydx += 1) {
 		  unsigned xdx;
 		  for (xdx = 0 ; xdx < cam->video_wid ; xdx += 1) {

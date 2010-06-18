@@ -42,6 +42,7 @@ struct cameralink_master {
 
       unsigned video_ptr;
       int arm_request;
+      unsigned gray_lanes;
 };
 
 extern int load_image_file(struct cameralink_master*cam, const char*path);
