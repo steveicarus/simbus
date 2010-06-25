@@ -180,7 +180,7 @@ void client_state_t::process_client_hello_(int fd, int argc, char*argv[])
 
 	// Link to the bus plug for this client, and fill in the
 	// client data that the plug needs.
-      bus_interface_ = &(cur->second);
+      bus_interface_ = cur->second;
       bus_interface_->fd = fd;
       bus_interface_->ready_flag = false;
 

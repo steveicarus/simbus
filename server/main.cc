@@ -93,3 +93,11 @@ int main(int argc, char*argv[])
 	/* Run the service. */
       return service_run();
 }
+
+ostream& operator<< (ostream&out, const std::valarray<bit_state_t>&vec)
+{
+      out << vec.size() << "'b";
+      for (int idx = 0 ; idx < vec.size() ; idx += 1)
+	    out << vec[vec.size()-idx-1];
+      return out;
+}

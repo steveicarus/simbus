@@ -31,6 +31,7 @@ using namespace std;
 protocol_t::protocol_t(struct bus_state*b)
 : bus_(b)
 {
+      srand48_r(1, &rand_state_);
 }
 
 protocol_t::~protocol_t()
@@ -100,7 +101,7 @@ void protocol_t::bus_ready()
 	// devices.
       for (bus_device_map_t::iterator dev = bus_->device_map.begin()
 		 ; dev != bus_->device_map.end() ;  dev ++) {
-	    dev->second.ready_flag = false;
+	    dev->second->ready_flag = false;
       }
 
 	// Call the protocol engine.
@@ -112,10 +113,10 @@ void protocol_t::bus_ready()
 	    for (bus_device_map_t::iterator dev = bus_->device_map.begin()
 		       ; dev != bus_->device_map.end() ;  dev ++) {
 
-		  int fd = dev->second.fd;
+		  int fd = dev->second->fd;
 		  int rc = write(fd, "FINISH\n", 7);
 		  close(fd);
-		  dev->second.exited_flag = true;
+		  dev->second->exited_flag = true;
 
 		  protocol_log << client_state_t::client_map[fd].dev_name()
 			       << ":SEND:FINISH" << endl;
@@ -134,8 +135,8 @@ void protocol_t::bus_ready()
       for (bus_device_map_t::iterator dev = bus_->device_map.begin()
 		 ; dev != bus_->device_map.end() ;  dev ++) {
 
-	    int fd = dev->second.fd;
-	    signal_state_map_t&sigs = dev->second.send_signals;
+	    int fd = dev->second->fd;
+	    signal_state_map_t&sigs = dev->second->send_signals;
 
 	    char buf[4097];
 	    snprintf(buf, sizeof buf, "UNTIL %" PRIu64 "e%d",

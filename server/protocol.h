@@ -65,6 +65,12 @@ class protocol_t  {
 	// that time.
       void advance_time_(uint64_t mant, int exp);
 
+      inline long lrand_(void) {
+	    long tmp;
+	    lrand48_r(&rand_state_, &tmp);
+	    return tmp;
+      }
+
     private:
 	// The derived class implements this method to process its
 	// signals at the current synchronization point. The base
@@ -74,6 +80,7 @@ class protocol_t  {
       virtual void run_run() =0;
 
     private:
+      struct drand48_data rand_state_;
       struct bus_state*bus_;
 
       simtime_t time_;

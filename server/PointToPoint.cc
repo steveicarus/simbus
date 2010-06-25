@@ -106,9 +106,9 @@ void PointToPoint::run_init()
       dev1 ++;
 
       assert(dev1 != device_map().end());
-      assert(dev1->second.host_flag != dev0->second.host_flag);
+      assert(dev1->second->host_flag != dev0->second->host_flag);
 
-      if (dev0->second.host_flag) {
+      if (dev0->second->host_flag) {
 	    master_ = dev0;
 	    slave_  = dev1;
       } else {
@@ -116,19 +116,19 @@ void PointToPoint::run_init()
 	    slave_  = dev0;
       }
 
-      master_->second.send_signals["CLOCK"].resize(1);
-      master_->second.send_signals["CLOCK"][0] = BIT_1;
+      master_->second->send_signals["CLOCK"].resize(1);
+      master_->second->send_signals["CLOCK"][0] = BIT_1;
 
-      master_->second.send_signals["DATA_I"].resize(wid_i_);
+      master_->second->send_signals["DATA_I"].resize(wid_i_);
       for (unsigned idx = 0 ; idx < wid_i_ ; idx += 1)
-	    master_->second.send_signals["DATA_I"][idx] = BIT_Z;
+	    master_->second->send_signals["DATA_I"][idx] = BIT_Z;
 
-      slave_->second.send_signals["CLOCK"].resize(1);
-      slave_->second.send_signals["CLOCK"][0] = BIT_1;
+      slave_->second->send_signals["CLOCK"].resize(1);
+      slave_->second->send_signals["CLOCK"][0] = BIT_1;
 
-      slave_->second.send_signals["DATA_O"].resize(wid_o_);
+      slave_->second->send_signals["DATA_O"].resize(wid_o_);
       for (unsigned idx = 0 ; idx < wid_o_ ; idx += 1)
-	    slave_->second.send_signals["DATA_O"][idx] = BIT_Z;
+	    slave_->second->send_signals["DATA_O"][idx] = BIT_Z;
 
       set_trace_("CLOCK", BIT_1);
       set_trace_("CLOCK_MODE", clock_mode_string_(master_clock_mode_));
@@ -142,26 +142,26 @@ void PointToPoint::run_run()
 	// 2 and 3.
       bit_state_t bus_clk = phase_/2 ? BIT_0 : BIT_1;
 
-      master_->second.send_signals["CLOCK"][0] = bus_clk;
+      master_->second->send_signals["CLOCK"][0] = bus_clk;
 
       switch (master_clock_mode_) {
 	  case CLOCK_RUN:
-	    slave_ ->second.send_signals["CLOCK"][0] = bus_clk;
+	    slave_ ->second->send_signals["CLOCK"][0] = bus_clk;
 	    break;
 	  case CLOCK_STOP_0:
-	    slave_ ->second.send_signals["CLOCK"][0] = BIT_0;
+	    slave_ ->second->send_signals["CLOCK"][0] = BIT_0;
 	    break;
 	  case CLOCK_STOP_1:
-	    slave_ ->second.send_signals["CLOCK"][0] = BIT_1;
+	    slave_ ->second->send_signals["CLOCK"][0] = BIT_1;
 	    break;
 	  case CLOCK_STOP_Z:
-	    slave_ ->second.send_signals["CLOCK"][0] = BIT_Z;
+	    slave_ ->second->send_signals["CLOCK"][0] = BIT_Z;
 	    break;
       }
 
 	// Interpret the CLOCK_MODE signal from the master. This is
 	// output-only from the master, the slave as no such control
-      valarray<bit_state_t>&clock_mode = master_->second.client_signals["CLOCK_MODE"];
+      valarray<bit_state_t>&clock_mode = master_->second->client_signals["CLOCK_MODE"];
       if (clock_mode.size() > 0) {
 	    unsigned val = 0;
 	    for (unsigned idx = 0 ; idx < clock_mode.size() ; idx += 1) {
@@ -190,24 +190,24 @@ void PointToPoint::run_run()
       }
 
 	// Copy DATA_O from master to slave...
-      valarray<bit_state_t>master_data_o = master_->second.client_signals["DATA_O"];
+      valarray<bit_state_t>master_data_o = master_->second->client_signals["DATA_O"];
       valarray<bit_state_t> data_o (wid_o_);
       for (unsigned idx = 0 ; idx < wid_o_ ; idx += 1) {
 	    data_o[idx] = BIT_Z;
 	    if (idx < master_data_o.size())
 		  data_o[idx] = master_data_o[idx];
       }
-      slave_->second.send_signals["DATA_O"] = data_o;
+      slave_->second->send_signals["DATA_O"] = data_o;
 
 	// Copy DATA_I from slave to master...
-      valarray<bit_state_t>slave_data_i = slave_->second.client_signals["DATA_I"];
+      valarray<bit_state_t>slave_data_i = slave_->second->client_signals["DATA_I"];
       valarray<bit_state_t> data_i (wid_i_);
       for (unsigned idx = 0 ; idx < wid_i_ ; idx += 1) {
 	    data_i[idx] = BIT_Z;
 	    if (idx < slave_data_i.size())
 		  data_i[idx] = slave_data_i[idx];
       }
-      master_->second.send_signals["DATA_I"] = data_i;
+      master_->second->send_signals["DATA_I"] = data_i;
 
       set_trace_("CLOCK", bus_clk);
       set_trace_("CLOCK_MODE", clock_mode_string_(master_clock_mode_));

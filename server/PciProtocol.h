@@ -34,6 +34,7 @@ class PciProtocol  : public protocol_t {
     private:
       void advance_pci_clock_(void);
       bit_state_t calculate_reset_n_(void);
+      void track_req_n_(void);
       void arbitrate_(void);
       void route_interrupts_(void);
       void blend_bi_signals_(void);
@@ -49,10 +50,20 @@ class PciProtocol  : public protocol_t {
 
       const clock_phase_map_t*clock_phase_map_;
 
+	// Where to park the GNT#.
+      enum park_mode_t { GNT_PARK_NONE, GNT_PARK_LAST };
+      park_mode_t park_mode_;
+      long gnt_linger_;
+
 	// Current state of the PCI clock. (It toggles.)
       int phase_;
-	// Device that is currently granted, or -1 if none.
-      int granted_;
+	// Device that is currently granted, if any.
+      struct bus_device_plug*granted_;
+	// Device that is master of the bus, if any.
+      struct bus_device_plug*master_;
+
+	// These are the sampled REQ# inputs.
+      std::valarray<bit_state_t> req_n_;
 };
 
 #endif

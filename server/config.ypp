@@ -54,10 +54,11 @@ static void add_bus_option(char*key, unsigned value)
 static void add_device_to_bus(unsigned devid, char*devname, bool host_flag)
 {
       string tmp_name (devname);
-      struct bus_device_plug tmp;
-      tmp.host_flag = host_flag;
-      tmp.ident = devid;
-      tmp.ready_flag = false;
+      struct bus_device_plug*tmp = new struct bus_device_plug;
+      tmp->name = tmp_name;
+      tmp->host_flag = host_flag;
+      tmp->ident = devid;
+      tmp->ready_flag = false;
       use_bus_devices[tmp_name] = tmp;
       free(devname);
 }

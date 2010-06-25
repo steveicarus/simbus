@@ -392,12 +392,12 @@ int service_run(void)
 		  bool flag = true;
 		  for (bus_device_map_t::iterator dev = bus->device_map.begin()
 			     ; dev != bus->device_map.end() ;  dev ++) {
-			if (dev->second.ready_flag == false) {
+			if (dev->second->ready_flag == false) {
 			      flag = false;
 			      break;
 			}
 
-			if (dev->second.finish_flag)
+			if (dev->second->finish_flag)
 			      bus->finished = true;
 		  }
 
@@ -420,12 +420,12 @@ int service_run(void)
 		  bool flag = true;
 		  for (bus_device_map_t::iterator dev = bus->device_map.begin()
 			     ; dev != bus->device_map.end() ;  dev ++) {
-			if (dev->second.ready_flag == false) {
+			if (dev->second->ready_flag == false) {
 			      flag = false;
 			      break;
 			}
 
-			if (dev->second.finish_flag)
+			if (dev->second->finish_flag)
 			      bus->finished = true;
 		  }
 

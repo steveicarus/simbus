@@ -29,6 +29,13 @@ Address/Data
 	      PAR	  B	    B
 	      PAR64	  B	    B
 
+A bus has these options:
+
+              Name
+              bus_speed   33 | 66      (default 33)
+	      bus_park    none | last  (default none)
+	      gnt_linger  <N>          (default 16)
+
 * The PCI Clock
 
 This is entirely under the control of the server. The server generates
@@ -100,6 +107,20 @@ device 1 drives INTA#[1], and so forth.
 
 The server contains the arbitor, so the host is treated like any other
 device with its own REQ# and GNT# signals.
+
+The arbiter can park the grant, if so configured. The default is not
+to park GNT# signals (option bus_park = "none"). The bus can be
+configured to leave the GNT# parked at the last granted master by
+setting bus_park to "last" (option bus_park = "last").
+
+When the bus is not parked, the arbiter can still be configured to
+leave the GNT# parked for a randon short time by setting the
+gnt_linger value to >0. If the gnt_linger=0, this feature is turned
+off. If gnt_linger=<N> (and bus_park != "last") then the arbiter will
+leave the GNT# parked at the last granted master for a randon time
+chosed from the Poisson distribution with the number of clocks of
+linger being Poiss(1/<N>). In other words, the larger <N>, the longer
+the mean linger.
 
 * Address/Data
 

@@ -48,6 +48,30 @@ extern int service_run(void);
 typedef enum bit_state_e { BIT_0, BIT_1, BIT_Z, BIT_X } bit_state_t;
 typedef std::map<std::string, std::valarray<bit_state_t> > signal_state_map_t;
 
+inline std::ostream& operator << (std::ostream&out, bit_state_t val)
+{
+      switch (val) {
+	  case BIT_0:
+	    out << "0";
+	    break;
+	  case BIT_1:
+	    out << "1";
+	    break;
+	  case BIT_Z:
+	    out << "Z";
+	    break;
+	  case BIT_X:
+	    out << "X";
+	    break;
+	  default:
+	    out << "?";
+	    break;
+      }
+      return out;
+}
+
+extern std::ostream& operator << (std::ostream&, const std::valarray<bit_state_t>&);
+
 /*
  * A bus contains a configuration that is a set of bus devices,
  * represented by a map of bus_device_plug objects. The configuration
@@ -58,6 +82,7 @@ typedef std::map<std::string, std::valarray<bit_state_t> > signal_state_map_t;
 
 struct bus_device_plug {
       bus_device_plug() : host_flag(false), fd(-1), ready_flag(false), finish_flag(false), exited_flag(false) { }
+      std::string name;
 	// True if this device is a "host" connection.
       bool host_flag;
 	// Identifier number to use for the device.
@@ -77,7 +102,7 @@ struct bus_device_plug {
 	// Map of this signal values to send to the client.
       signal_state_map_t send_signals;
 };
-typedef std::map<std::string,struct bus_device_plug> bus_device_map_t;
+typedef std::map<std::string,struct bus_device_plug*> bus_device_map_t;
 
 /*
  * The bus_state describes a bus. The fd is the posix file-descriptor
