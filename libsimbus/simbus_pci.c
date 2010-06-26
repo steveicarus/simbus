@@ -410,9 +410,13 @@ void simbus_pci_reset(simbus_pci_t pci, unsigned width, unsigned settle)
 
 void __pci_request_bus(simbus_pci_t pci)
 {
-      int count = 32;
+      int count = 4096;
+	/* Activate the REQ# signal */
       pci->out_req_n = BIT_0;
-      while (pci->pci_gnt_n != BIT_0) {
+	/* Wait for the corresponding GNT#. Take note of the FRAME#
+	   and IRDY# signals that might indicate that a previous
+	   master is still holding the bus. */
+      while (pci->pci_gnt_n != BIT_0 || pci->pci_frame_n==BIT_0 || pci->pci_irdy_n==BIT_0) {
 	    simbus_pci_wait(pci,1,0);
 	    count -= 1;
 	    assert(count > 0);
