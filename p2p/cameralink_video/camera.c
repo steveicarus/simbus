@@ -146,11 +146,12 @@ int main(int argc, char*argv[])
       unsigned use_lanes = 1;
       int use_clock_when_disable = SIMBUS_P2P_CLOCK_RUN;
       int cur_clock = 0;
+      const char*name = "camera";
 
       int errors = 0;
       int arg;
       char*cp;
-      while ( (arg = getopt(argc, argv, "c:g:l:s:w:")) != -1 ) {
+      while ( (arg = getopt(argc, argv, "c:g:l:n:s:w:")) != -1 ) {
 
 	    switch (arg) {
 
@@ -180,6 +181,10 @@ int main(int argc, char*argv[])
 
 		case 'l': /* -l <lanes> */
 		  use_lanes = strtoul(optarg, 0, 10);
+		  break;
+
+		case 'n': /* -n <name> */
+		  name = optarg;
 		  break;
 
 		case 's': /* -s <server> */
@@ -243,9 +248,10 @@ int main(int argc, char*argv[])
       if (errors) return -1;
 
 	/* Connect to the SIMBUS server. */
-      simbus_p2p_t bus = simbus_p2p_connect(server, "camera", 8, 27);
+      simbus_p2p_t bus = simbus_p2p_connect(server, name, 8, 27);
       if (bus == 0) {
-	    fprintf(stderr, "Unable to connect to server %s\n", server);
+	    fprintf(stderr, "Unable to connect to server %s at %s\n",
+		    server, name);
 	    return -1;
       }
 
