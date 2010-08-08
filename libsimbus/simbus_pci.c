@@ -583,6 +583,8 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 
       if (__wait_for_devsel(pci) < 0) {
 	    *result = 0xffffffff;
+	    __undrive_bus(pci);
+	    __pci_next_posedge(pci);
 	    return GPCI_MASTER_ABORT;
       }
 
