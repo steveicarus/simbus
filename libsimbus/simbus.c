@@ -26,6 +26,7 @@
 # include  <stdlib.h>
 # include  <string.h>
 # include  <stdio.h>
+# include  <errno.h>
 # include  <assert.h>
 
 char __bitval_to_char(bus_bitval_t val)
@@ -194,6 +195,8 @@ int __simbus_server_send_recv(int server_fd, char*buf, size_t buf_size,
 
 	/* Send the READY command */
       rc = write(server_fd, buf, buf_len);
+      if (rc < 0)
+	    fprintf(stderr, "__simbus_server_send_recv: rc = %d, errno=%d\n", rc, errno);
       assert(rc == buf_len);
 
 	/* Now read the response, which should be an UNTIL command */

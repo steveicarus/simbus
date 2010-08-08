@@ -124,6 +124,8 @@ void service_add_bus(const std::string&port, const std::string&name,
 	    tmp->proto = new PointToPoint(tmp);
 
       } else {
+	    cerr << "Unknown protocol (" << bus_protocol_name << ")"
+		 << " on bus " << name << endl;
 	    tmp->proto = 0;
       }
 
@@ -298,6 +300,7 @@ int service_run(void)
 	    for (bus_map_idx_t idx = bus_map.begin()
 		       ; idx != bus_map.end() ; idx ++) {
 		  cout << idx->second->name << ": Initialize traces..." << endl;
+		  assert(idx->second->proto);
 		  idx->second->proto->trace_init();
 	    }
       }
@@ -307,6 +310,13 @@ int service_run(void)
       sigint_new.sa_flags = 0;
       sigemptyset(&sigint_new.sa_mask);
       rc = sigaction(SIGINT, &sigint_new, &sigint_old);
+
+      struct sigaction sigpipe_new, sigpipe_old;
+      sigpipe_new.sa_handler = &sigint_handler;
+      sigpipe_new.sa_flags = 0;
+      sigemptyset(&sigpipe_new.sa_mask);
+      rc = sigaction(SIGPIPE, &sigpipe_new, &sigpipe_old);
+
       interrupted_flag = false;
 
       while (true) {
