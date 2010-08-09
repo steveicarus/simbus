@@ -139,30 +139,48 @@ void PciProtocol::run_init()
 
 	    curdev.send_signals["FRAME#"].resize(1);
 	    curdev.send_signals["FRAME#"][0] = BIT_Z;
+	    curdev.client_signals["FRAME#"].resize(1);
+	    curdev.client_signals["FRAME#"][0] = BIT_Z;
 
 	    curdev.send_signals["REQ64#"].resize(1);
 	    curdev.send_signals["REQ64#"][0] = BIT_Z;
+	    curdev.client_signals["REQ64#"].resize(1);
+	    curdev.client_signals["REQ64#"][0] = BIT_Z;
 
 	    curdev.send_signals["IRDY#"].resize(1);
 	    curdev.send_signals["IRDY#"][0] = BIT_Z;
+	    curdev.client_signals["IRDY#"].resize(1);
+	    curdev.client_signals["IRDY#"][0] = BIT_Z;
 
 	    curdev.send_signals["TRDY#"].resize(1);
 	    curdev.send_signals["TRDY#"][0] = BIT_Z;
+	    curdev.client_signals["TRDY#"].resize(1);
+	    curdev.client_signals["TRDY#"][0] = BIT_Z;
 
 	    curdev.send_signals["STOP#"].resize(1);
 	    curdev.send_signals["STOP#"][0] = BIT_Z;
+	    curdev.client_signals["STOP#"].resize(1);
+	    curdev.client_signals["STOP#"][0] = BIT_Z;
 
 	    curdev.send_signals["DEVSEL#"].resize(1);
 	    curdev.send_signals["DEVSEL#"][0] = BIT_Z;
+	    curdev.client_signals["DEVSEL#"].resize(1);
+	    curdev.client_signals["DEVSEL#"][0] = BIT_Z;
 
 	    curdev.send_signals["ACK64#"].resize(1);
 	    curdev.send_signals["ACK64#"][0] = BIT_Z;
+	    curdev.client_signals["ACK64#"].resize(1);
+	    curdev.client_signals["ACK64#"][0] = BIT_Z;
 
 	    curdev.send_signals["PAR"].resize(1);
 	    curdev.send_signals["PAR"][0] = BIT_Z;
+	    curdev.client_signals["PAR"].resize(1);
+	    curdev.client_signals["PAR"][0] = BIT_Z;
 
 	    curdev.send_signals["PAR64"].resize(1);
 	    curdev.send_signals["PAR64"][0] = BIT_Z;
+	    curdev.client_signals["PAR64"].resize(1);
+	    curdev.client_signals["PAR64"][0] = BIT_Z;
 
 	    curdev.send_signals["C/BE#"].resize(8);
 	    curdev.client_signals["C/BE#"].resize(8);
@@ -539,6 +557,9 @@ void PciProtocol::route_interrupts_()
 
 static bit_state_t blend_bits(bit_state_t a, bit_state_t b)
 {
+      assert(a < 4);
+      assert(b < 4);
+
       if (a == BIT_Z)
 	    return b;
       if (b == BIT_Z)

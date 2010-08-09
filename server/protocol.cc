@@ -65,6 +65,7 @@ void protocol_t::set_trace_(const char*lab, bit_state_t bit)
 {
       struct lxt2_wr_symbol*sym = signal_trace_map[lab];
       char buf[2];
+      assert(bit < 4);
       buf[0] = "01zx"[bit];
       buf[1] = 0;
       lxt2_wr_emit_value_bit_string(service_lxt, sym, 0, buf);
