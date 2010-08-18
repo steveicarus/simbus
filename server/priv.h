@@ -81,7 +81,7 @@ extern std::ostream& operator << (std::ostream&, const std::valarray<bit_state_t
  */
 
 struct bus_device_plug {
-      bus_device_plug() : host_flag(false), fd(-1), ready_flag(false), finish_flag(false), exited_flag(false) { }
+      bus_device_plug() : host_flag(false), fd(-1), ready_flag(false), exited_flag(false) { }
       std::string name;
 	// True if this device is a "host" connection.
       bool host_flag;
@@ -92,7 +92,6 @@ struct bus_device_plug {
       int fd;
 	// True when the device is ready for another step.
       bool ready_flag;
-      bool finish_flag;
       bool exited_flag;
 	// Time that the client last reported.
       uint64_t ready_time;

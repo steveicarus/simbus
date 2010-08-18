@@ -407,7 +407,7 @@ int service_run(void)
 			      break;
 			}
 
-			if (dev->second->finish_flag)
+			if (dev->second->exited_flag)
 			      bus->finished = true;
 		  }
 
@@ -435,7 +435,7 @@ int service_run(void)
 			      break;
 			}
 
-			if (dev->second->finish_flag)
+			if (dev->second->exited_flag)
 			      bus->finished = true;
 		  }
 

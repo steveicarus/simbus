@@ -157,7 +157,7 @@ static int send_ready_command(struct simbus_pci_s*pci)
 
       if (argc == 0) {
 	    if (pci->debug) {
-		  fprintf(pci->debug, "Abort by error on stream\n");
+		  fprintf(pci->debug, "%s: Abort by error on stream\n", pci->name);
 		  fflush(pci->debug);
 	    }
 	    return SIMBUS_PCI_FINISHED;
@@ -165,7 +165,7 @@ static int send_ready_command(struct simbus_pci_s*pci)
 
       if (strcmp(argv[0],"FINISH") == 0) {
 	    if (pci->debug) {
-		  fprintf(pci->debug, "Abort by FINISH command\n");
+		  fprintf(pci->debug, "%s: Abort by FINISH command\n", pci->name);
 		  fflush(pci->debug);
 	    }
 	    return SIMBUS_PCI_FINISHED;

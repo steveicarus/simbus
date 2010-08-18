@@ -70,7 +70,7 @@ int client_state_t::read_from_socket(int fd)
 		 << ", forcing detach from bus " << bus->name
 		 << "." << endl;
 	    bus_interface_->ready_flag  = true;
-	    bus_interface_->finish_flag = true;
+	    bus_interface_->exited_flag = true;
 	    return rc;
       }
 
@@ -83,10 +83,10 @@ int client_state_t::read_from_socket(int fd)
 	    cerr << "EOF from "
 		 << (bus_interface_->host_flag? "host" : "device")
 		 << " " << dev_name_
-		 << ", forcing detach from bus " << bus->name
+		 << ", detaching from bus " << bus->name
 		 << "." << endl;
 	    bus_interface_->ready_flag  = true;
-	    bus_interface_->finish_flag = true;
+	    bus_interface_->exited_flag = true;
 	    return rc;
       }
 
@@ -268,5 +268,5 @@ void client_state_t::process_client_finish_(int fd, int argc, char*argv[])
 	   << " " << bus_interface_->ident
 	   << " with FINISH command." << endl;
       bus_interface_->ready_flag  = true;
-      bus_interface_->finish_flag = true;
+      bus_interface_->exited_flag = true;
 }
