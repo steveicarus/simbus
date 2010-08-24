@@ -58,6 +58,9 @@ struct simbus_pci_s {
       bus_bitval_t pci_clk;
       bus_bitval_t pci_gnt_n;
       bus_bitval_t pci_inta_n[16];
+      bus_bitval_t pci_intb_n[16];
+      bus_bitval_t pci_intc_n[16];
+      bus_bitval_t pci_intd_n[16];
       bus_bitval_t pci_frame_n;
       bus_bitval_t pci_req64_n;
       bus_bitval_t pci_irdy_n;

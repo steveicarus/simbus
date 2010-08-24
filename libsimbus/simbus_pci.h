@@ -50,9 +50,16 @@ EXTERN void simbus_pci_debug(simbus_pci_t pci, FILE*fd);
  * interrupt) and the return value is the mask of interrupts that
  * interrupted the wait, or 0 if the wait timed out.
  *
- * If the simbus_pci_wait returns due to an interrupt, the low 16 bits
- * of the return code are a mask of the currently active
- * interrupts. bit-N is the INTA interrupt for device N.
+ * If the simbus_pci_wait returns due to an interrupt, irq_mask value
+ * is replaced with the interrupts that are actually active, not
+ * including interrupts that are disabled. The return value is >0.
+ *
+ * The 64bits of the irq_mask are assigned as follows:
+ *
+ *     [15: 0] INTA# for devices 0 - 15
+ *     [31:16] INTB# for devices 0 - 15
+ *     [47:32] INTC# for devices 0 - 15
+ *     [63:48] INTD# for devices 0 - 15
  *
  * Special case: if the clks argument is zero, then this function only
  * probes for pending interrupts. It does not wait for a clock edge or
@@ -74,7 +81,7 @@ EXTERN void simbus_pci_debug(simbus_pci_t pci, FILE*fd);
  *     wants to break out of the wait so that a master operation can
  *     be performed.
  */
-EXTERN int simbus_pci_wait(simbus_pci_t bus, unsigned clks, unsigned irq_enable);
+EXTERN int simbus_pci_wait(simbus_pci_t bus, unsigned clks, uint64_t*irq_mask);
 # define SIMBUS_PCI_ERROR    (-1)
 # define SIMBUS_PCI_FINISHED (-2)
 # define SIMBUS_PCI_BREAK    (-3)

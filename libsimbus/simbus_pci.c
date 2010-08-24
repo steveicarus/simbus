@@ -197,6 +197,24 @@ static int send_ready_command(struct simbus_pci_s*pci)
 		  for (bit = 0 ; bit < 16 ; bit += 1)
 			pci->pci_inta_n[bit] = __char_to_bitval(cp[15-bit]);
 
+	    } else if (strcmp(argv[idx],"INTB#") == 0) {
+		  assert(strlen(cp) == 16);
+		  int bit;
+		  for (bit = 0 ; bit < 16 ; bit += 1)
+			pci->pci_intb_n[bit] = __char_to_bitval(cp[15-bit]);
+
+	    } else if (strcmp(argv[idx],"INTC#") == 0) {
+		  assert(strlen(cp) == 16);
+		  int bit;
+		  for (bit = 0 ; bit < 16 ; bit += 1)
+			pci->pci_intc_n[bit] = __char_to_bitval(cp[15-bit]);
+
+	    } else if (strcmp(argv[idx],"INTD#") == 0) {
+		  assert(strlen(cp) == 16);
+		  int bit;
+		  for (bit = 0 ; bit < 16 ; bit += 1)
+			pci->pci_intd_n[bit] = __char_to_bitval(cp[15-bit]);
+
 	    } else if (strcmp(argv[idx],"FRAME#") == 0) {
 		  pci->pci_frame_n = __char_to_bitval(*cp);
 
@@ -338,28 +356,58 @@ void __pci_next_posedge(simbus_pci_t pci)
 
 }
 
-int simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
+static uint64_t intr_active(simbus_pci_t pci)
+{
+      uint64_t mask = 0;
+      uint64_t tmp;
+      int idx;
+      for (idx = 0 ; idx < 16 ; idx += 1) {
+	    if (pci->pci_inta_n[idx] == BIT_0)
+		  mask |= 1<<idx;
+      }
+
+      tmp = 0;
+      for (idx = 0 ; idx < 16 ; idx += 1) {
+	    if (pci->pci_intb_n[idx] == BIT_0)
+		  tmp |= 1<<idx;
+      }
+      mask |= (tmp << 16);
+
+      tmp = 0;
+      for (idx = 0 ; idx < 16 ; idx += 1) {
+	    if (pci->pci_intc_n[idx] == BIT_0)
+		  tmp |= 1<<idx;
+      }
+      mask |= (tmp << 32);
+
+      tmp = 0;
+      for (idx = 0 ; idx < 16 ; idx += 1) {
+	    if (pci->pci_intd_n[idx] == BIT_0)
+		  tmp |= 1<<idx;
+      }
+      mask |= (tmp << 48);
+
+      return mask;
+}
+
+int simbus_pci_wait(simbus_pci_t pci, unsigned clks, uint64_t*irq)
 {
 	/* Special case: if the clks is 0, then we are not really here
 	   to wait, but just to test if there are any interrupts
 	   pending. */
       if (clks == 0) {
-	    unsigned mask = 0;
-	    int idx;
-	    for (idx = 0 ; idx < 16 ; idx += 1) {
-		  if (pci->pci_inta_n[idx] == BIT_0)
-			mask |= 1<<idx;
-	    }
-
-	    return mask & irq;
+	    uint64_t mask = intr_active(pci);
+	    if (irq) *irq &= mask;
+	    return mask == 0? 0 : 1;
       }
 
       int rc = 0;
 	/* Wait for the clock to go low, and to go high again. */
       assert(clks > 0);
       pci->break_flag = 0;
-      unsigned mask = 0;
-      while (clks > 0 && ! (mask&irq)) {
+      uint64_t mask = UINT64_C(0);
+      uint64_t use_irq = irq? *irq : 0;
+      while (clks > 0 && ! (mask & use_irq)) {
 	    while (pci->pci_clk != BIT_0 && rc >= 0)
 		  rc = send_ready_command(pci);
 
@@ -379,15 +427,11 @@ int simbus_pci_wait(simbus_pci_t pci, unsigned clks, unsigned irq)
 		  return SIMBUS_PCI_BREAK;
 
 	      /* Collect the interrupts that are now being driven. */
-	    mask = 0;
-	    int idx;
-	    for (idx = 0 ; idx < 16 ; idx += 1) {
-		  if (pci->pci_inta_n[idx] == BIT_0)
-			mask |= 1<<idx;
-	    }
+	    mask = intr_active(pci);
       }
 
-      return mask & irq;
+      if (irq) *irq &= mask;
+      return mask == 0? 0 : 1;
 }
 
 int simbus_pci_wait_break(simbus_pci_t pci)
