@@ -112,6 +112,7 @@ static struct image_file_cell*image_next = 0;
 
 static int acquire_next_image(struct cameralink_master*cam)
 {
+      int rc;
       if (image_next == 0) {
 	    assert(image_list);
 	    image_next = image_list->next;
@@ -119,7 +120,12 @@ static int acquire_next_image(struct cameralink_master*cam)
 
       printf("Prepare image from %s...\n", image_next->path);
       cam->arm_request = 0;
-      load_image_file(cam, image_next->path);
+      rc = load_image_file(cam, image_next->path);
+      if (rc < 0) {
+	    printf("ERROR: Unable to load image from %s.\n", image_next->path);
+	    return rc;
+      }
+
       image_next = image_next->next;
 
       printf("   Width : %u\n", cam->video_wid);
@@ -246,6 +252,9 @@ int main(int argc, char*argv[])
       }
 
       if (errors) return -1;
+
+      fflush(stdout);
+      setlinebuf(stdout);
 
 	/* Connect to the SIMBUS server. */
       simbus_p2p_t bus = simbus_p2p_connect(server, name, 8, 27);
