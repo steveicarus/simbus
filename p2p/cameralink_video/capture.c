@@ -127,6 +127,11 @@ int main(int argc, char*argv[])
 	    return -1;
       }
 
+      printf("Use -s %s\n", server);
+      printf("Use -a %zu\n", use_video_area);
+      printf("Use -c %d\n", capture_count);
+      fflush(stdout);
+
       struct cameralink_capture*cap = calloc(1, sizeof(struct cameralink_capture));
       assert(cap);
 
