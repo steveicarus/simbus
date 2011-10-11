@@ -25,6 +25,7 @@
 # include  <netdb.h>
 # include  <stdlib.h>
 # include  <string.h>
+# include  <limits.h>
 # include  <stdio.h>
 # include  <errno.h>
 # include  <assert.h>

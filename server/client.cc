@@ -21,6 +21,8 @@
 # include  "priv.h"
 # include  <iostream>
 # include  <errno.h>
+# include  <cstdlib>
+# include  <cstring>
 # include  <assert.h>
 
 using namespace std;

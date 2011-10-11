@@ -62,10 +62,10 @@ class client_state_t {
       typedef std::map<int,client_state_t>::iterator client_map_idx_t;
 
     private:
-      void process_client_command_(int fd, int argv, char*argv[]);
-      void process_client_hello_(int fd, int argv, char*argv[]);
-      void process_client_ready_(int fd, int argv, char*argv[]);
-      void process_client_finish_(int fd, int argv, char*argv[]);
+      void process_client_command_(int fd, int argc, char*argv[]);
+      void process_client_hello_(int fd, int argc, char*argv[]);
+      void process_client_ready_(int fd, int argc, char*argv[]);
+      void process_client_finish_(int fd, int argc, char*argv[]);
 
     private:
 	// Key of the bus that I belong to.

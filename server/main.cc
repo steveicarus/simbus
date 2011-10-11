@@ -23,6 +23,7 @@ using namespace std;
 
 # include  <stdlib.h>
 # include  <stdio.h>
+# include  <string.h>
 # include  <unistd.h>
 # include  "priv.h"
 # include  <assert.h>

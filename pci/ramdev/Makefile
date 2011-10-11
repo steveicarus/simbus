@@ -6,6 +6,9 @@ SIMBUS_DEP = ../../libsimbus/libsimbus.a
 
 all: pci_ramdev
 
+clean:
+	rm -f pci_ramdev check_ramdev *.o *~
+
 check: pci_ramdev check_ramdev
 
 O = ramdev.o
