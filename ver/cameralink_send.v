@@ -51,13 +51,18 @@ module cameralink_send
    input wire [7:0] blue,
    // The camera may generate these...
    output wire cam_enable,
-   output wire cam_request
+   output wire cam_request,
+   // sideband bits from the camera receiver to the camera. These
+   // are not part of CameraLink, but may be handy for simulations.
+   output wire [5:0] sideband_to_camera
    /* */);
 
    parameter name = "camera";
 
    wire [26:0] data_o;
-   wire [7:0]  data_i = {6'b0000_00, cam_request, cam_enable};
+   wire [7:0]  data_i;
+
+   assign {sideband_to_camera, cam_request, cam_enable} = data_i;
 
    // The CameraLink is really just a variation of the point-to-point
    // bus protocol. Connect my details nets to the generic ports.
