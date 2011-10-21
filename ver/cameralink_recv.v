@@ -60,7 +60,7 @@ module cameralink_recv
    input wire cam_request,
    // sideband bits from the camera receiver to the camera. These
    // are not part of CameraLink, but may be handy for simulations.
-   input wire[5:0] sideband_to_camera
+   inout wire[5:0] sideband_to_camera
    /* */);
 
    parameter name = "capture";
