@@ -248,7 +248,9 @@ void __parse_time_token(const char*token, uint64_t*time_mant, int*time_exp)
 	    *time_mant = strtoull(token, &cp, 10);
       } else {
 	    *time_mant = strtoull(token, &cp, 10);
+#if defined(ULLONG_MAX)
 	    assert(*time_mant < ULLONG_MAX);
+#endif
       }
 
       assert(*cp == 'e');

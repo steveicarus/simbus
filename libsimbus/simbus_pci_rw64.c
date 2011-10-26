@@ -25,7 +25,7 @@
 
 uint64_t simbus_pci_read64(simbus_pci_t pci, uint64_t addr, int BEn)
 {
-      uint64_t val = 0xffffffffffffffff;
+      uint64_t val = UINT64_C(0xffffffffffffffff);
       int retry = 1;
       int idx;
       int rc;
@@ -53,7 +53,7 @@ uint64_t simbus_pci_read64(simbus_pci_t pci, uint64_t addr, int BEn)
 
 	    if (__wait_for_devsel(pci) < 0) {
 		    /* Master abort */
-		  return 0xffffffffffff;
+		  return UINT64_C(0xffffffffffff);
 	    }
 
 	    rc = __wait_for_read(pci, &val);
