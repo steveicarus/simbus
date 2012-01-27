@@ -42,6 +42,16 @@
 /* Largest message length, including the newline. */
 # define MAX_MESSAGE 4096
 
+/*
+ * Debug capabilities can be turned on by setting bits in this
+ * bitmask. The -simbus-debug-mask=<N> command line will set the debug mask.
+ */
+static unsigned simbus_debug_mask = 0;
+# define SIMBUS_DEBUG_PROTOCOL 0x0001
+# define SIMBUS_DEBUG_CALLS    0x0002
+
+# define DEBUG(mask, msg...) do { if ((mask)&simbus_debug_mask) vpi_printf("SIMBUS: " msg); } while(0)
+
 struct port_instance {
 	/* This is the name that I want to be. Use it for
 	   human-readable messages, and also as a key when connecting
@@ -272,6 +282,8 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
       char*dev_name = strdup(value.value.str);
       vpi_free_object(argv);
 
+      DEBUG(SIMBUS_DEBUG_CALLS, "Call $connect(%s)\n", dev_name);
+
 	/* Synthesize a bus server argument string and search for it
 	   on the command line. That string will have the host and
 	   port number (or just port number) for the bus that we are
@@ -324,6 +336,7 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
 	/* Send HELLO message to the server. */
       snprintf(buf, sizeof buf, "HELLO %s\n", dev_name);
 
+      DEBUG(SIMBUS_DEBUG_PROTOCOL, "Send %s", buf);
       int rc = write(server_fd, buf, strlen(buf));
       assert(rc == strlen(buf));
 
@@ -331,6 +344,7 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
       rc = read(server_fd, buf, sizeof buf);
       assert(rc > 0);
       assert(strchr(buf, '\n'));
+      DEBUG(SIMBUS_DEBUG_PROTOCOL, "Recv %s", buf);
 
       if (strcmp(buf, "NAK\n") == 0) {
 	    vpi_printf("%s:%d: %s(%s) Server %s doesn't want me.\n",
@@ -380,6 +394,7 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
 		 vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys),
 		 my_name, dev_name, host_string);
 
+      DEBUG(SIMBUS_DEBUG_CALLS, "Return %d from $connect\n", idx);
       value.format = vpiIntVal;
       value.value.integer = idx;
       vpi_put_value(sys, &value, 0, vpiNoDelay);
@@ -416,6 +431,8 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
       int bus_id = value.value.integer;
       assert(bus_id < MAX_INSTANCES);
       assert(instance_table[bus_id].fd >= 0);
+
+      DEBUG(SIMBUS_DEBUG_CALLS, "Call $ready(%d...)\n", bus_id);
 
 	/* Get the simulation time. */
       now.type = vpiSimTime;
@@ -541,8 +558,11 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
       *cp++ = '\n';
       *cp = 0;
 
+      DEBUG(SIMBUS_DEBUG_PROTOCOL, "Send %s", message);
       int rc = write(instance_table[bus_id].fd, message, strlen(message));
       assert(rc == strlen(message));
+
+      DEBUG(SIMBUS_DEBUG_CALLS, "Return from $ready(%d...)\n", bus_id);
 
       return 0;
 }
@@ -651,6 +671,8 @@ static PLI_INT32 simbus_until_calltf(char*my_name)
       int bus = value.value.integer;
       assert(bus >= 0 && bus < MAX_INSTANCES);
 
+      DEBUG(SIMBUS_DEBUG_CALLS, "Call $until(%d...)\n", bus);
+
 	/* Get a list of the signals and their mapping to a handle. We
 	   will use list list to map names from the UNTIL command back
 	   to the handle. */
@@ -689,8 +711,11 @@ static PLI_INT32 simbus_until_calltf(char*my_name)
 	    value.format = vpiIntVal;
 	    value.value.integer = 0;
 	    vpi_put_value(sys, &value, 0, vpiNoDelay);
+	    DEBUG(SIMBUS_DEBUG_CALLS, "Return 0 from $until(%d...)\n", bus);
 	    return 0;
       }
+
+      DEBUG(SIMBUS_DEBUG_PROTOCOL, "Recv %s\n", buf);
 
 	/* Chop the message into tokens. */
       int   msg_argc = 0;
@@ -718,6 +743,7 @@ static PLI_INT32 simbus_until_calltf(char*my_name)
 	    value.format = vpiIntVal;
 	    value.value.integer = 0;
 	    vpi_put_value(sys, &value, 0, vpiNoDelay);
+	    DEBUG(SIMBUS_DEBUG_CALLS, "Return 0 from $until(%d...)\n", bus);
 	    return 0;
       }
 
@@ -770,17 +796,17 @@ static PLI_INT32 simbus_until_calltf(char*my_name)
       int idx;
       for (idx = 2 ; idx < msg_argc ; idx += 1) {
 
-	    char*key = msg_argv[idx];
-	    char*val = strchr(key, '=');
+	    char*mkey = msg_argv[idx];
+	    char*val = strchr(mkey, '=');
 	    assert(val && *val=='=');
 	    *val++ = 0;
 
-	    struct signal_list_cell*cur = find_key_in_list(signal_list, key);
+	    struct signal_list_cell*cur = find_key_in_list(signal_list, mkey);
 	    if (cur == 0) {
 		  vpi_printf("%s:%d: %s() Unexpected signal %s from bus.\n",
 			     vpi_get_str(vpiFile, sys),
 			     (int)vpi_get(vpiLineNo, sys),
-			     my_name, key);
+			     my_name, mkey);
 		  continue;
 	    }
 
@@ -788,6 +814,8 @@ static PLI_INT32 simbus_until_calltf(char*my_name)
       }
 
       free_signal_list(signal_list);
+
+      DEBUG(SIMBUS_DEBUG_CALLS, "Return %" PRIu64 " from $until(%d...)\n", deltatime, bus);
       return 0;
 }
 
@@ -829,7 +857,29 @@ static void simbus_register(void)
       vpi_register_systf(&simbus_until_tf);
 }
 
+static void simbus_setup(void)
+{
+      struct t_vpi_vlog_info vlog_info;
+      int idx;
+      vpi_get_vlog_info(&vlog_info);
+
+      for (idx = 0 ; idx < vlog_info.argc ; idx += 1) {
+	    if (strncmp(vlog_info.argv[idx],"-simbus-debug-mask=",19) == 0) {
+		  simbus_debug_mask = strtoul(vlog_info.argv[idx]+19,0,0);
+	    }
+      }
+
+      if (simbus_debug_mask == 0) {
+	    const char*text = getenv("SIMBUS_DEBUG_MASK");
+	    simbus_debug_mask = strtoul(text, 0, 0);
+      }
+
+      if (simbus_debug_mask)
+	    vpi_printf("Using -simbus-debug-mask=0x%04x\n", simbus_debug_mask);
+}
+
 void (*vlog_startup_routines[])(void) = {
+      simbus_setup,
       simbus_register,
       simbus_mem_register,
       0
