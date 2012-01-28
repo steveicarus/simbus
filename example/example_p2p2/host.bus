@@ -1,0 +1,28 @@
+
+bus {
+    name     = "a";
+    protocol = "point-to-point";
+    pipe     = "a.pipe";
+    CLOCK_high = 10000;  
+    CLOCK_low  = 10000;
+    CLOCK_hold = 500;
+    CLOCK_setup = 500;
+    WIDTH_I = "1";
+    WIDTH_O = "8";
+    host    0 "a0";
+    device  1 "a1";
+}
+
+bus {
+    name     = "b";
+    protocol = "point-to-point";
+    pipe     = "b.pipe";
+    CLOCK_high = 10000;  
+    CLOCK_low  = 10000;
+    CLOCK_hold = 500;
+    CLOCK_setup = 500;
+    WIDTH_I = "1";
+    WIDTH_O = "8";
+    host    0 "b1";
+    device  1 "b0";
+}

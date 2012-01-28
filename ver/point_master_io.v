@@ -60,6 +60,8 @@ module point_master_io
    time      deltatime;
    integer   bus;
 
+   reg 	     trig;
+
    initial begin
       bus = $simbus_connect(name);
       if (bus < 0) begin
@@ -82,6 +84,14 @@ module point_master_io
 	 // along with the current time. For the first iteration, this
 	 // gets us synchronized with the server with the time.
 	 $simbus_ready(bus, "DATA_O", data_o, {WIDTH_O{1'bz}});
+
+	 // Check if the bus is ready for me to continue. The $simbus_poll
+	 // function will set the trig to 0 or 1 depending on whether
+	 // the $simbus_until function can continue without blocking.
+	 // Wait if it will block. The poll will change the trig later
+	 // once data arrives from the server.
+	 $simbus_poll(bus, trig);
+	 wait (trig) ;
 
 	 // The server responds to this task call when it is ready
 	 // for this device to advance some more. This task waits

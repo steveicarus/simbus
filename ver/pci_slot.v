@@ -134,6 +134,8 @@ module pci_slot(// The bus supplies the clock and reset
    time  deltatime;
    integer bus;
 
+   reg 	   trig;
+
    initial begin
       // This connects to the bus and sends a message that logically
       // attaches this design to the system. The name is used to distinguish
@@ -176,6 +178,14 @@ module pci_slot(// The bus supplies the clock and reset
 		       "AD",     AD,        ad_drv,
 		       "PAR",    PAR,       par_drv,
 		       "PAR64",  PAR64,     par64_drv);
+
+	 // Check if the bus is ready for me to continue. The $simbus_poll
+	 // function will set the trig to 0 or 1 depending on whether
+	 // the $simbus_until function can continue without blocking.
+	 // Wait if it will block. The poll will change the trig later
+	 // once data arrives from the server.
+	 $simbus_poll(bus, trig);
+	 wait (trig) ;
 
 	 // The server responds to this task call when it is ready
 	 // for this device to advance some more. This task waits

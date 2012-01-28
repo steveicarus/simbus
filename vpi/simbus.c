@@ -19,6 +19,7 @@
 
 # include  <vpi_user.h>
 # include  <sys/types.h>
+# include  <sys/select.h>
 # include  <sys/socket.h>
 # include  <sys/un.h>
 # include  <netdb.h>
@@ -34,6 +35,8 @@
  * $simbus_connect
  *
  * $simbus_ready
+ *
+ * $simbus_poll(<bus>, <reg>)
  *
  * $simbus_until
  */
@@ -70,7 +73,110 @@ struct port_instance {
       char   read_buf[MAX_MESSAGE+1];
       size_t read_fil;
 
+	/* When poll-waiting for a message from the server, this
+	   member is set to the vpiHandle of the trigger register that
+	   is to receive a prod when data is ready. */
+      vpiHandle trig;
+
 } instance_table[MAX_INSTANCES];
+
+/*
+ * This function tests if the next message for the bus can be read
+ * without blocking. If the message is complete in the buffer, return
+ * true. Otherwise, return false.
+ */
+static int check_readable(int idx)
+{
+      assert(idx < MAX_INSTANCES);
+      struct port_instance*inst = instance_table + idx;
+      assert(inst->name != 0);
+
+      return (strchr(inst->read_buf, '\n') != 0);
+}
+
+static void consume_readable_data(int idx)
+{
+      assert(idx < MAX_INSTANCES);
+      struct port_instance*inst = instance_table + idx;
+      assert(inst->name != 0);
+
+      size_t trans = sizeof inst->read_buf - inst->read_fil - 1;
+      int rc = read(inst->fd, inst->read_buf+inst->read_fil, trans);
+      if (rc <= 0) return;
+
+      assert(rc > 0);
+      inst->read_fil += rc;
+      inst->read_buf[inst->read_fil] = 0;
+}
+
+static PLI_INT32 poll_for_simbus_bus(struct t_cb_data*cb)
+{
+      int nfds = 0;
+      int idx;
+      int rc;
+      fd_set read_set;
+      FD_ZERO(&read_set);
+
+      for (idx = 0 ; idx < MAX_INSTANCES ; idx += 1) {
+	    if (instance_table[idx].trig == 0)
+		  continue;
+
+	    if (instance_table[idx].fd > nfds)
+		  nfds = instance_table[idx].fd;
+
+	    FD_SET(instance_table[idx].fd, &read_set);
+      }
+
+      if (nfds == 0)
+	    return 0;
+
+      rc = select(nfds+1, &read_set, 0, 0, 0);
+      assert(rc > 0);
+
+      for (idx = 0 ; idx < MAX_INSTANCES ; idx += 1) {
+	    s_vpi_value value;
+
+	    if (instance_table[idx].trig == 0)
+		  continue;
+
+	    if (! FD_ISSET(instance_table[idx].fd, &read_set))
+		  continue;
+
+	      /* This fd is readable, so try to read some data, and
+		 check if a command is complete. If not, then continue
+		 waiting. Otherwise, let this one be completed. */
+	    consume_readable_data(idx);
+	    if (!check_readable(idx))
+		  continue;
+
+	    value.format = vpiScalarVal;
+	    value.value.scalar = vpi1;
+	    vpi_put_value(instance_table[idx].trig, &value, 0, vpiNoDelay);
+	    instance_table[idx].trig = 0;
+      }
+
+	/* Check and see if there are still triggers waiting. If so
+	   then reschedule this callback. */
+      nfds += 1;
+      for (idx = 0 ; idx < MAX_INSTANCES ; idx += 1) {
+	    if (instance_table[idx].trig == 0)
+		  continue;
+
+	    nfds += 1;
+      }
+
+      if (nfds > 0) {
+	    struct t_cb_data cb_data;
+	    struct t_vpi_time cb_time;
+	    cb_time.type = vpiSuppressTime;
+	    cb_data.reason = cbReadWriteSynch;
+	    cb_data.cb_rtn = poll_for_simbus_bus;
+	    cb_data.time   = &cb_time;
+	    vpi_register_cb(&cb_data);
+      }
+
+      return 0;
+}
 
 /*
  * Read the next network message from the specified server
@@ -82,6 +188,10 @@ static int read_message(int idx, char*buf, size_t nbuf)
       assert(idx < MAX_INSTANCES);
       struct port_instance*inst = instance_table + idx;
       assert(inst->name != 0);
+
+	/* This function is certain to read data, so make sure the
+	   trig is cleared. */
+      inst->trig = 0;
 
       for (;;) {
 	    char*cp;
@@ -103,14 +213,7 @@ static int read_message(int idx, char*buf, size_t nbuf)
 		  return len;
 	    }
 
-	      /* Read more data from the remote. */
-	    size_t trans = sizeof inst->read_buf - inst->read_fil - 1;
-	    int rc = read(inst->fd, inst->read_buf+inst->read_fil, trans);
-	    if (rc <= 0) return rc;
-
-	    assert(rc > 0);
-	    inst->read_fil += rc;
-	    inst->read_buf[inst->read_fil] = 0;
+	    consume_readable_data(idx);
       }
 }
 
@@ -567,6 +670,88 @@ static PLI_INT32 simbus_ready_calltf(char*my_name)
       return 0;
 }
 
+static PLI_INT32 simbus_poll_compiletf(char*my_name)
+{
+      vpiHandle sys  = vpi_handle(vpiSysTfCall, 0);
+      vpiHandle argv = vpi_iterate(vpiArgument, sys);
+
+      vpiHandle bus_h = vpi_scan(argv);
+      if (bus_h == 0) {
+	    vpi_printf("%s:%d: Missing argument to $simbus_poll function\n",
+		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys));
+	    vpi_control(vpiFinish, 1);
+	    return 0;
+      }
+
+      vpiHandle trig = vpi_scan(argv);
+      if (trig == 0) {
+	    vpi_printf("%s:%d: Missing argument to $simbus_poll function\n",
+		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys));
+	    vpi_control(vpiFinish, 1);
+	    return 0;
+      }
+
+      if (vpi_get(vpiType, trig) != vpiReg || vpi_get(vpiSize, trig) != 1) {
+	    vpi_printf("%s:%d: Trigger argument to $simbus_poll must be a single-bit reg.\n",
+		       vpi_get_str(vpiFile, sys), (int)vpi_get(vpiLineNo, sys));
+	    vpi_control(vpiFinish, 1);
+	    return 0;
+      }
+
+      vpi_free_object(argv);
+
+      return 0;
+}
+
+static PLI_INT32 simbus_poll_calltf(char*my_name)
+{
+      int poll_state;
+      s_vpi_value value;
+
+      vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
+      vpiHandle argv = vpi_iterate(vpiArgument, sys);
+
+      vpiHandle bus_h = vpi_scan(argv);
+      assert(bus_h);
+
+      value.format = vpiIntVal;
+      vpi_get_value(bus_h, &value);
+
+      int bus = value.value.integer;
+      assert(bus >= 0 && bus < MAX_INSTANCES);
+
+      vpiHandle trig = vpi_scan(argv);
+      assert(trig);
+
+      vpi_free_object(argv);
+
+      DEBUG(SIMBUS_DEBUG_CALLS, "Call $poll(%d...)\n", bus);
+
+      poll_state = check_readable(bus);
+
+      value.format = vpiScalarVal;
+      value.value.scalar = poll_state? vpi1 : vpi0;
+      vpi_put_value(trig, &value, 0, vpiNoDelay);
+
+      if (poll_state == 0) {
+	    struct t_cb_data cb_data;
+	    struct t_vpi_time cb_time;
+	    cb_time.type = vpiSuppressTime;
+	    cb_data.reason = cbReadWriteSynch;
+	    cb_data.cb_rtn = poll_for_simbus_bus;
+	    cb_data.time   = &cb_time;
+	    vpi_register_cb(&cb_data);
+
+	    instance_table[bus].trig = trig;
+
+      } else {
+	    instance_table[bus].trig = 0;
+      }
+
+      DEBUG(SIMBUS_DEBUG_CALLS, "return $poll(%d...)\n", bus);
+      return 0;
+}
+
 static PLI_INT32 simbus_until_compiletf(char*my_name)
 {
       vpiHandle sys  = vpi_handle(vpiSysTfCall, 0);
@@ -840,6 +1025,16 @@ static struct t_vpi_systf_data simbus_ready_tf = {
       "$simbus_ready"
 };
 
+static struct t_vpi_systf_data simbus_poll_tf = {
+      vpiSysTask,
+      0,
+      "$simbus_poll",
+      simbus_poll_calltf,
+      simbus_poll_compiletf,
+      0 /* sizetf */,
+      "$simbus_poll"
+};
+
 static struct t_vpi_systf_data simbus_until_tf = {
       vpiSysFunc,
       vpiSysFuncSized,
@@ -854,6 +1049,7 @@ static void simbus_register(void)
 {
       vpi_register_systf(&simbus_connect_tf);
       vpi_register_systf(&simbus_ready_tf);
+      vpi_register_systf(&simbus_poll_tf);
       vpi_register_systf(&simbus_until_tf);
 }
 
@@ -877,6 +1073,12 @@ static void simbus_setup(void)
 
       if (simbus_debug_mask)
 	    vpi_printf("Using -simbus-debug-mask=0x%04x\n", simbus_debug_mask);
+
+      for (idx = 0 ; idx < MAX_INSTANCES ; idx += 1) {
+	    instance_table[idx].name = 0;
+	    instance_table[idx].fd = -1;
+	    instance_table[idx].trig = 0;
+      }
 }
 
 void (*vlog_startup_routines[])(void) = {
