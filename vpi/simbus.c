@@ -871,7 +871,8 @@ static void simbus_setup(void)
 
       if (simbus_debug_mask == 0) {
 	    const char*text = getenv("SIMBUS_DEBUG_MASK");
-	    simbus_debug_mask = strtoul(text, 0, 0);
+	    if (text)
+		  simbus_debug_mask = strtoul(text, 0, 0);
       }
 
       if (simbus_debug_mask)
