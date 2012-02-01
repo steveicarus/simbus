@@ -427,6 +427,11 @@ int service_run(void)
 		       ; idx != bus_map.end() ; idx ++) {
 
 		  bus_state*bus = idx->second;
+		    // If this bus is still waiting for
+		    // initialization, then do not let it advance.
+		  if (need_initialization.count(bus) > 0)
+			continue;
+
 		  bool flag = true;
 		  for (bus_device_map_t::iterator dev = bus->device_map.begin()
 			     ; dev != bus->device_map.end() ;  dev ++) {
