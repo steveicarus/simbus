@@ -118,7 +118,17 @@ extern void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int
 extern int __wait_for_devsel(simbus_pci_t pci);
 
 extern void __setup_for_write(simbus_pci_t pci, uint64_t val, int BEn, int flag64);
-extern int __wait_for_read(simbus_pci_t pci, uint64_t*val);
+
+/* __wait_for_read
+ * Wait for the bus to show signals from the bus indicating the word
+ * has been read. The return code is 0 if the read happens, or <0 and
+ * a code to indicate the cause. The word read is written into val,
+ * and valx gets filled with a mask of bits that are X/Z.
+ *
+ * GPCI_TARGET_RETRY
+ *   Detected a retry from the slave device
+ */
+extern int __wait_for_read(simbus_pci_t pci, uint64_t*val, uint64_t*valx);
 
 /*
  * The __generic_pci_read32 function performs a PCI read32 bus
@@ -131,7 +141,7 @@ extern int __wait_for_read(simbus_pci_t pci, uint64_t*val);
  * error codes, which are all <0.
  */
 extern int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
-				int BEn, uint32_t*result);
+				int BEn, uint32_t*result, uint32_t*resultx);
 # define GPCI_MASTER_ABORT (-1)
 # define GPCI_TARGET_RETRY (-2)
 

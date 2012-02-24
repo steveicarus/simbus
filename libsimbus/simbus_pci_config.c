@@ -24,8 +24,8 @@
 
 uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
 {
-      uint32_t val = 0xffffffff;
-      int rc = __generic_pci_read32(pci, addr, 0xfa, 0xf0, &val);
+      uint32_t val = 0xffffffff, valx = 0;
+      int rc = __generic_pci_read32(pci, addr, 0xfa, 0xf0, &val, &valx);
       if (rc < 0) {
 	    fprintf(stderr, "simbus_pci_config_read: "
 		    "No response to addr=0x%" PRIx64 ", rc=%d\n", addr, rc);

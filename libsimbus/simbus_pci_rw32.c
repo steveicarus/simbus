@@ -22,13 +22,14 @@
 # include  <stdio.h>
 # include  <assert.h>
 
-
-uint32_t simbus_pci_read32(simbus_pci_t pci, uint64_t addr, int BEn)
+int simbus_pci_read32_xz(simbus_pci_t pci, uint64_t addr, int BEn,
+			 uint32_t*val, uint32_t*valx)
 {
-      uint32_t val = 0xffffffff;
+      *val  = 0xffffffff;
+      *valx = 0xffffffff;
       int retry = 1;
       while (retry) {
-	    int rc = __generic_pci_read32(pci, addr, 0xf6, BEn, &val);
+	    int rc = __generic_pci_read32(pci, addr, 0xf6, BEn, val, valx);
 
 	    if (rc == GPCI_TARGET_RETRY) {
 		    /* Automatically retry until the target responds
@@ -44,10 +45,18 @@ uint32_t simbus_pci_read32(simbus_pci_t pci, uint64_t addr, int BEn)
 	    if (rc < 0) {
 		  fprintf(stderr, "simbus_pci_read32: "
 			  "No response from addr=0x%" PRIx64 ", rc=%d\n", addr, rc);
-		  return 0xffffffff;
+		  return SIMBUS_PCI_ERROR;
 	    }
       }
 
+      return 0;
+}
+
+uint32_t simbus_pci_read32(simbus_pci_t pci, uint64_t addr, int BEn)
+{
+      uint32_t val, valx;
+      int rc = simbus_pci_read32_xz(pci, addr, BEn, &val, &valx);
+      if (valx) val = 0xffffffff;
       return val;
 }
 

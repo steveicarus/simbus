@@ -563,7 +563,7 @@ int __wait_for_devsel(simbus_pci_t pci)
       return 0;
 }
 
-int __wait_for_read(simbus_pci_t pci, uint64_t*val)
+int __wait_for_read(simbus_pci_t pci, uint64_t*val, uint64_t*valx)
 {
 
 	/* Wait for TRDY# */
@@ -578,27 +578,48 @@ int __wait_for_read(simbus_pci_t pci, uint64_t*val)
       }
 
 	/* Collect the result read from the device. */
-      uint64_t result = 0;
+      uint64_t result = 0, resultx = 0;
       uint64_t mask = 1;
       int idx;
       for (idx = 0 ; idx < 32 ; idx += 1, mask <<= 1) {
-	    if (pci->pci_ad[idx] != BIT_0)
+	    switch (pci->pci_ad[idx]) {
+		case BIT_0:
+		  break;
+		case BIT_1:
 		  result |= mask;
-      }
-
-      if (pci->pci_ack64_n == BIT_0) {
-	    for (idx = 0 ; idx < 64 ; idx += 1, mask <<= 1) {
-		  if (pci->pci_ad[idx] != BIT_0)
-			result |= mask;
+		  break;
+		case BIT_X:
+		case BIT_Z:
+		  result  |= mask;
+		  resultx |= mask;
+		  break;
 	    }
       }
 
-      *val = result;
+      if (pci->pci_ack64_n == BIT_0) {
+	    for (idx = 32 ; idx < 64 ; idx += 1, mask <<= 1) {
+		  switch (pci->pci_ad[idx]) {
+		      case BIT_0:
+			break;
+		      case BIT_1:
+			result |= mask;
+			break;
+		      case BIT_X:
+		      case BIT_Z:
+			result  |= mask;
+			resultx |= mask;
+			break;
+		  }
+	    }
+      }
+
+      *val  = result;
+      *valx = resultx;
       return 0;
 }
 
 int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
-			 int BEn, uint32_t*result)
+			 int BEn, uint32_t*result, uint32_t*resultx)
 {
       int idx;
       int rc;
@@ -635,8 +656,8 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
       pci->out_frame_n = BIT_1;
       pci->out_req64_n = BIT_1;
 
-      uint64_t val;
-      if ( (rc = __wait_for_read(pci, &val)) < 0) {
+      uint64_t val, valx;
+      if ( (rc = __wait_for_read(pci, &val, &valx)) < 0) {
 	      /* Release all the signals I've been driving. */
 	    __undrive_bus(pci);
 
@@ -644,10 +665,12 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 		 the final parity from the target. */
 	    __pci_next_posedge(pci);
 	    *result = 0xffffffff;
+	    *resultx= 0xffffffff;
 	    return rc;
       }
 
       *result = val;
+      *resultx= valx;
 
 	/* Release all the signals I've been driving. */
       __undrive_bus(pci);

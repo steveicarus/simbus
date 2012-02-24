@@ -148,10 +148,21 @@ EXTERN int simbus_pci_write64b(simbus_pci_t bus, uint64_t addr,
  * then 32 bits.
  *
  * The read32 uses 32bit PCI only. If the address is more then 32its,
- * then use a DAC to write the 64bit address.
+ * then use a DAC to write the 64bit address. The return value is the
+ * result of the read, or 0xffffffff[ffffffff] if there was an error,
+ * or if any data bits are X/Z.
+ *
+ * The read32_xz and read64_xz variant is similar, but returns
+ * information about X/Z bits that were found. The valx bit mask is
+ * set true for every bit that is X or Z.
  */
 EXTERN uint32_t simbus_pci_read32(simbus_pci_t bus, uint64_t addr, int BEn);
 EXTERN uint64_t simbus_pci_read64(simbus_pci_t bus, uint64_t addr, int BEn);
+
+EXTERN int simbus_pci_read32_xz(simbus_pci_t bus, uint64_t addr, int BEn,
+				uint32_t*val, uint32_t*valx);
+EXTERN int simbus_pci_read64_xz(simbus_pci_t bus, uint64_t addr, int BEn,
+				uint64_t*val, uint64_t*valx);
 
 /*
  * Set handlers for target cycles. These handlers are invoked when

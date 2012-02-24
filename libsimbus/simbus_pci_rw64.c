@@ -26,6 +26,7 @@
 uint64_t simbus_pci_read64(simbus_pci_t pci, uint64_t addr, int BEn)
 {
       uint64_t val = UINT64_C(0xffffffffffffffff);
+      uint64_t valx= UINT64_C(0xffffffffffffffff);
       int retry = 1;
       int idx;
       int rc;
@@ -56,7 +57,7 @@ uint64_t simbus_pci_read64(simbus_pci_t pci, uint64_t addr, int BEn)
 		  return UINT64_C(0xffffffffffff);
 	    }
 
-	    rc = __wait_for_read(pci, &val);
+	    rc = __wait_for_read(pci, &val, &valx);
 	    if (rc == GPCI_TARGET_RETRY) {
 		    /* Release all the signals I've been driving. */
 		  __undrive_bus(pci);
@@ -81,8 +82,8 @@ uint64_t simbus_pci_read64(simbus_pci_t pci, uint64_t addr, int BEn)
 	      /* Target did not ACK64#, so we are reading a burst of 2
 		 32bit words. Read the next word and terminate the
 		 burst */
-	    uint64_t hival;
-	    rc = __wait_for_read(pci, &hival);
+	    uint64_t hival, hivalx;
+	    rc = __wait_for_read(pci, &hival, &hivalx);
 	    assert(rc >= 0);
 
 	    val |= hival << 32;
