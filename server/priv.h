@@ -29,6 +29,9 @@
 
 class protocol_t;
 
+/* Compile time version stamp. */
+extern const char simbus_version[];
+
 /* Initial pre-configuration. */
 extern void service_init(const char*trace_path);
 

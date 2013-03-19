@@ -1057,13 +1057,23 @@ static void simbus_setup(void)
 {
       struct t_vpi_vlog_info vlog_info;
       int idx;
+      int version_flag = 1;
       vpi_get_vlog_info(&vlog_info);
 
       for (idx = 0 ; idx < vlog_info.argc ; idx += 1) {
+
 	    if (strncmp(vlog_info.argv[idx],"-simbus-debug-mask=",19) == 0) {
 		  simbus_debug_mask = strtoul(vlog_info.argv[idx]+19,0,0);
+
+	    } else if (strcmp(vlog_info.argv[idx],"-simbus-version") == 0) {
+		  version_flag = 1;
+	    } else if (strcmp(vlog_info.argv[idx],"-no-simbus-version") == 0) {
+		  version_flag = 0;
 	    }
       }
+
+      if (version_flag)
+	    vpi_printf("SIMBUS VPI version: %s\n", simbus_version);
 
       if (simbus_debug_mask == 0) {
 	    const char*text = getenv("SIMBUS_DEBUG_MASK");

@@ -10,6 +10,7 @@ libsimbus/*.a
 libsimbus/*.o
 
 # server/
+server/simbus_version.cc
 server/*.o
 server/config.tab.cpp
 server/config.tab.hpp
@@ -17,5 +18,6 @@ server/lex.config.c
 server/simbus_server
 
 # vpi/
+vpi/simbus_version.c
 vpi/*.o
 vpi/simbus.vpi

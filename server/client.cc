@@ -23,6 +23,7 @@
 # include  <errno.h>
 # include  <cstdlib>
 # include  <cstring>
+# include  <unistd.h>
 # include  <assert.h>
 
 using namespace std;

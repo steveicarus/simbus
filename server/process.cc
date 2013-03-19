@@ -28,6 +28,7 @@
 # include  <sys/stat.h>
 # include  <fcntl.h>
 # include  <signal.h>
+# include  <unistd.h>
 
 using namespace std;
 

@@ -67,6 +67,8 @@ int main(int argc, char*argv[])
 	    }
       }
 
+      cout << "SIMBUS Server version " << simbus_version << endl;
+
       if (config_paths.size() == 0) {
 	    cerr << "Need a config file. Use -c <file> to specify." << endl;
 	    return 1;
