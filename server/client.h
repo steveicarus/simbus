@@ -39,7 +39,10 @@ class client_state_t {
 	// might appear.
       int read_from_socket(int fd);
 
-	// Bind me to my bus.
+	// Bind me to my bus. The bus_key is the symbolic name of the
+	// bus that the client is bound to. The name is found in the
+	// .bus configuration file. The server knows which bus to bind
+	// based on the port that the client is connecting to.
       void set_bus(const std::string&bus_key);
 
 	// Return true if the FINISH command has been sent for this

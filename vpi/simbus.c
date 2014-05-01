@@ -22,6 +22,7 @@
 # include  <sys/select.h>
 # include  <sys/socket.h>
 # include  <sys/un.h>
+# include  <ctype.h>
 # include  <netdb.h>
 # include  <unistd.h>
 # include  <stdlib.h>
@@ -263,22 +264,7 @@ static PLI_INT32 simbus_connect_compiletf(char*my_name)
       }
 
       /* Make sure there are no extra arguments. */
-      if (vpi_scan(argv) != 0) {
-	    char msg [64];
-	    unsigned argc;
-
-	    snprintf(msg, 64, "ERROR: %s line %d:",
-	             vpi_get_str(vpiFile, callh),
-	             (int)vpi_get(vpiLineNo, callh));
-
-	    argc = 1;
-	    while (vpi_scan(argv)) argc += 1;
-
-            vpi_printf("%s %s takes a single string argument.\n", msg, my_name);
-            vpi_printf("%*s Found %u extra argument%s.\n",
-	               (int) strlen(msg), " ", argc, argc == 1 ? "" : "s");
-            vpi_control(vpiFinish, 1);
-      }
+      while (vpi_scan(argv)) { ; }
 
       return 0;
 }
@@ -367,7 +353,7 @@ static int pipe_server(vpiHandle sys, const char*my_name, const char*dev_name,
 static PLI_INT32 simbus_connect_calltf(char*my_name)
 {
       int idx;
-      char buf[1024];
+      char buf[4096];
       s_vpi_value value;
       s_vpi_vlog_info vlog;
 
@@ -383,7 +369,6 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
       value.format = vpiStringVal;
       vpi_get_value(arg, &value);
       char*dev_name = strdup(value.value.str);
-      vpi_free_object(argv);
 
       DEBUG(SIMBUS_DEBUG_CALLS, "Call $connect(%s)\n", dev_name);
 
@@ -416,6 +401,8 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
 	    return 0;
       }
 
+      DEBUG(SIMBUS_DEBUG_CALLS, "$connect(%s): host string=%s\n", dev_name, host_string);
+
       int server_fd = -1;
       if (strncmp(host_string, "tcp:", 4) == 0) {
 	    server_fd = tcp_server(sys, my_name, dev_name, host_string+4);
@@ -428,6 +415,7 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
       }
 
       if (server_fd == -1) {
+	    DEBUG(SIMBUS_DEBUG_CALLS, "$connect(%s): Failed connect to server.\n", dev_name);
 	    free(dev_name);
 	    free(host_string);
 	    value.format = vpiIntVal;
@@ -437,7 +425,69 @@ static PLI_INT32 simbus_connect_calltf(char*my_name)
       }
 
 	/* Send HELLO message to the server. */
-      snprintf(buf, sizeof buf, "HELLO %s\n", dev_name);
+
+      snprintf(buf, sizeof buf, "HELLO %s", dev_name);
+
+	/* Add to the HELLO string a string of setting tokens for all
+	   the remaining arguments of the $simbus_connect statement. */
+      char *bp = buf + strlen(buf);
+      size_t bp_len = sizeof buf - (bp-buf);
+
+      assert(argv);
+      for (arg = vpi_scan(argv) ; arg ; arg = vpi_scan(argv)) {
+	    value.format = vpiStringVal;
+	    vpi_get_value(arg, &value);
+	    if (value.format != vpiStringVal) {
+		  vpi_printf("%s:%d: $connect(%s) Can't get string for argument.\n",
+			     vpi_get_str(vpiFile, sys),
+			     vpi_get(vpiLineNo,sys),
+			     dev_name);
+		  continue;
+	    }
+
+	    DEBUG(SIMBUS_DEBUG_CALLS, "$connect(%s): HELLO key: %s\n", dev_name, value.value.str);
+
+	      /* Remove leading and trailing white space. */
+	    char*sp = value.value.str;
+	    while (*sp && isspace(*sp))
+		  sp += 1;
+
+	    char*ep = sp+strlen(sp);
+	    while (ep > sp && isspace(ep[-1])) {
+		  ep -= 1;
+		  ep[0] = 0;
+	    }
+
+	    if (ep==sp) {
+		  continue;
+	    }
+
+	    if (strchr(sp, ' ') || ! strchr(sp, '=')) {
+		  vpi_printf("%s:%d: %s(%s): Malformed string argument: %s\n",
+			     vpi_get_str(vpiFile, sys),
+			     vpi_get(vpiLineNo,sys),
+			     my_name, host_string, sp);
+		  continue;
+	    }
+
+	    if ((ep-sp)+1 >= bp_len) {
+		  vpi_printf("%s:%d: %s(%s): Internal error: Ran out of string space.\n",
+			     vpi_get_str(vpiFile, sys),
+			     vpi_get(vpiLineNo,sys),
+			     my_name, host_string);
+		  continue;
+	    }
+
+	    *bp++ = ' ';
+	    bp_len -= 1;
+
+	    strcpy(bp, sp);
+	    bp += (ep-sp);
+	    bp_len -= (ep-sp);
+      }
+
+      *bp++ = '\n';
+      *bp = 0;
 
       DEBUG(SIMBUS_DEBUG_PROTOCOL, "Send %s", buf);
       int rc = write(server_fd, buf, strlen(buf));

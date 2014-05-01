@@ -33,7 +33,7 @@ simbus_p2p_t simbus_p2p_connect(const char*server, const char*name,
       assert(server_fd >= 0);
 
       unsigned ident = 0;
-      int rc = __simbus_server_hello(server_fd, name, &ident);
+      int rc = __simbus_server_hello(server_fd, name, &ident, 0, 0);
 
       if (rc < 0)
 	    return 0;

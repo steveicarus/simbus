@@ -83,13 +83,18 @@ int client_state_t::read_from_socket(int fd)
 	    bus_map_idx_t bus_info = bus_map.find(bus_);
 	    assert(bus_info != bus_map.end());
 	    bus_state*bus = bus_info->second;
-	    cerr << "EOF from "
-		 << (bus_interface_->host_flag? "host" : "device")
-		 << " " << dev_name_
-		 << ", detaching from bus " << bus->name
-		 << "." << endl;
-	    bus_interface_->ready_flag  = true;
-	    bus_interface_->exited_flag = true;
+	    if (bus_interface_) {
+		  cerr << "EOF from "
+		       << (bus_interface_->host_flag? "host" : "device")
+		       << " " << dev_name_
+		       << ", detaching from bus " << bus->name
+		       << "." << endl;
+		  bus_interface_->ready_flag  = true;
+		  bus_interface_->exited_flag = true;
+	    } else {
+		  cerr << "EOF from client before HELLO." << endl;
+		  assert(0);
+	    }
 	    return rc;
       }
 
@@ -186,6 +191,32 @@ void client_state_t::process_client_hello_(int fd, int argc, char*argv[])
       bus_interface_ = cur->second;
       bus_interface_->fd = fd;
       bus_interface_->ready_flag = false;
+
+	// Collect options from the client
+      for (int idx = 2 ; idx < argc ; idx += 1) {
+	    string tmp = argv[idx];
+	    size_t qe = tmp.find('=');
+	    if (qe == string::npos) {
+		  cerr << use_name << ": Ignoring HELLO token: " << tmp << endl;
+		  continue;
+	    }
+
+	    string key = tmp.substr(0, qe);
+	    string val = tmp.substr(qe+1);
+
+	    pair<map<string,string>::iterator,bool> res = bus->options.insert(pair<string,string>(key,val));
+	    if (res.second) {
+		  cerr << use_name << ": Set " << key << " = " << val << endl;
+	    } else if (res.first->second == val) {
+		  cerr << use_name << ": key=" << key
+		       << " matches preset value " << res.first->second
+		       << ", so continuing without error." << endl;
+	    } else {
+		  cerr << use_name << ": key=" << key
+		       << " is already " << res.first->second
+		       << ", dropping val=" << val << endl;
+	    }
+      }
 
 	// Send a message back to the client saying that it was found
 	// in the bus and now has an identifier.

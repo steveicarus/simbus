@@ -41,8 +41,12 @@ extern int __simbus_server_socket(const char*addr);
  * contains the ident. The ident is written to the *ident value and
  * this function returns 0. If there was an error, this function
  * returns <0.
+ *
+ * The argv is an array of arguments sent with the HELLO
+ * command. These should already be formatted as <key>=<value> tokens.
  */
-extern int __simbus_server_hello(int server_fd, const char*name, unsigned*ident);
+extern int __simbus_server_hello(int server_fd, const char*name, unsigned*ident,
+				 int argc, char**argv);
 
 /*
  * Set to the server a FINISH record and wait for the FINISH response.

@@ -21,3 +21,9 @@ server/simbus_server
 vpi/simbus_version.c
 vpi/*.o
 vpi/simbus.vpi
+
+# example/example_axi4/
+example/example_axi4/bus.lxt
+example/example_axi4/dump.*
+example/example_axi4/master
+example/example_axi4/slave

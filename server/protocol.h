@@ -33,6 +33,10 @@ class protocol_t  {
 	// instance.
       const simtime_t& peek_time() const { return time_; }
 
+	// Wrap up the collection of configuration options, and check
+	// that all is OK. Return false if there is a problem.
+      virtual bool wrap_up_configuration();
+
 	// Called by the server to set up LXT traces.
       virtual void trace_init();
 
@@ -50,6 +54,9 @@ class protocol_t  {
 	// Access the devices of the bus. The derived class mostly is
 	// interested in the signals to and from the client.
       bus_device_map_t& device_map();
+
+      inline std::string get_option(const std::string&key)
+      { return bus_->options[key]; }
 
 	// Functions to facilitate server-side tracing of the bus. The
 	// protocol creates the traces and sets their value with these

@@ -189,6 +189,11 @@ void protocol_t::bus_ready()
       }
 }
 
+bool protocol_t::wrap_up_configuration()
+{
+      return true;
+}
+
 void protocol_t::trace_init()
 {
 }

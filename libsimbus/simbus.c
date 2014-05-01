@@ -135,12 +135,27 @@ int __simbus_server_socket(const char*addr)
 }
 
 
-int __simbus_server_hello(int server_fd, const char*name, unsigned*ident)
+int __simbus_server_hello(int server_fd, const char*name, unsigned*ident,
+			  int argc, char*argv[])
 {
       char buf[4096];
 
       	/* Send HELLO message to the server. */
-      snprintf(buf, sizeof buf, "HELLO %s\n", name);
+      snprintf(buf, sizeof buf, "HELLO %s", name);
+
+      char*bp = buf + strlen(buf);
+      size_t bp_len = sizeof buf - strlen(buf);
+      while (argc > 0) {
+	    *bp++ = ' ';
+	    strcpy(bp, argv[0]);
+	    bp_len -= strlen(argv[0]);
+	    bp += strlen(argv[0]);
+	    argc -= 1;
+	    argv += 1;
+      }
+
+      *bp++ = '\n';
+      *bp = 0;
 
       int rc = write(server_fd, buf, strlen(buf));
       assert(rc == strlen(buf));

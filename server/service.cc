@@ -35,6 +35,7 @@
 # include  "protocol.h"
 # include  "PciProtocol.h"
 # include  "PointToPoint.h"
+# include  "AXI4Protocol.h"
 # include  "lxt2_write.h"
 # include  <assert.h>
 
@@ -122,6 +123,9 @@ void service_add_bus(const std::string&port, const std::string&name,
 
       } else if (bus_protocol_name == "point-to-point") {
 	    tmp->proto = new PointToPoint(tmp);
+
+      } else if (bus_protocol_name == "AXI4") {
+	    tmp->proto = new AXI4Protocol(tmp);
 
       } else {
 	    cerr << "Unknown protocol (" << bus_protocol_name << ")"
@@ -295,16 +299,6 @@ int service_run(void)
 	// Run processes that the user might have requested
       process_run();
 
-	// Make up lxt traces that might be needed.
-      if (service_lxt) {
-	    for (bus_map_idx_t idx = bus_map.begin()
-		       ; idx != bus_map.end() ; idx ++) {
-		  cout << idx->second->name << ": Initialize traces..." << endl;
-		  assert(idx->second->proto);
-		  idx->second->proto->trace_init();
-	    }
-      }
-
       struct sigaction sigint_new, sigint_old;
       sigint_new.sa_handler = &sigint_handler;
       sigint_new.sa_flags = 0;
@@ -473,6 +467,16 @@ int service_run(void)
 void bus_state::assembly_complete()
 {
       cout << name << ": Bus assembly complete." << endl;
+
+      bool config_flag = proto->wrap_up_configuration();
+
+	// Should do something useful with the config_flag results.
+      assert(config_flag);
+
+      if (service_lxt) {
+	    cout << name << ": Initialize traces..." << endl;
+	    proto->trace_init();
+      }
 
       proto->run_init();
 
