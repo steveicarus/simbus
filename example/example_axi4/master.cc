@@ -24,7 +24,7 @@
 int main(int argc, char*argv[])
 {
       simbus_axi4_resp_t axi4_rc;
-      simbus_axi4_t bus = simbus_axi4_connect(argv[1], "master", 32, 5);
+      simbus_axi4_t bus = simbus_axi4_connect(argv[1], "master", 32, 5, 4, 4);
       assert(bus);
 
       FILE*debug = fopen("master.log", "wt");

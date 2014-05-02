@@ -39,9 +39,28 @@ simbus_axi4_resp_t simbus_axi4_write32(simbus_axi4_t bus,
       bus->awvalid = BIT_1;
       for (idx = 0, mask64=1 ; idx < bus->addr_width ; idx += 1, mask64 <<= 1)
 	    bus->awaddr[idx] = (addr&mask64)? BIT_1 : BIT_0;
+      for (idx = 0 ; idx < 8 ; idx += 1)
+	    bus->awlen[idx] = BIT_0;
+      bus->awsize[0] = BIT_0;
+      bus->awsize[1] = BIT_0;
+      bus->awsize[2] = BIT_0;
+      bus->awburst[0] = BIT_1;
+      bus->awburst[1] = BIT_0;
+      bus->awlock[0] = BIT_0;
+      bus->awlock[1] = BIT_0;
+      bus->awcache[0] = BIT_0;
+      bus->awcache[1] = BIT_0;
+      bus->awcache[2] = BIT_0;
+      bus->awcache[3] = BIT_0;
       bus->awprot[0] = (prot&1)? BIT_1 : BIT_0;
       bus->awprot[1] = (prot&2)? BIT_1 : BIT_0;
       bus->awprot[2] = (prot&4)? BIT_1 : BIT_0;
+      bus->awqos[0] = BIT_0;
+      bus->awqos[1] = BIT_0;
+      bus->awqos[2] = BIT_0;
+      bus->awqos[3] = BIT_0;
+      for (idx = 0 ; idx < AXI4_MAX_ID ; idx += 1)
+	    bus->awid[idx] = BIT_0;
 
 	/* Drive the write data to the write data channel */
       bus->wvalid = BIT_1;
@@ -70,9 +89,28 @@ simbus_axi4_resp_t simbus_axi4_write32(simbus_axi4_t bus,
 		  bus->awvalid = BIT_0;
 		  for (idx = 0 ; idx < AXI4_MAX_ADDR ; idx += 1)
 			bus->awaddr[idx] = BIT_X;
+		  for (idx = 0 ; idx < 8 ; idx += 1)
+			bus->awlen[idx] = BIT_X;
+		  bus->awsize[0] = BIT_X;
+		  bus->awsize[1] = BIT_X;
+		  bus->awsize[2] = BIT_X;
+		  bus->awburst[0] = BIT_X;
+		  bus->awburst[1] = BIT_X;
+		  bus->awlock[0] = BIT_X;
+		  bus->awlock[1] = BIT_X;
+		  bus->awcache[0] = BIT_X;
+		  bus->awcache[1] = BIT_X;
+		  bus->awcache[2] = BIT_X;
+		  bus->awcache[3] = BIT_X;
 		  bus->awprot[0] = BIT_X;
 		  bus->awprot[1] = BIT_X;
 		  bus->awprot[2] = BIT_X;
+		  bus->awqos[0] = BIT_X;
+		  bus->awqos[1] = BIT_X;
+		  bus->awqos[2] = BIT_X;
+		  bus->awqos[3] = BIT_X;
+		  for (idx = 0 ; idx < AXI4_MAX_ID ; idx += 1)
+			bus->awid[idx] = BIT_X;
 	    }
 
 	      /* If the data is transferred, then stop driving it. */

@@ -33,6 +33,7 @@
  */
 # define AXI4_MAX_ADDR 64
 # define AXI4_MAX_DATA 64
+# define AXI4_MAX_ID 64
 
 struct simbus_axi4_s {
 	/* The name given in the simbus_pci_connect function. This is
@@ -49,6 +50,8 @@ struct simbus_axi4_s {
 	/* Configured widths */
       size_t data_width;
       size_t addr_width;
+      size_t wid_width;
+      size_t rid_width;
 
 	/* Current simulation time. */
       uint64_t time_mant;
@@ -59,7 +62,14 @@ struct simbus_axi4_s {
 	/* .. write address channel */
       bus_bitval_t awvalid;
       bus_bitval_t awaddr[AXI4_MAX_ADDR];
+      bus_bitval_t awlen[8];
+      bus_bitval_t awsize[3];
+      bus_bitval_t awburst[2];
+      bus_bitval_t awlock[2];
+      bus_bitval_t awcache[4];
       bus_bitval_t awprot[3];
+      bus_bitval_t awqos[4];
+      bus_bitval_t awid[AXI4_MAX_ID];
 	/* .. write data channel */
       bus_bitval_t wvalid;
       bus_bitval_t wdata[AXI4_MAX_DATA];
@@ -69,7 +79,14 @@ struct simbus_axi4_s {
 	/* .. read address channel */
       bus_bitval_t arvalid;
       bus_bitval_t araddr[AXI4_MAX_ADDR];
+      bus_bitval_t arlen[8];
+      bus_bitval_t arsize[3];
+      bus_bitval_t arburst[2];
+      bus_bitval_t arlock[2];
+      bus_bitval_t arcache[4];
       bus_bitval_t arprot[3];
+      bus_bitval_t arqos[4];
+      bus_bitval_t arid[AXI4_MAX_ID];
 	/* .. read data channel */
       bus_bitval_t rready;
 
@@ -82,12 +99,14 @@ struct simbus_axi4_s {
 	/* .. write response channel */
       bus_bitval_t bvalid;
       bus_bitval_t bresp[2];
+      bus_bitval_t bid[AXI4_MAX_ID];
 	/* .. read address channel */
       bus_bitval_t arready;
 	/* .. read data channel */
       bus_bitval_t rvalid;
       bus_bitval_t rdata[AXI4_MAX_DATA];
       bus_bitval_t rresp[2];
+      bus_bitval_t rid[AXI4_MAX_ID];
 };
 
 extern int __axi4_ready_command(simbus_axi4_t bus);

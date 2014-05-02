@@ -39,6 +39,8 @@ module main;
 
    parameter data_width = 32;
    parameter addr_width = 5;
+   parameter rid_width  = 4;
+   parameter wid_width  = 4;
 
    localparam strb_width = data_width/8;
 
@@ -49,7 +51,14 @@ module main;
    wire                  AWVALID;
    wire                  AWREADY;
    wire [addr_width-1:0] AWADDR;
+   wire [7:0] 		 AWLEN;
+   wire [2:0] 		 AWSIZE;
+   wire [1:0] 		 AWBURST;
+   wire [1:0] 		 AWLOCK;
+   wire [3:0] 		 AWCACHE;
    wire [2:0] 		 AWPROT;
+   wire [3:0] 		 AWQOS;
+   wire [wid_width-1:0]  AWID;
    // Write data channel
    wire 		 WVALID;
    wire 		 WREADY;
@@ -59,16 +68,25 @@ module main;
    wire 		 BVALID;
    wire 		 BREADY;
    wire [1:0]		 BRESP;
+   wire [wid_width-1:0]  BID;
    // Read address channel
    wire 		 ARVALID;
    wire 		 ARREADY;
    wire [addr_width-1:0] ARADDR;
+   wire [7:0] 		 ARLEN;
+   wire [2:0] 		 ARSIZE;
+   wire [1:0] 		 ARBURST;
+   wire [1:0] 		 ARLOCK;
+   wire [3:0] 		 ARCACHE;
    wire [2:0] 		 ARPROT;
+   wire [3:0] 		 ARQOS;
+   wire [rid_width-1:0]  ARID;
    // Read data channel
    wire 		 RVALID;
    wire 		 RREADY;
    wire [data_width-1:0] RDATA;
    wire [1:0] 		 RRESP;
+   wire [rid_width-1:0]  RID;
 
 
    axi4_slave_slot #(.name("slave"), .data_width(data_width), .addr_width(addr_width)) slot
@@ -79,7 +97,14 @@ module main;
       .AWVALID(AWVALID),
       .AWREADY(AWREADY),
       .AWADDR(AWADDR),
+      .AWLEN(AWLEN),
+      .AWSIZE(AWSIZE),
+      .AWBURST(AWBURST),
+      .AWLOCK(AWLOCK),
+      .AWCACHE(AWCACHE),
       .AWPROT(AWPROT),
+      .AWQOS(AWQOS),
+      .AWID(AWID),
       // Write data channel
       .WVALID(WVALID),
       .WREADY(WREADY),
@@ -89,16 +114,25 @@ module main;
       .BVALID(BVALID),
       .BREADY(BREADY),
       .BRESP(BRESP),
+      .BID(BID),
       // Read address channel
       .ARVALID(ARVALID),
       .ARREADY(ARREADY),
       .ARADDR(ARADDR),
+      .ARLEN(ARLEN),
+      .ARSIZE(ARSIZE),
+      .ARBURST(ARBURST),
+      .ARLOCK(ARLOCK),
+      .ARCACHE(ARCACHE),
       .ARPROT(ARPROT),
+      .ARQOS(ARQOS),
+      .ARID(ARID),
       // read data channel
       .RVALID(RVALID),
       .RREADY(RREADY),
       .RDATA(RDATA),
-      .RRESP(RRESP)
+      .RRESP(RRESP),
+      .RID(RID)
       /* */);
 
    register_file #(.data_width(data_width), .addr_width(addr_width)) dev

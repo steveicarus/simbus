@@ -37,7 +37,9 @@ typedef struct simbus_axi4_s*simbus_axi4_t;
  */
 EXTERN simbus_axi4_t simbus_axi4_connect(const char*server, const char*name,
 					 size_t data_width,
-					 size_t addr_width);
+					 size_t addr_width,
+					 size_t wid_width,
+					 size_t rid_width);
 
 /*
  * Set a log file for the axi4 interface. This causes detailed library

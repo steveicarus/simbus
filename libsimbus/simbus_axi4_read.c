@@ -40,10 +40,28 @@ simbus_axi4_resp_t simbus_axi4_read32(simbus_axi4_t bus,
       bus->arvalid = BIT_1;
       for (idx = 0, mask64=1 ; idx < bus->addr_width ; idx += 1, mask64 <<= 1)
 	    bus->araddr[idx] = (addr&mask64)? BIT_1 : BIT_0;
+      for (idx = 0 ; idx < 8 ; idx += 1)
+	    bus->arlen[idx] = BIT_0;
+      bus->arsize[0] = BIT_0;
+      bus->arsize[1] = BIT_0;
+      bus->arsize[2] = BIT_0;
+      bus->arburst[0] = BIT_1;
+      bus->arburst[1] = BIT_0;
+      bus->arlock[0] = BIT_0;
+      bus->arlock[1] = BIT_0;
+      bus->arcache[0] = BIT_0;
+      bus->arcache[1] = BIT_0;
+      bus->arcache[2] = BIT_0;
+      bus->arcache[3] = BIT_0;
       bus->arprot[0] = (prot&1)? BIT_1 : BIT_0;
       bus->arprot[1] = (prot&2)? BIT_1 : BIT_0;
       bus->arprot[2] = (prot&4)? BIT_1 : BIT_0;
-
+      bus->arqos[0] = BIT_0;
+      bus->arqos[1] = BIT_0;
+      bus->arqos[2] = BIT_0;
+      bus->arqos[3] = BIT_0;
+      for (idx = 0 ; idx < AXI4_MAX_ID ; idx += 1)
+	    bus->arid[idx] = BIT_0;
 	/* Ready for the read response. */
       bus->rready = BIT_1;
 
@@ -58,9 +76,28 @@ simbus_axi4_resp_t simbus_axi4_read32(simbus_axi4_t bus,
 		  bus->arvalid = BIT_0;
 		  for (idx = 0 ; idx < AXI4_MAX_ADDR ; idx += 1)
 			bus->araddr[idx] = BIT_X;
+		  for (idx = 0 ; idx < 8 ; idx += 1)
+			bus->arlen[idx] = BIT_X;
+		  bus->arsize[0] = BIT_X;
+		  bus->arsize[1] = BIT_X;
+		  bus->arsize[2] = BIT_X;
+		  bus->arburst[0] = BIT_X;
+		  bus->arburst[1] = BIT_X;
+		  bus->arlock[0] = BIT_X;
+		  bus->arlock[1] = BIT_X;
+		  bus->arcache[0] = BIT_X;
+		  bus->arcache[1] = BIT_X;
+		  bus->arcache[2] = BIT_X;
+		  bus->arcache[3] = BIT_X;
 		  bus->arprot[0] = BIT_X;
 		  bus->arprot[1] = BIT_X;
 		  bus->arprot[2] = BIT_X;
+		  bus->arqos[0] = BIT_X;
+		  bus->arqos[1] = BIT_X;
+		  bus->arqos[2] = BIT_X;
+		  bus->arqos[3] = BIT_X;
+		  for (idx = 0 ; idx < AXI4_MAX_ID ; idx += 1)
+			bus->arid[idx] = BIT_X;
 	    }
 
 	      /* If the data response is received, then capture it. */

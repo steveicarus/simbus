@@ -29,6 +29,8 @@ AXI4Protocol::AXI4Protocol(struct bus_state*b)
 
       data_width_ = 0;
       addr_width_ = 0;
+      wid_width_ = 0;
+      rid_width_ = 0;
 
       string clock_high_str  = b->options["CLOCK_high"];
       string clock_low_str   = b->options["CLOCK_low"];
@@ -61,10 +63,20 @@ bool AXI4Protocol::wrap_up_configuration()
       str = get_option("addr_width");
       addr_width_ = strtoul(str.c_str(), 0, 0);
 
+      str = get_option("wid_width");
+      wid_width_ = strtoul(str.c_str(), 0, 0);
+
+      str = get_option("rid_width");
+      rid_width_ = strtoul(str.c_str(), 0, 0);
+
       if (data_width_ == 0)
 	    data_width_ = 32;
       if (addr_width_ == 0)
 	    addr_width_ = 32;
+      if (wid_width_ == 0)
+	    wid_width_ = 4;
+      if (rid_width_ == 0)
+	    rid_width_ = 4;
 
       return true;
 }
@@ -78,7 +90,14 @@ void AXI4Protocol::trace_init()
       make_trace_("AWVALID", PT_BITS);
       make_trace_("AWREADY", PT_BITS);
       make_trace_("AWADDR",  PT_BITS, addr_width_);
+      make_trace_("AWLEN",   PT_BITS, 8);
+      make_trace_("AWSIZE",  PT_BITS, 3);
+      make_trace_("AWBURST", PT_BITS, 2);
+      make_trace_("AWLOCK",  PT_BITS, 2);
+      make_trace_("AWCACHE", PT_BITS, 4);
       make_trace_("AWPROT",  PT_BITS, 3);
+      make_trace_("AWQOS",   PT_BITS, 4);
+      make_trace_("AWID",    PT_BITS, wid_width_);
 	// write data channel
       make_trace_("WVALID",  PT_BITS);
       make_trace_("WREADY",  PT_BITS);
@@ -88,16 +107,25 @@ void AXI4Protocol::trace_init()
       make_trace_("BVALID",  PT_BITS);
       make_trace_("BREADY",  PT_BITS);
       make_trace_("BRESP",   PT_BITS, 2);
+      make_trace_("BID",     PT_BITS, wid_width_);
 	// read address channel
       make_trace_("ARVALID", PT_BITS);
       make_trace_("ARREADY", PT_BITS);
       make_trace_("ARADDR",  PT_BITS, addr_width_);
+      make_trace_("ARLEN",   PT_BITS, 8);
+      make_trace_("ARSIZE",  PT_BITS, 3);
+      make_trace_("ARBURST", PT_BITS, 2);
+      make_trace_("ARLOCK",  PT_BITS, 2);
+      make_trace_("ARCACHE", PT_BITS, 4);
       make_trace_("ARPROT",  PT_BITS, 3);
+      make_trace_("ARQOS",   PT_BITS, 4);
+      make_trace_("ARID",    PT_BITS, rid_width_);
 	// read data channel
       make_trace_("RVALID",  PT_BITS);
       make_trace_("RREADY",  PT_BITS);
       make_trace_("RDATA",   PT_BITS, data_width_);
       make_trace_("RRESP",   PT_BITS, 2);
+      make_trace_("RID",     PT_BITS, rid_width_);
 }
 
 void AXI4Protocol::run_init()
@@ -138,6 +166,14 @@ void AXI4Protocol::run_init()
       for (size_t idx = 0 ; idx < tmp_strb.size() ; idx += 1)
 	    tmp_strb[idx] = BIT_Z;
 
+      valarray<bit_state_t>tmp_wid (wid_width_);
+      for (size_t idx = 0 ; idx < tmp_wid.size() ; idx += 1)
+	    tmp_wid[idx] = BIT_0;
+
+      valarray<bit_state_t>tmp_rid (rid_width_);
+      for (size_t idx = 0 ; idx < tmp_rid.size() ; idx += 1)
+	    tmp_rid[idx] = BIT_0;
+
       valarray<bit_state_t>tmp_resp (2);
       for (size_t idx = 0 ; idx < tmp_resp.size() ; idx += 1)
 	    tmp_resp[idx] = BIT_Z;
@@ -145,6 +181,22 @@ void AXI4Protocol::run_init()
       valarray<bit_state_t>tmp_prot (3);
       for (size_t idx = 0 ; idx < tmp_prot.size() ; idx += 1)
 	    tmp_prot[idx] = BIT_Z;
+
+      valarray<bit_state_t>tmp_lock (2);
+      for (size_t idx = 0 ; idx < tmp_resp.size() ; idx += 1)
+	    tmp_resp[idx] = BIT_0;
+
+      valarray<bit_state_t>tmp_cache (4);
+      for (size_t idx = 0 ; idx < tmp_prot.size() ; idx += 1)
+	    tmp_prot[idx] = BIT_0;
+
+      valarray<bit_state_t>tmp_qos (4);
+      for (size_t idx = 0 ; idx < tmp_qos.size() ; idx += 1)
+	    tmp_qos[idx] = BIT_Z;
+
+      valarray<bit_state_t>tmp_len (8);
+      for (size_t idx = 0 ; idx < tmp_len.size() ; idx += 1)
+	    tmp_len[idx] = BIT_Z;
 
 	// global signals
       master_->second->send_signals["ACLK"]    = tmp_1;
@@ -158,12 +210,26 @@ void AXI4Protocol::run_init()
       slave_ ->second->send_signals["AWVALID"] = tmp_z;
       master_->second->send_signals["AWREADY"] = tmp_z;
       slave_ ->second->send_signals["AWADDR" ] = tmp_addr;
+      slave_ ->second->send_signals["AWLEN"  ] = tmp_len;
+      slave_ ->second->send_signals["AWSIZE" ] = tmp_prot;
+      slave_ ->second->send_signals["AWBURST"] = tmp_resp;
+      slave_ ->second->send_signals["AWLOCK" ] = tmp_lock;
+      slave_ ->second->send_signals["AWCACHE"] = tmp_cache;
       slave_ ->second->send_signals["AWPROT" ] = tmp_prot;
+      slave_ ->second->send_signals["AWQOS"  ] = tmp_qos;
+      slave_ ->second->send_signals["AWID"   ] = tmp_wid;
 
       set_trace_("AWVALID", BIT_Z);
       set_trace_("AWREADY", BIT_Z);
       set_trace_("AWADDR",  tmp_addr);
+      set_trace_("AWLEN",   tmp_len);
+      set_trace_("AWSIZE",  tmp_prot);
+      set_trace_("AWBURST", tmp_resp);
+      set_trace_("AWLOCK",  tmp_lock);
+      set_trace_("AWCACHE", tmp_cache);
       set_trace_("AWPROT",  tmp_prot);
+      set_trace_("AWQOS",   tmp_qos);
+      set_trace_("AWID",    tmp_wid);
 
 	// write data channel
       slave_ ->second->send_signals["WVALID"] = tmp_z;
@@ -180,6 +246,7 @@ void AXI4Protocol::run_init()
       master_->second->send_signals["BVALID"] = tmp_z;
       slave_ ->second->send_signals["BREADY"] = tmp_z;
       master_->second->send_signals["BRESP" ] = tmp_resp;
+      master_->second->send_signals["BID"   ] = tmp_wid;
 
       set_trace_("BVALID", BIT_Z);
       set_trace_("BREADY", BIT_Z);
@@ -189,23 +256,39 @@ void AXI4Protocol::run_init()
       slave_ ->second->send_signals["ARVALID"] = tmp_z;
       master_->second->send_signals["ARREADY"] = tmp_z;
       slave_ ->second->send_signals["ARADDR" ] = tmp_addr;
+      slave_ ->second->send_signals["ARLEN"  ] = tmp_len;
+      slave_ ->second->send_signals["ARSIZE" ] = tmp_prot;
+      slave_ ->second->send_signals["ARBURST"] = tmp_resp;
+      slave_ ->second->send_signals["ARLOCK" ] = tmp_lock;
+      slave_ ->second->send_signals["ARCACHE"] = tmp_cache;
       slave_ ->second->send_signals["ARPROT" ] = tmp_prot;
+      slave_ ->second->send_signals["ARQOS"  ] = tmp_qos;
+      slave_ ->second->send_signals["ARID"   ] = tmp_rid;
 
       set_trace_("ARVALID", BIT_Z);
       set_trace_("ARREADY", BIT_Z);
       set_trace_("ARADDR",  tmp_addr);
+      set_trace_("ARLEN",   tmp_len);
+      set_trace_("ARSIZE",  tmp_prot);
+      set_trace_("ARBURST", tmp_resp);
+      set_trace_("ARLOCK",  tmp_lock);
+      set_trace_("ARCACHE", tmp_cache);
       set_trace_("ARPROT",  tmp_prot);
+      set_trace_("ARQOS",   tmp_qos);
+      set_trace_("ARID",    tmp_rid);
 
 	// read data channel
       master_->second->send_signals["RVALID"] = tmp_z;
       slave_ ->second->send_signals["RREADY"] = tmp_z;
       master_->second->send_signals["RDATA" ] = tmp_data;
       master_->second->send_signals["RRESP" ] = tmp_resp;
+      master_->second->send_signals["RID"   ] = tmp_rid;
 
       set_trace_("RVALID", BIT_Z);
       set_trace_("RREADY", BIT_Z);
       set_trace_("RDATA",  tmp_data);
       set_trace_("RRESP",  tmp_resp);
+      set_trace_("RID",    tmp_rid);
 }
 
 void AXI4Protocol::run_master_to_slave_(const char*name, size_t bits)
@@ -258,7 +341,14 @@ void AXI4Protocol::run_run()
       run_master_to_slave_("AWVALID", 1);
       run_slave_to_master_("AWREADY", 1);
       run_master_to_slave_("AWADDR",  addr_width_);
+      run_master_to_slave_("AWLEN",   8);
+      run_master_to_slave_("AWSIZE",  3);
+      run_master_to_slave_("AWBURST", 2);
+      run_master_to_slave_("AWLOCK",  2);
+      run_master_to_slave_("AWCACHE", 4);
       run_master_to_slave_("AWPROT",  3);
+      run_master_to_slave_("AWQOS",   4);
+      run_master_to_slave_("AWID",    wid_width_);
 
 	// write data channel
       run_master_to_slave_("WVALID",  1);
@@ -270,18 +360,27 @@ void AXI4Protocol::run_run()
       run_slave_to_master_("BVALID",  1);
       run_master_to_slave_("BREADY",  1);
       run_slave_to_master_("BRESP",   2);
+      run_slave_to_master_("BID",     wid_width_);
 
 	// read address channel
       run_master_to_slave_("ARVALID", 1);
       run_slave_to_master_("ARREADY", 1);
       run_master_to_slave_("ARADDR",  addr_width_);
+      run_master_to_slave_("ARLEN",   8);
+      run_master_to_slave_("ARSIZE",  3);
+      run_master_to_slave_("ARBURST", 2);
+      run_master_to_slave_("ARLOCK",  2);
+      run_master_to_slave_("ARCACHE", 4);
       run_master_to_slave_("ARPROT",  3);
+      run_master_to_slave_("ARQOS",   4);
+      run_master_to_slave_("ARID",    wid_width_);
 
 	// read data channel
       run_slave_to_master_("RVALID",  1);
       run_master_to_slave_("RREADY",  1);
       run_slave_to_master_("RDATA",   data_width_);
       run_slave_to_master_("RRESP",   2);
+      run_slave_to_master_("RID",     rid_width_);
 }
 
 void AXI4Protocol::advance_bus_clock_(void)
