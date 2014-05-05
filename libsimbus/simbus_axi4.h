@@ -94,8 +94,9 @@ typedef enum simbus_axi4_resp_e {
 }  simbus_axi4_resp_t;
 
 /*
- * These functions write/read a single word. They task as many clocks
- * as necessary to complete the transaction.
+ * These functions write/read a single word. They take as many clocks
+ * as necessary to complete the transaction, then return the AXI4
+ * responce code that completed the transaction.
  */
 EXTERN simbus_axi4_resp_t simbus_axi4_write32(simbus_axi4_t bus,
 					      uint64_t addr,

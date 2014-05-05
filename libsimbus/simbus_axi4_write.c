@@ -29,11 +29,16 @@ simbus_axi4_resp_t simbus_axi4_write32(simbus_axi4_t bus,
       int idx;
       uint32_t mask32;
       uint64_t mask64;
+      int use_size;
 
 	/* This function (at this point) only supports 32bit writes to
 	   32bit data busses. */
       assert(bus->data_width == 32);
       assert(bus->addr_width <= AXI4_MAX_ADDR);
+
+      use_size = 0;
+      while ((8 << use_size) < bus->data_width)
+	    use_size += 1;
 
 	/* Drive the write address to the write address channel. */
       bus->awvalid = BIT_1;
@@ -41,9 +46,9 @@ simbus_axi4_resp_t simbus_axi4_write32(simbus_axi4_t bus,
 	    bus->awaddr[idx] = (addr&mask64)? BIT_1 : BIT_0;
       for (idx = 0 ; idx < 8 ; idx += 1)
 	    bus->awlen[idx] = BIT_0;
-      bus->awsize[0] = BIT_0;
-      bus->awsize[1] = BIT_0;
-      bus->awsize[2] = BIT_0;
+      bus->awsize[0] = use_size&1? BIT_1 : BIT_0;
+      bus->awsize[1] = use_size&2? BIT_1 : BIT_0;
+      bus->awsize[2] = use_size&4? BIT_1 : BIT_0;
       bus->awburst[0] = BIT_1;
       bus->awburst[1] = BIT_0;
       bus->awlock[0] = BIT_0;

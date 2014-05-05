@@ -24,6 +24,10 @@
 int main(int argc, char*argv[])
 {
       simbus_axi4_resp_t axi4_rc;
+	// data_width = 32 bits (4 bytes)
+	// addr_width = 5 bits  (32 bytes, 8 words)
+	// wid_width (write transaction id) = 4 bits
+	// rid_width (read transaction id) = 4 bits
       simbus_axi4_t bus = simbus_axi4_connect(argv[1], "master", 32, 5, 4, 4);
       assert(bus);
 
@@ -41,19 +45,19 @@ int main(int argc, char*argv[])
       fprintf(debug, "Write some values...\n");
       fflush(debug);
 
-	// Write some values...
-      axi4_rc = simbus_axi4_write32(bus, 0x00, 0x00, 0x11111111, 0xf);
-      axi4_rc = simbus_axi4_write32(bus, 0x01, 0x00, 0x22222222, 0xf);
-      axi4_rc = simbus_axi4_write32(bus, 0x02, 0x00, 0x33333333, 0xf);
-      axi4_rc = simbus_axi4_write32(bus, 0x03, 0x00, 0x44444444, 0xf);
-      axi4_rc = simbus_axi4_write32(bus, 0x04, 0x00, 0x55555555, 0xf);
-      axi4_rc = simbus_axi4_write32(bus, 0x05, 0x00, 0x66666666, 0xf);
-      axi4_rc = simbus_axi4_write32(bus, 0x06, 0x00, 0x77777777, 0xf);
-      axi4_rc = simbus_axi4_write32(bus, 0x07, 0x00, 0x88888888, 0xf);
+	// Write some values...         (addr, prot,       data, strb)
+      axi4_rc = simbus_axi4_write32(bus, 0x00, 0x00, 0x11111111, 0x0f);
+      axi4_rc = simbus_axi4_write32(bus, 0x04, 0x00, 0x22222222, 0x0f);
+      axi4_rc = simbus_axi4_write32(bus, 0x08, 0x00, 0x33333333, 0x0f);
+      axi4_rc = simbus_axi4_write32(bus, 0x0c, 0x00, 0x44444444, 0x0f);
+      axi4_rc = simbus_axi4_write32(bus, 0x10, 0x00, 0x55555555, 0x0f);
+      axi4_rc = simbus_axi4_write32(bus, 0x14, 0x00, 0x66666666, 0x0f);
+      axi4_rc = simbus_axi4_write32(bus, 0x18, 0x00, 0x77777777, 0x0f);
+      axi4_rc = simbus_axi4_write32(bus, 0x1c, 0x00, 0x88888888, 0x0f);
 
-      for (int addr = 0 ; addr < 8 ; addr += 1) {
+      for (int addr = 0 ; addr < 32 ; addr += 4) {
 	    uint32_t data;
-	    axi4_rc = simbus_axi4_read32(bus, addr, 00, &data);
+	    axi4_rc = simbus_axi4_read32(bus, addr, 0x00, &data);
 	    printf("Read back addr=0x%02x: data=0x%08x\n", addr, data);
       }
 

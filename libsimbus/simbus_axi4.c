@@ -141,53 +141,53 @@ int __axi4_ready_command(struct simbus_axi4_s*bus)
       strcpy(cp, " AWADDR=");
       cp += strlen(cp);
       for (idx = 0 ; idx < bus->addr_width ; idx += 1)
-	    *cp++ = __bitval_to_char(bus->awaddr[idx]);
+	    *cp++ = __bitval_to_char(bus->awaddr[bus->addr_width-1-idx]);
 
       strcpy(cp, " AWLEN=");
       cp += strlen(cp);
       for (idx = 0 ; idx < 8 ; idx += 1)
-	    *cp++ = __bitval_to_char(bus->awlen[idx]);
+	    *cp++ = __bitval_to_char(bus->awlen[7-idx]);
 
       strcpy(cp, " AWSIZE=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->awsize[0]);
-      *cp++ = __bitval_to_char(bus->awsize[1]);
       *cp++ = __bitval_to_char(bus->awsize[2]);
+      *cp++ = __bitval_to_char(bus->awsize[1]);
+      *cp++ = __bitval_to_char(bus->awsize[0]);
 
       strcpy(cp, " AWBURST=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->awburst[0]);
       *cp++ = __bitval_to_char(bus->awburst[1]);
+      *cp++ = __bitval_to_char(bus->awburst[0]);
 
       strcpy(cp, " AWLOCK=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->awlock[0]);
       *cp++ = __bitval_to_char(bus->awlock[1]);
+      *cp++ = __bitval_to_char(bus->awlock[0]);
 
       strcpy(cp, " AWCACHE=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->awcache[0]);
-      *cp++ = __bitval_to_char(bus->awcache[1]);
-      *cp++ = __bitval_to_char(bus->awcache[2]);
       *cp++ = __bitval_to_char(bus->awcache[3]);
+      *cp++ = __bitval_to_char(bus->awcache[2]);
+      *cp++ = __bitval_to_char(bus->awcache[1]);
+      *cp++ = __bitval_to_char(bus->awcache[0]);
 
       strcpy(cp, " AWPROT=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->awprot[0]);
-      *cp++ = __bitval_to_char(bus->awprot[1]);
       *cp++ = __bitval_to_char(bus->awprot[2]);
+      *cp++ = __bitval_to_char(bus->awprot[1]);
+      *cp++ = __bitval_to_char(bus->awprot[0]);
 
       strcpy(cp, " AWQOS=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->awqos[0]);
-      *cp++ = __bitval_to_char(bus->awqos[1]);
-      *cp++ = __bitval_to_char(bus->awqos[2]);
       *cp++ = __bitval_to_char(bus->awqos[3]);
+      *cp++ = __bitval_to_char(bus->awqos[2]);
+      *cp++ = __bitval_to_char(bus->awqos[1]);
+      *cp++ = __bitval_to_char(bus->awqos[0]);
 
       strcpy(cp, " AWID=");
       cp += strlen(cp);
       for (idx = 0 ; idx < bus->wid_width ; idx += 1)
-	    *cp++ = __bitval_to_char(bus->awid[idx]);
+	    *cp++ = __bitval_to_char(bus->awid[bus->wid_width-1-idx]);
 
       strcpy(cp, " WVALID=");
       cp += strlen(cp);
@@ -196,12 +196,12 @@ int __axi4_ready_command(struct simbus_axi4_s*bus)
       strcpy(cp, " WDATA=");
       cp += strlen(cp);
       for (idx = 0 ; idx < bus->data_width ; idx += 1)
-	    *cp++ = __bitval_to_char(bus->wdata[idx]);
+	    *cp++ = __bitval_to_char(bus->wdata[bus->data_width-1-idx]);
 
       strcpy(cp, " WSTRB=");
       cp += strlen(cp);
       for (idx = 0 ; idx < bus->data_width/8 ; idx += 1)
-	    *cp++ = __bitval_to_char(bus->wstrb[idx]);
+	    *cp++ = __bitval_to_char(bus->wstrb[bus->data_width/8-1-idx]);
 
       strcpy(cp, " BREADY=");
       cp += strlen(cp);
@@ -214,53 +214,53 @@ int __axi4_ready_command(struct simbus_axi4_s*bus)
       strcpy(cp, " ARADDR=");
       cp += strlen(cp);
       for (idx = 0 ; idx < bus->addr_width ; idx += 1)
-	    *cp++ = __bitval_to_char(bus->araddr[idx]);
+	    *cp++ = __bitval_to_char(bus->araddr[bus->addr_width-1-idx]);
 
       strcpy(cp, " ARLEN=");
       cp += strlen(cp);
       for (idx = 0 ; idx < 8 ; idx += 1)
-	    *cp++ = __bitval_to_char(bus->arlen[idx]);
+	    *cp++ = __bitval_to_char(bus->arlen[7-idx]);
 
       strcpy(cp, " ARSIZE=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->arsize[0]);
-      *cp++ = __bitval_to_char(bus->arsize[1]);
       *cp++ = __bitval_to_char(bus->arsize[2]);
+      *cp++ = __bitval_to_char(bus->arsize[1]);
+      *cp++ = __bitval_to_char(bus->arsize[0]);
 
       strcpy(cp, " ARBURST=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->arburst[0]);
       *cp++ = __bitval_to_char(bus->arburst[1]);
+      *cp++ = __bitval_to_char(bus->arburst[0]);
 
       strcpy(cp, " ARLOCK=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->arlock[0]);
       *cp++ = __bitval_to_char(bus->arlock[1]);
+      *cp++ = __bitval_to_char(bus->arlock[0]);
 
       strcpy(cp, " ARCACHE=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->arcache[0]);
-      *cp++ = __bitval_to_char(bus->arcache[1]);
-      *cp++ = __bitval_to_char(bus->arcache[2]);
       *cp++ = __bitval_to_char(bus->arcache[3]);
+      *cp++ = __bitval_to_char(bus->arcache[2]);
+      *cp++ = __bitval_to_char(bus->arcache[1]);
+      *cp++ = __bitval_to_char(bus->arcache[0]);
 
       strcpy(cp, " ARPROT=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->arprot[0]);
-      *cp++ = __bitval_to_char(bus->arprot[1]);
       *cp++ = __bitval_to_char(bus->arprot[2]);
+      *cp++ = __bitval_to_char(bus->arprot[1]);
+      *cp++ = __bitval_to_char(bus->arprot[0]);
 
       strcpy(cp, " ARQOS=");
       cp += strlen(cp);
-      *cp++ = __bitval_to_char(bus->arqos[0]);
+      *cp++ = __bitval_to_char(bus->arqos[3]);
+      *cp++ = __bitval_to_char(bus->arqos[2]);
       *cp++ = __bitval_to_char(bus->arqos[1]);
-      *cp++ = __bitval_to_char(bus->arprot[2]);
-      *cp++ = __bitval_to_char(bus->arprot[3]);
+      *cp++ = __bitval_to_char(bus->arqos[0]);
 
       strcpy(cp, " ARID=");
       cp += strlen(cp);
       for (idx = 0 ; idx < bus->rid_width ; idx += 1)
-	    *cp++ = __bitval_to_char(bus->arid[idx]);
+	    *cp++ = __bitval_to_char(bus->arid[bus->rid_width-1-idx]);
 
       strcpy(cp, " RREADY=");
       cp += strlen(cp);
@@ -313,14 +313,15 @@ int __axi4_ready_command(struct simbus_axi4_s*bus)
 		  bus->bvalid = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"BRESP") == 0) {
-		  assert(strlen(cp) >= 2);
-		  bus->bresp[0] = __char_to_bitval(cp[0]);
-		  bus->bresp[1] = __char_to_bitval(cp[1]);
+		  assert(strlen(cp) == 2);
+		  bus->bresp[1] = __char_to_bitval(cp[0]);
+		  bus->bresp[0] = __char_to_bitval(cp[1]);
 
 	    } else if (strcmp(argv[idx],"BID") == 0) {
+		  assert(strlen(cp) == bus->wid_width);
 		  int bdx;
-		  for (bdx = 0 ; bdx<AXI4_MAX_ID && cp[bdx] ; bdx += 1)
-			bus->bid[idx] = __char_to_bitval(cp[bdx]);
+		  for (bdx = 0 ; cp[bdx] ; bdx += 1)
+			bus->bid[bus->wid_width-1-idx] = __char_to_bitval(cp[bdx]);
 
 	    } else if (strcmp(argv[idx],"ARREADY") == 0) {
 		  bus->arready = __char_to_bitval(*cp);
@@ -329,19 +330,21 @@ int __axi4_ready_command(struct simbus_axi4_s*bus)
 		  bus->rvalid = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"RDATA") == 0) {
+		  assert(strlen(cp) == bus->data_width);
 		  int bdx;
-		  for (bdx = 0 ; bdx<AXI4_MAX_DATA && cp[bdx] ; bdx += 1)
-			bus->rdata[bdx] = __char_to_bitval(cp[bdx]);
+		  for (bdx = 0 ; cp[bdx] ; bdx += 1)
+			bus->rdata[bus->data_width-1-bdx] = __char_to_bitval(cp[bdx]);
 
 	    } else if (strcmp(argv[idx],"RRESP") == 0) {
-		  assert(strlen(cp) >= 2);
-		  bus->rresp[0] = __char_to_bitval(cp[0]);
-		  bus->rresp[1] = __char_to_bitval(cp[1]);
+		  assert(strlen(cp) == 2);
+		  bus->rresp[1] = __char_to_bitval(cp[0]);
+		  bus->rresp[0] = __char_to_bitval(cp[1]);
 
 	    } else if (strcmp(argv[idx],"RID") == 0) {
+		  assert(strlen(cp) == bus->rid_width);
 		  int bdx;
-		  for (bdx = 0 ; bdx<AXI4_MAX_ID && cp[bdx] ; bdx += 1)
-			bus->rid[idx] = __char_to_bitval(cp[bdx]);
+		  for (bdx = 0 ; cp[bdx] ; bdx += 1)
+			bus->rid[bus->rid_width-1-idx] = __char_to_bitval(cp[bdx]);
 
 	    } else {
 		  ; /* Skip signals not of interest to me. */

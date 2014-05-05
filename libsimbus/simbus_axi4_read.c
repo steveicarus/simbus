@@ -30,11 +30,16 @@ simbus_axi4_resp_t simbus_axi4_read32(simbus_axi4_t bus,
       int idx;
       uint64_t mask64;
       uint32_t mask32;
+      int use_size;
 
 	/* This function (at this point) only supports 32bit writes to
 	   32bit data busses. */
       assert(bus->data_width == 32);
       assert(bus->addr_width <= 64);
+
+      use_size = 0;
+      while ((8 << use_size) < bus->data_width)
+	    use_size += 1;
 
 	/* Drive the read address to the read address channel. */
       bus->arvalid = BIT_1;
@@ -42,9 +47,9 @@ simbus_axi4_resp_t simbus_axi4_read32(simbus_axi4_t bus,
 	    bus->araddr[idx] = (addr&mask64)? BIT_1 : BIT_0;
       for (idx = 0 ; idx < 8 ; idx += 1)
 	    bus->arlen[idx] = BIT_0;
-      bus->arsize[0] = BIT_0;
-      bus->arsize[1] = BIT_0;
-      bus->arsize[2] = BIT_0;
+      bus->arsize[0] = use_size&1? BIT_1 : BIT_0;
+      bus->arsize[1] = use_size&2? BIT_1 : BIT_0;
+      bus->arsize[2] = use_size&4? BIT_1 : BIT_0;
       bus->arburst[0] = BIT_1;
       bus->arburst[1] = BIT_0;
       bus->arlock[0] = BIT_0;

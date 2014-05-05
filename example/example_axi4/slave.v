@@ -203,7 +203,16 @@ module register_file
     output reg [1:0]            RRESP
     /* */);
 
-   reg [data_width-1:0] 	mem [(1<<addr_width)-1:0];
+   localparam bytes_per_word = data_width/8;
+   localparam word_count = (1<<addr_width) / bytes_per_word;
+   reg [data_width-1:0] 	mem [word_count-1:0];
+
+   initial begin
+      $display("%m: register file holds %0d words of %0d bytes per word.", word_count, bytes_per_word);
+      $display("%m: addr_width=%0d", addr_width);
+      $display("%m: data_width=%0d", data_width);
+      $display("%m: strb_width=%0d", strb_width);
+   end
 
    // Simulate the write port.
    reg [addr_width-1:0] 	write_addr;
@@ -224,7 +233,7 @@ module register_file
 	end
 
 	if (WREADY & WVALID) begin
-	   mem[write_addr] <= WDATA;
+	   mem[write_addr/bytes_per_word] <= WDATA;
 	   WREADY <= 0;
 	   BVALID <= 1;
 	end
@@ -234,6 +243,7 @@ module register_file
 	end
      end
 
+   // Simulate the read port.
    reg [addr_width-1:0] read_data;
    always @(posedge ACLK)
      if (ARESETn == 0) begin
@@ -242,7 +252,7 @@ module register_file
      end else begin
 	if (ARREADY & ARVALID) begin
 	   ARREADY <= 0;
-	   RDATA   <= mem[ARADDR];
+	   RDATA   <= mem[ARADDR/bytes_per_word];
 	   RRESP   <= 0;
 	   RVALID  <= 1;
 
