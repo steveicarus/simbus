@@ -148,37 +148,138 @@ static simbus_axi4_resp_t wait_for_resp(simbus_axi4_t bus)
       return resp_code;
 }
 
-simbus_axi4_resp_t simbus_axi4_write32(simbus_axi4_t bus,
+simbus_axi4_resp_t simbus_axi4_write64(simbus_axi4_t bus,
 				       uint64_t addr, int prot,
-				       uint32_t data, int strb)
+				       uint64_t data)
 {
       int idx;
-      uint32_t mask32;
+      uint64_t mask64;
 
-	/* This function (at this point) only supports 32bit writes to
-	   32bit data busses. */
-      assert(bus->data_width == 32);
-	/* Only support aligned addresses. */
-      assert(addr%4 == 0);
+	/* For now, only support writes to busses at least as wide as
+	   the write I'm writing. */
+      assert(bus->data_width >= 64);
+	/* Only supoprt aligned addresses. */
+      assert(addr%8 == 0);
 
-	/* Drive the write address to the write address channel. */
+      int data_pref = addr % (bus->data_width/8);
+
+	/* Drive the write address to the write address channel */
       waddr_setup(bus, addr, bus->axsize_word, prot);
-
       bus->awvalid = BIT_1;
 
 	/* Drive the write data to the write data channel */
       bus->wvalid = BIT_1;
-      for (idx=0, mask32=1 ; idx < bus->data_width ; idx += 1, mask32 <<= 1)
-	    bus->wdata[idx] = (data&mask32)? BIT_1 : BIT_0;
-      for (idx = 0 ; idx < bus->data_width/8 ; idx += 1)
-	    bus->wstrb[idx] = BIT_1;
-      for (idx = bus->data_width/8 ; idx < 8 ; idx += 1)
-	    bus->wstrb[idx] = BIT_0;
+
+      for (idx=0 ; idx < data_pref*8 ; idx += 1)
+	    bus->wdata[idx] = BIT_X;
+      for (idx=0, mask64=1 ; idx < 64 ; idx += 1, mask64 <<= 1)
+	    bus->wdata[idx+data_pref*8] = (data&mask64)? BIT_1 : BIT_0;
+      for (idx=data_pref*8+32 ; idx < bus->data_width ; idx += 1)
+	    bus->wdata[idx] = BIT_X;
+
+      for (idx = 0 ; idx < bus->data_width/8 ; idx += 1) {
+	    if (idx >= data_pref && idx < data_pref+8)
+		  bus->wstrb[idx] = BIT_1;
+	    else
+		  bus->wstrb[idx] = BIT_0;
+      }
 
 	/* Immediately ready to receive write response. */
       bus->bready = BIT_1;
 
 	/* Wait for the write transaction to complete. */
+      return wait_for_resp(bus);
+}
+
+
+simbus_axi4_resp_t simbus_axi4_write32(simbus_axi4_t bus,
+				       uint64_t addr, int prot,
+				       uint32_t data)
+{
+      int idx;
+      uint32_t mask32;
+
+	/* For now, only support writes to busses at least as wide as
+	   the word I'm writing. */
+      assert(bus->data_width >= 32);
+	/* Only support aligned addresses. */
+      assert(addr%4 == 0);
+
+      int data_pref = addr % (bus->data_width/8);
+
+	/* Drive the write address to the write address channel. */
+      waddr_setup(bus, addr, bus->axsize_word, prot);
+      bus->awvalid = BIT_1;
+
+	/* Drive the write data to the write data channel */
+      bus->wvalid = BIT_1;
+
+      for (idx=0 ; idx < data_pref*8 ; idx += 1)
+	    bus->wdata[idx] = BIT_X;
+      for (idx=0, mask32=1 ; idx < 32 ; idx += 1, mask32 <<= 1)
+	    bus->wdata[idx+data_pref*8] = (data&mask32)? BIT_1 : BIT_0;
+      for (idx=data_pref*8+32 ; idx < bus->data_width ; idx += 1)
+	    bus->wdata[idx] = BIT_X;
+
+      for (idx = 0 ; idx < bus->data_width/8 ; idx += 1) {
+	    if (idx >= data_pref && idx < data_pref+4)
+		  bus->wstrb[idx] = BIT_1;
+	    else
+		  bus->wstrb[idx] = BIT_0;
+      }
+
+	/* Immediately ready to receive write response. */
+      bus->bready = BIT_1;
+
+	/* Wait for the write transaction to complete. */
+      return wait_for_resp(bus);
+}
+
+/*
+ * Do an AXI4-Lite transaction that does not use bursts, but does use
+ * the strb to write the bytes we want to write.
+ */
+simbus_axi4_resp_t simbus_axi4_write16(simbus_axi4_t bus,
+				       uint64_t addr, int prot,
+				       uint16_t data)
+{
+      int idx;
+      uint16_t mask16;
+
+	/* For now, only support writes to busses at least as wide as
+	   the word I'm writing. */
+      assert(bus->data_width >= 16);
+	/* Only support aligned addresses */
+      assert(addr%2 == 0);
+
+	/* Offset into the word of the target */
+      int data_pref = addr % (bus->data_width/8);
+
+	/* Setup the write address to the write address channel */
+      waddr_setup(bus, addr, bus->axsize_word, prot);
+      bus->awvalid = BIT_1;
+
+	/* Drive the write data to the write data channel */
+      bus->wvalid = BIT_1;
+
+      for (idx=0 ; idx < data_pref*8 ; idx += 1)
+	    bus->wdata[idx] = BIT_X;
+      for (idx=0, mask16=1 ; idx < 16 ; idx += 1, mask16 <<= 1)
+	    bus->wdata[idx+data_pref*8] = (data&mask16)? BIT_1 : BIT_0;
+      for (idx=data_pref*8+16 ; idx < bus->data_width ; idx += 1)
+	    bus->wdata[idx] = BIT_X;
+
+      for (idx = 0 ; idx < bus->data_width/8 ; idx += 1) {
+	    if (idx >= data_pref && idx < data_pref+2)
+		  bus->wstrb[idx] = BIT_1;
+	    else
+		  bus->wstrb[idx] = BIT_0;
+      }
+
+	/* Immediately ready to receive write response. */
+      bus->bready = BIT_1;
+
+	/* Wait for the write transaction to complete */
       return wait_for_resp(bus);
 }
 

@@ -47,15 +47,15 @@ int main(int argc, char*argv[])
       fprintf(debug, "Write some values...\n");
       fflush(debug);
 
-	// Write some values...         (addr, prot,       data, strb)
-      axi4_rc = simbus_axi4_write32(bus, 0x00, 0x00, 0x11111111, 0x0f);
-      axi4_rc = simbus_axi4_write32(bus, 0x04, 0x00, 0x22222222, 0x0f);
-      axi4_rc = simbus_axi4_write32(bus, 0x08, 0x00, 0x33333333, 0x0f);
-      axi4_rc = simbus_axi4_write32(bus, 0x0c, 0x00, 0x44444444, 0x0f);
-      axi4_rc = simbus_axi4_write32(bus, 0x10, 0x00, 0x55555555, 0x0f);
-      axi4_rc = simbus_axi4_write32(bus, 0x14, 0x00, 0x66666666, 0x0f);
-      axi4_rc = simbus_axi4_write32(bus, 0x18, 0x00, 0x77777777, 0x0f);
-      axi4_rc = simbus_axi4_write32(bus, 0x1c, 0x00, 0x88888888, 0x0f);
+	// Write some values...         (addr, prot,       data)
+      axi4_rc = simbus_axi4_write32(bus, 0x00, 0x00, 0x11111111);
+      axi4_rc = simbus_axi4_write32(bus, 0x04, 0x00, 0x22222222);
+      axi4_rc = simbus_axi4_write32(bus, 0x08, 0x00, 0x33333333);
+      axi4_rc = simbus_axi4_write32(bus, 0x0c, 0x00, 0x44444444);
+      axi4_rc = simbus_axi4_write32(bus, 0x10, 0x00, 0x55555555);
+      axi4_rc = simbus_axi4_write32(bus, 0x14, 0x00, 0x66666666);
+      axi4_rc = simbus_axi4_write32(bus, 0x18, 0x00, 0x77777777);
+      axi4_rc = simbus_axi4_write32(bus, 0x1c, 0x00, 0x88888888);
 
       printf("Read back after initial fill...\n");
       for (int addr = 0 ; addr < 32 ; addr += 4) {
@@ -68,6 +68,9 @@ int main(int argc, char*argv[])
 	// full AXI4, this should use WSTRB to access individual bytes.
       for (int idx = 8 ; idx < 13 ; idx += 1)
 	    axi4_rc = simbus_axi4_write8(bus, 0x00+idx, 0x00, idx);
+
+      axi4_rc = simbus_axi4_write16(bus, 0x16, 0x00, 0x1616);
+      axi4_rc = simbus_axi4_write16(bus, 0x18, 0x00, 0x1818);
 
       printf("Read back after some byte writes...\n");
       for (int addr = 0 ; addr < 32 ; addr += 4) {

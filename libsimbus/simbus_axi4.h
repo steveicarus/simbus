@@ -96,18 +96,41 @@ typedef enum simbus_axi4_resp_e {
 /*
  * These functions write/read a single word. They take as many clocks
  * as necessary to complete the transaction, then return the AXI4
- * responce code that completed the transaction.
+ * response code that completed the transaction. In AXI4-Lite mode,
+ * the bus width must be >= the width of the word, and the
+ * implementation will use the strobes to control the writes, or will
+ * mask the desired results out of the read.
  */
+EXTERN simbus_axi4_resp_t simbus_axi4_write64(simbus_axi4_t bus,
+					      uint64_t addr,
+					      int prot,
+					      uint64_t data);
+
+EXTERN simbus_axi4_resp_t simbus_axi4_read64(simbus_axi4_t bus,
+					     uint64_t addr,
+					     int prot,
+					     uint64_t*data);
+
 EXTERN simbus_axi4_resp_t simbus_axi4_write32(simbus_axi4_t bus,
 					      uint64_t addr,
 					      int prot,
-					      uint32_t data,
-					      int strb);
+					      uint32_t data);
 
 EXTERN simbus_axi4_resp_t simbus_axi4_read32(simbus_axi4_t bus,
 					     uint64_t addr,
 					     int prot,
 					     uint32_t*data);
+
+EXTERN simbus_axi4_resp_t simbus_axi4_write16(simbus_axi4_t bus,
+					      uint64_t addr,
+					      int prot,
+					      uint16_t data);
+
+EXTERN simbus_axi4_resp_t simbus_axi4_read16(simbus_axi4_t bus,
+					     uint64_t addr,
+					     int prot,
+					     uint16_t*data);
+
 
 EXTERN simbus_axi4_resp_t simbus_axi4_write8(simbus_axi4_t bus,
 					     uint64_t addr,

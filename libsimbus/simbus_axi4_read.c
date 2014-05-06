@@ -113,16 +113,61 @@ static simbus_axi4_resp_t read_extract_resp(simbus_axi4_t bus)
       return resp_code;
 }
 
+simbus_axi4_resp_t simbus_axi4_read64(simbus_axi4_t bus,
+				      uint64_t addr, int prot,
+				      uint64_t*data)
+{
+	/* Offset into the word of the target byte */
+      int data_pref = addr % (bus->data_width / 8);
+
+	/* For now, assume 32bit data bus width. */
+      assert(bus->data_width >= 64);
+      assert(bus->addr_width <= 64);
+	/* For now, assume address is aligned. */
+      assert(addr%8 == 0);
+
+	/* Drive the read address to the read address channel. */
+      raddr_setup(bus, addr, bus->axsize_word, prot);
+
+	/* Ready for the read response. */
+      bus->rready = BIT_1;
+
+      simbus_axi4_resp_t resp_code = SIMBUS_AXI4_RESP_OKAY;
+
+      while (bus->arvalid==BIT_1 || bus->rready==BIT_1) {
+
+	    __axi4_next_posedge(bus);
+
+	      /* If the address is transferred, then stop driving it. */
+	    raddr_check(bus);
+
+	      /* If the data response is received, then capture it. */
+	    if (bus->rready==BIT_1 && bus->rvalid==BIT_1) {
+		  int idx;
+		  uint64_t mask64;
+		  bus->rready = BIT_0;
+
+		    /* Extract the data word */
+		  data[0] = 0;
+		  for (idx=0, mask64=1 ; idx < 64 ; idx += 1, mask64<<=1)
+			data[0] |= bus->rdata[data_pref*8+idx]==BIT_1? mask64 : 0;
+
+		  resp_code = read_extract_resp(bus);
+	    }
+      }
+
+      return resp_code;
+}
+
 simbus_axi4_resp_t simbus_axi4_read32(simbus_axi4_t bus,
 				      uint64_t addr, int prot,
 				      uint32_t*data)
 {
-      int idx;
-      uint64_t mask64;
-      uint32_t mask32;
+	/* Offset into the word of the target byte */
+      int data_pref = addr % (bus->data_width / 8);
 
 	/* For now, assume 32bit data bus width. */
-      assert(bus->data_width == 32);
+      assert(bus->data_width >= 32);
       assert(bus->addr_width <= 64);
 	/* For now, assume address is aligned. */
       assert(addr%4 == 0);
@@ -144,12 +189,60 @@ simbus_axi4_resp_t simbus_axi4_read32(simbus_axi4_t bus,
 
 	      /* If the data response is received, then capture it. */
 	    if (bus->rready==BIT_1 && bus->rvalid==BIT_1) {
+		  int idx;
+		  uint32_t mask32;
 		  bus->rready = BIT_0;
 
 		    /* Extract the data word */
 		  data[0] = 0;
-		  for (idx=0, mask32=1 ; idx < bus->data_width ; idx += 1, mask32<<=1)
-			data[0] |= bus->rdata[idx]==BIT_1? mask32 : 0;
+		  for (idx=0, mask32=1 ; idx < 32 ; idx += 1, mask32<<=1)
+			data[0] |= bus->rdata[data_pref*8+idx]==BIT_1? mask32 : 0;
+
+		  resp_code = read_extract_resp(bus);
+	    }
+      }
+
+      return resp_code;
+}
+
+simbus_axi4_resp_t simbus_axi4_read16(simbus_axi4_t bus,
+				      uint64_t addr, int prot,
+				      uint16_t*data)
+{
+	/* Offset into the word of the target byte */
+      int data_pref = addr % (bus->data_width / 8);
+
+	/* For now, assume 32bit data bus width. */
+      assert(bus->data_width >= 16);
+      assert(bus->addr_width <= 64);
+	/* For now, assume address is aligned. */
+      assert(addr%2 == 0);
+
+	/* Drive the read address to the read address channel. */
+      raddr_setup(bus, addr, bus->axsize_word, prot);
+
+	/* Ready for the read response. */
+      bus->rready = BIT_1;
+
+      simbus_axi4_resp_t resp_code = SIMBUS_AXI4_RESP_OKAY;
+
+      while (bus->arvalid==BIT_1 || bus->rready==BIT_1) {
+
+	    __axi4_next_posedge(bus);
+
+	      /* If the address is transferred, then stop driving it. */
+	    raddr_check(bus);
+
+	      /* If the data response is received, then capture it. */
+	    if (bus->rready==BIT_1 && bus->rvalid==BIT_1) {
+		  int idx;
+		  uint16_t mask16;
+		  bus->rready = BIT_0;
+
+		    /* Extract the data word */
+		  data[0] = 0;
+		  for (idx=0, mask16=1 ; idx < 16 ; idx += 1, mask16<<=1)
+			data[0] |= bus->rdata[data_pref*8+idx]==BIT_1? mask16 : 0;
 
 		  resp_code = read_extract_resp(bus);
 	    }
