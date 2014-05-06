@@ -53,6 +53,11 @@ struct simbus_axi4_s {
       size_t wid_width;
       size_t rid_width;
 
+	/* This is the AxSIZE for a bus word. This is the value that
+	   is used if the bus is AXI-Lite or otherwise full-width
+	   words. */
+      uint8_t axsize_word;
+
 	/* Current simulation time. */
       uint64_t time_mant;
       int time_exp;

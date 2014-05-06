@@ -17,7 +17,9 @@
  *    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+# define __STDC_FORMAT_MACROS
 # include  <simbus_axi4.h>
+# include  <inttypes.h>
 # include  <cstdio>
 # include  <cassert>
 
@@ -55,11 +57,32 @@ int main(int argc, char*argv[])
       axi4_rc = simbus_axi4_write32(bus, 0x18, 0x00, 0x77777777, 0x0f);
       axi4_rc = simbus_axi4_write32(bus, 0x1c, 0x00, 0x88888888, 0x0f);
 
+      printf("Read back after initial fill...\n");
       for (int addr = 0 ; addr < 32 ; addr += 4) {
 	    uint32_t data;
 	    axi4_rc = simbus_axi4_read32(bus, addr, 0x00, &data);
-	    printf("Read back addr=0x%02x: data=0x%08x\n", addr, data);
+	    printf("  addr=0x%02x: data=0x%08" PRIx32 "\n", addr, data);
       }
+
+	// Try some 8-bit writes. Since we have not otherwise enabled
+	// full AXI4, this should use WSTRB to access individual bytes.
+      for (int idx = 8 ; idx < 13 ; idx += 1)
+	    axi4_rc = simbus_axi4_write8(bus, 0x00+idx, 0x00, idx);
+
+      printf("Read back after some byte writes...\n");
+      for (int addr = 0 ; addr < 32 ; addr += 4) {
+	    uint32_t data;
+	    axi4_rc = simbus_axi4_read32(bus, addr, 0x00, &data);
+	    printf("  addr=0x%02x: data=0x%08x\n", addr, data);
+      }
+
+
+      uint8_t data8;
+      printf("Try some individual reads.\n");
+      axi4_rc = simbus_axi4_read8(bus, 0x09, 0x00, &data8);
+      printf("  addr=0x09: data=0x%02" PRIx8 ", s.b. 0x09\n", data8);
+      axi4_rc = simbus_axi4_read8(bus, 0x0c, 0x00, &data8);
+      printf("  addr=0x0c: data=0x%02" PRIx8 ", s.b. 0x0c\n", data8);
 
       simbus_axi4_end_simulation(bus);
       return 0;

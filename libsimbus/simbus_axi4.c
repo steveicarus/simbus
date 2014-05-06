@@ -408,6 +408,12 @@ simbus_axi4_t simbus_axi4_connect(const char*server, const char*name,
       bus->wid_width  = wid_width;
       bus->rid_width  = rid_width;
 
+	/* Calculate the AxSIZE value that represents the entire width
+	   of the data bus. */
+      bus->axsize_word = 0;
+      while ((8 << bus->axsize_word) < bus->data_width)
+	    bus->axsize_word += 1;
+
       return bus;
 }
 

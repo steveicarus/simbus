@@ -109,6 +109,16 @@ EXTERN simbus_axi4_resp_t simbus_axi4_read32(simbus_axi4_t bus,
 					     int prot,
 					     uint32_t*data);
 
+EXTERN simbus_axi4_resp_t simbus_axi4_write8(simbus_axi4_t bus,
+					     uint64_t addr,
+					     int prot,
+					     uint8_t data);
+
+EXTERN simbus_axi4_resp_t simbus_axi4_read8(simbus_axi4_t bus,
+					    uint64_t addr,
+					    int prot,
+					    uint8_t*data);
+
 
 /*
  * Send an end-of-simulation message to the simulator, then disconnect

@@ -203,16 +203,22 @@ module register_file
     output reg [1:0]            RRESP
     /* */);
 
-   localparam bytes_per_word = data_width/8;
-   localparam word_count = (1<<addr_width) / bytes_per_word;
-   reg [data_width-1:0] 	mem [word_count-1:0];
+   localparam                   bytes_per_word = data_width/8;
+   localparam                   byte_count = 1<<addr_width;
+   reg [7:0] 			mem [byte_count-1:0];
 
    initial begin
-      $display("%m: register file holds %0d words of %0d bytes per word.", word_count, bytes_per_word);
+      $display("%m: register file holds %0d bytes of %0d bytes per word.", byte_count, bytes_per_word);
       $display("%m: addr_width=%0d", addr_width);
       $display("%m: data_width=%0d", data_width);
       $display("%m: strb_width=%0d", strb_width);
    end
+
+   integer 			idx;
+
+   function [addr_width-1:0] aligned_addr(input [addr_width-1:0] addr);
+      aligned_addr = addr - (addr%bytes_per_word);
+   endfunction // aligned_addr
 
    // Simulate the write port.
    reg [addr_width-1:0] 	write_addr;
@@ -225,7 +231,7 @@ module register_file
 
      end else begin
 	if (AWREADY & AWVALID) begin
-	   write_addr <= AWADDR;
+	   write_addr <= aligned_addr(AWADDR);
 	   AWREADY <= 0;
 	   WREADY  <= 1;
 	end else if (AWREADY==0 & AWVALID==0) begin
@@ -233,7 +239,10 @@ module register_file
 	end
 
 	if (WREADY & WVALID) begin
-	   mem[write_addr/bytes_per_word] <= WDATA;
+	   for (idx = 0 ; idx < bytes_per_word ; idx = idx+1) begin
+	     if (WSTRB[idx])
+	       mem[write_addr+idx] <= WDATA[8*idx +: 8];
+	   end
 	   WREADY <= 0;
 	   BVALID <= 1;
 	end
@@ -244,15 +253,18 @@ module register_file
      end
 
    // Simulate the read port.
-   reg [addr_width-1:0] read_data;
+   reg [data_width-1:0] read_data;
    always @(posedge ACLK)
      if (ARESETn == 0) begin
 	ARREADY <= 1;
 
      end else begin
 	if (ARREADY & ARVALID) begin
+	   for (idx = 0 ; idx < bytes_per_word ; idx = idx+1) begin
+	      read_data[8*idx +: 8] = mem[aligned_addr(ARADDR)+idx];
+	   end
 	   ARREADY <= 0;
-	   RDATA   <= mem[ARADDR/bytes_per_word];
+	   RDATA   <= read_data;
 	   RRESP   <= 0;
 	   RVALID  <= 1;
 
