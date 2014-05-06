@@ -7,6 +7,7 @@ clean:
 	rm -f *~
 
 install: all installdirs $(datadir)/pci_slot.v \
+	$(datadir)/axi4_slave_slot.v \
 	$(datadir)/point_master_io.v $(datadir)/point_slave_io.v \
 	$(datadir)/cameralink_send.v $(datadir)/cameralink_recv.v
 
@@ -20,6 +21,9 @@ uninstall:
 
 $(datadir)/pci_slot.v: pci_slot.v
 	$(INSTALL_DATA) pci_slot.v $(DESTDIR)$(datadir)/pci_slot.v
+
+$(datadir)/axi4_slave_slot.v: axi4_slave_slot.v
+	$(INSTALL_DATA) axi4_slave_slot.v $(DESTDIR)$(datadir)/axi4_slave_slot.v
 
 $(datadir)/point_master_io.v: point_master_io.v
 	$(INSTALL_DATA) point_master_io.v $(DESTDIR)$(datadir)/point_master_io.v
