@@ -344,7 +344,15 @@ int __axi4_ready_command(struct simbus_axi4_s*bus)
 		  assert(strlen(cp) == bus->rid_width);
 		  int bdx;
 		  for (bdx = 0 ; cp[bdx] ; bdx += 1)
-			bus->rid[bus->rid_width-1-idx] = __char_to_bitval(cp[bdx]);
+			bus->rid[bus->rid_width-1-bdx] = __char_to_bitval(cp[bdx]);
+
+	    } else if (strcmp(argv[idx],"IRQ") == 0) {
+		  assert(strlen(cp) == bus->irq_width);
+		  int bdx;
+		  for (bdx = 0 ; cp[bdx] ; bdx += 1) {
+			int irq_idx = bus->irq_width-1-bdx;
+			bus->irq[irq_idx] = __char_to_bitval(cp[bdx]);
+		  }
 
 	    } else {
 		  ; /* Skip signals not of interest to me. */
@@ -369,7 +377,8 @@ void __axi4_next_posedge(simbus_axi4_t bus)
 
 simbus_axi4_t simbus_axi4_connect(const char*server, const char*name,
 				  size_t data_width, size_t addr_width,
-				  size_t wid_width, size_t rid_width)
+				  size_t wid_width, size_t rid_width,
+				  size_t irq_width)
 {
       int server_fd = __simbus_server_socket(server);
       assert(server_fd >= 0);
@@ -381,18 +390,21 @@ simbus_axi4_t simbus_axi4_connect(const char*server, const char*name,
       char arg_aw[64];
       char arg_ww[64];
       char arg_rw[64];
+      char arg_iw[64];
       snprintf(arg_dw, sizeof arg_dw, "data_width=%zd", data_width);
       snprintf(arg_aw, sizeof arg_aw, "addr_width=%zd", addr_width);
-      snprintf(arg_ww, sizeof arg_aw, "wid_width=%zd",  wid_width);
-      snprintf(arg_rw, sizeof arg_aw, "rid_width=%zd",  wid_width);
-      char*args[4];
+      snprintf(arg_ww, sizeof arg_ww, "wid_width=%zd",  wid_width);
+      snprintf(arg_rw, sizeof arg_rw, "rid_width=%zd",  wid_width);
+      snprintf(arg_iw, sizeof arg_iw, "irq_width=%zd",  irq_width);
+      char*args[5];
       args[0] = arg_dw;
       args[1] = arg_aw;
       args[2] = arg_ww;
       args[3] = arg_rw;
+      args[4] = arg_iw;
 
       unsigned ident = 0;
-      int rc = __simbus_server_hello(server_fd, name, &ident, 4, args);
+      int rc = __simbus_server_hello(server_fd, name, &ident, 5, args);
 
       if (rc < 0)
 	    return 0;
@@ -407,6 +419,7 @@ simbus_axi4_t simbus_axi4_connect(const char*server, const char*name,
       bus->addr_width = addr_width;
       bus->wid_width  = wid_width;
       bus->rid_width  = rid_width;
+      bus->irq_width  = irq_width;
 
 	/* Calculate the AxSIZE value that represents the entire width
 	   of the data bus. */
@@ -422,16 +435,50 @@ void simbus_axi4_debug(simbus_axi4_t bus, FILE*fd)
       bus->debug = fd;
 }
 
-int simbus_axi4_wait(simbus_axi4_t bus, unsigned clks)
+static uint32_t __axi4_test_interrupts(simbus_axi4_t bus, const uint32_t*irq_mask)
 {
-      if (clks == 0)
+      if (irq_mask == 0)
 	    return 0;
+
+      uint32_t rc = irq_mask[0];
+
+      unsigned idx;
+      for (idx = 0 ; idx < bus->irq_width ; idx += 1) {
+	    uint32_t idx_mask = 1 << idx;
+
+	    if (bus->irq[idx] == BIT_1)
+		  continue;
+
+	    rc &= ~idx_mask;
+      }
+
+      return rc;
+}
+
+int simbus_axi4_wait(simbus_axi4_t bus, unsigned clks, uint32_t*irq_mask)
+{
+      uint32_t irq_test;
+      if ( (irq_test = __axi4_test_interrupts(bus, irq_mask)) ) {
+	    irq_mask[0] = irq_test;
+	    return 1;
+      }
+
+      if (clks == 0) {
+	    if (irq_mask) irq_mask[0] = 0;
+	    return 0;
+      }
 
       while (clks > 0) {
 	    __axi4_next_posedge(bus);
 	    clks -= 1;
+
+	    if ( (irq_test = __axi4_test_interrupts(bus, irq_mask)) ) {
+		  irq_mask[0] = irq_test;
+		  return 1;
+	    }
       }
 
+      if (irq_mask) irq_mask[0] = 0;
       return 0;
 }
 
@@ -441,10 +488,10 @@ void simbus_axi4_reset(simbus_axi4_t bus, unsigned width, unsigned settle)
       assert(settle > 0);
 
       bus->areset_n = BIT_0;
-      simbus_axi4_wait(bus, width);
+      simbus_axi4_wait(bus, width, 0);
 
       bus->areset_n = BIT_1;
-      simbus_axi4_wait(bus, settle);
+      simbus_axi4_wait(bus, settle, 0);
 }
 
 void simbus_axi4_end_simulation(simbus_axi4_t bus)

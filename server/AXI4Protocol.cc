@@ -31,6 +31,7 @@ AXI4Protocol::AXI4Protocol(struct bus_state*b)
       addr_width_ = 0;
       wid_width_ = 0;
       rid_width_ = 0;
+      irq_width_ = 0;
 
       string clock_high_str  = b->options["CLOCK_high"];
       string clock_low_str   = b->options["CLOCK_low"];
@@ -69,14 +70,17 @@ bool AXI4Protocol::wrap_up_configuration()
       str = get_option("rid_width");
       rid_width_ = strtoul(str.c_str(), 0, 0);
 
+      str = get_option("irq_width");
+      irq_width_ = strtoul(str.c_str(), 0, 0);
+
       if (data_width_ == 0)
 	    data_width_ = 32;
       if (addr_width_ == 0)
 	    addr_width_ = 32;
       if (wid_width_ == 0)
 	    wid_width_ = 4;
-      if (rid_width_ == 0)
-	    rid_width_ = 4;
+      if (irq_width_ == 0)
+	    irq_width_ = 1;
 
       return true;
 }
@@ -126,6 +130,8 @@ void AXI4Protocol::trace_init()
       make_trace_("RDATA",   PT_BITS, data_width_);
       make_trace_("RRESP",   PT_BITS, 2);
       make_trace_("RID",     PT_BITS, rid_width_);
+	// Interrupts
+      make_trace_("IRQ",     PT_BITS, irq_width_);
 }
 
 void AXI4Protocol::run_init()
@@ -173,6 +179,10 @@ void AXI4Protocol::run_init()
       valarray<bit_state_t>tmp_rid (rid_width_);
       for (size_t idx = 0 ; idx < tmp_rid.size() ; idx += 1)
 	    tmp_rid[idx] = BIT_0;
+
+      valarray<bit_state_t>tmp_irq (irq_width_);
+      for (size_t idx = 0 ; idx < tmp_irq.size() ; idx += 1)
+	    tmp_irq[idx] = BIT_Z;
 
       valarray<bit_state_t>tmp_resp (2);
       for (size_t idx = 0 ; idx < tmp_resp.size() ; idx += 1)
@@ -283,12 +293,14 @@ void AXI4Protocol::run_init()
       master_->second->send_signals["RDATA" ] = tmp_data;
       master_->second->send_signals["RRESP" ] = tmp_resp;
       master_->second->send_signals["RID"   ] = tmp_rid;
+      master_->second->send_signals["IRQ"   ] = tmp_irq;
 
       set_trace_("RVALID", BIT_Z);
       set_trace_("RREADY", BIT_Z);
       set_trace_("RDATA",  tmp_data);
       set_trace_("RRESP",  tmp_resp);
       set_trace_("RID",    tmp_rid);
+      set_trace_("IRQ",    tmp_irq);
 }
 
 void AXI4Protocol::run_master_to_slave_(const char*name, size_t bits)
@@ -381,6 +393,9 @@ void AXI4Protocol::run_run()
       run_slave_to_master_("RDATA",   data_width_);
       run_slave_to_master_("RRESP",   2);
       run_slave_to_master_("RID",     rid_width_);
+
+	// Interrupts
+      run_slave_to_master_("IRQ",     irq_width_);
 }
 
 void AXI4Protocol::advance_bus_clock_(void)

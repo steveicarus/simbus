@@ -48,6 +48,7 @@ class AXI4Protocol  : public protocol_t {
       unsigned addr_width_;
       unsigned wid_width_;
       unsigned rid_width_;
+      unsigned irq_width_;
 
 	// The AXI4 bus should have exactly two ends, which
 	// we name master and slave. The "host" is the master and the

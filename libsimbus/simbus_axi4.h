@@ -39,7 +39,8 @@ EXTERN simbus_axi4_t simbus_axi4_connect(const char*server, const char*name,
 					 size_t data_width,
 					 size_t addr_width,
 					 size_t wid_width,
-					 size_t rid_width);
+					 size_t rid_width,
+					 size_t irq_width);
 
 /*
  * Set a log file for the axi4 interface. This causes detailed library
@@ -49,7 +50,12 @@ EXTERN simbus_axi4_t simbus_axi4_connect(const char*server, const char*name,
 EXTERN void simbus_axi4_debug(simbus_axi4_t bus, FILE*fd);
 
 /*
- * Wait some number of bus clocks.
+ * Wait some number of bus clocks, or until one of the interrupts in
+ * the irq_mask is active. The irq_mask as passed in is a bit-mask of
+ * interrupts to be enabled (1-bits enable the interrupt). The
+ * irq_mask is replaced with the interrupts that are actually
+ * active. If the function returns due to an interrupt, the reture
+ * value is >0.
  *
  * If the function returns because if an error, the function will
  * return an error code.
@@ -61,7 +67,7 @@ EXTERN void simbus_axi4_debug(simbus_axi4_t bus, FILE*fd);
  *     The simulation terminated by a FINISH command by the host. The
  *     proper response to this is to simbus_pci_disconnect().
  */
-EXTERN int simbus_axi4_wait(simbus_axi4_t bus, unsigned clks);
+EXTERN int simbus_axi4_wait(simbus_axi4_t bus, unsigned clks, uint32_t*irq_mask);
 # define SIMBUS_AXI4_ERROR    (-1)
 # define SIMBUS_AXI4_FINISHED (-2)
 # define SIMBUS_AXI4_BREAK    (-3)

@@ -34,6 +34,7 @@
 # define AXI4_MAX_ADDR 64
 # define AXI4_MAX_DATA 64
 # define AXI4_MAX_ID 64
+# define AXI4_MAX_IRQ 32
 
 struct simbus_axi4_s {
 	/* The name given in the simbus_pci_connect function. This is
@@ -52,6 +53,7 @@ struct simbus_axi4_s {
       size_t addr_width;
       size_t wid_width;
       size_t rid_width;
+      size_t irq_width;
 
 	/* This is the AxSIZE for a bus word. This is the value that
 	   is used if the bus is AXI-Lite or otherwise full-width
@@ -112,6 +114,8 @@ struct simbus_axi4_s {
       bus_bitval_t rdata[AXI4_MAX_DATA];
       bus_bitval_t rresp[2];
       bus_bitval_t rid[AXI4_MAX_ID];
+	/* .. interrupts */
+      bus_bitval_t irq[AXI4_MAX_IRQ];
 };
 
 extern int __axi4_ready_command(simbus_axi4_t bus);
