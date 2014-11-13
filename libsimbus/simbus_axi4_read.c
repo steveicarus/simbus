@@ -127,7 +127,7 @@ simbus_axi4_resp_t simbus_axi4_read64(simbus_axi4_t bus,
       assert(addr%8 == 0);
 
 	/* Drive the read address to the read address channel. */
-      raddr_setup(bus, addr, bus->axsize_word, prot);
+      raddr_setup(bus, addr, 3, prot);
 
 	/* Ready for the read response. */
       bus->rready = BIT_1;
@@ -173,7 +173,7 @@ simbus_axi4_resp_t simbus_axi4_read32(simbus_axi4_t bus,
       assert(addr%4 == 0);
 
 	/* Drive the read address to the read address channel. */
-      raddr_setup(bus, addr, bus->axsize_word, prot);
+      raddr_setup(bus, addr, 2, prot);
 
 	/* Ready for the read response. */
       bus->rready = BIT_1;
@@ -219,7 +219,7 @@ simbus_axi4_resp_t simbus_axi4_read16(simbus_axi4_t bus,
       assert(addr%2 == 0);
 
 	/* Drive the read address to the read address channel. */
-      raddr_setup(bus, addr, bus->axsize_word, prot);
+      raddr_setup(bus, addr, 1, prot);
 
 	/* Ready for the read response. */
       bus->rready = BIT_1;
@@ -263,7 +263,7 @@ simbus_axi4_resp_t simbus_axi4_read8(simbus_axi4_t bus,
       int data_pref = addr % (bus->data_width / 8);
 
 	/* Drive the read address to the read address channel. */
-      raddr_setup(bus, addr, bus->axsize_word, prot);
+      raddr_setup(bus, addr, 0, prot);
 
 	/* Ready for the read response. */
       bus->rready = BIT_1;

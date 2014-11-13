@@ -45,6 +45,10 @@ struct simbus_axi4_s {
 	/* Identifier returned by the server during connect. */
       unsigned ident;
 
+	/* If this is a slave, then this pointer points to the
+	   callback table for slave operations. */
+      const struct simbus_axi4s_slave_s*device;
+
 	/* Debug log */
       FILE*debug;
 
@@ -59,6 +63,20 @@ struct simbus_axi4_s {
 	   is used if the bus is AXI-Lite or otherwise full-width
 	   words. */
       uint8_t axsize_word;
+
+      struct {
+	    uint64_t waddr;
+	    uint8_t  wsize;
+	    uint8_t  wlen;
+	    uint8_t  wprot;
+	    uint8_t  wburst;
+
+	    uint64_t raddr;
+	    uint8_t  rsize;
+	    uint8_t  rlen;
+	    uint8_t  rprot;
+	    uint8_t  rburst;
+      } slave;
 
 	/* Current simulation time. */
       uint64_t time_mant;

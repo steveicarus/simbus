@@ -12,7 +12,9 @@ install: all installdirs \
 	$(includedir)/simbus_pci.h \
 	$(includedir)/simbus_pci_memdev.h \
 	$(includedir)/simbus_p2p.h \
-	$(includedir)/simbus_axi4.h
+	$(includedir)/simbus_axi4.h \
+	$(includedir)/sinbus_axi4s.h \
+	$(includedir)/simbus_axi4_common.h
 
 uninstall:
 	rm -f $(DESTDIR)$(libdir)/libsimbus.a
@@ -20,10 +22,13 @@ uninstall:
 	rm -f $(DESTDIR)$(includedir)/simbus_pci_memdev.h
 	rm -f $(DESTDIR)$(includedir)/simbus_p2p.h
 	rm -f $(DESTDIR)$(includedir)/simbus_axi4.h
+	rm -f $(DESTDIR)$(includedir)/simbus_axi4s.h
+	rm -f $(DESTDIR)$(includedir)/simbus_axi4_common.h
 
 L = simbus.o \
 	simbus_axi4.o \
 	simbus_axi4_read.o \
+	simbus_axi4_slave.o \
 	simbus_axi4_write.o \
 	simbus_pci.o \
 	simbus_pci_config.o \
@@ -38,9 +43,10 @@ libsimbus.a: $L
 	ar cq libsimbus.a $L
 
 simbus.o: simbus.c simbus_priv.h
-simbus_axi4.o: simbus_axi4.c simbus_axi4.h simbus_axi4_priv.h simbus_priv.h
-simbus_axi4_read.o: simbus_axi4_read.c simbus_axi4.h simbus_axi4_priv.h simbus_priv.h
-simbus_axi4_write.o: simbus_axi4_write.c simbus_axi4.h simbus_axi4_priv.h simbus_priv.h
+simbus_axi4.o: simbus_axi4.c simbus_axi4.h simbus_axi4_common.h simbus_axi4_priv.h simbus_priv.h
+simbus_axi4_read.o: simbus_axi4_read.c simbus_axi4.h simbus_axi4_common.h simbus_axi4_priv.h simbus_priv.h
+simbus_axi4_slave.o: simbus_axi4_slave.c simbus_axi4s.h simbus_axi4_common.h simbus_axi4_priv.h simbus_priv.h
+simbus_axi4_write.o: simbus_axi4_write.c simbus_axi4.h simbus_axi4_common.h simbus_axi4_priv.h simbus_priv.h
 simbus_pci.o: simbus_pci.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
 simbus_pci_config.o: simbus_pci_config.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
 simbus_pci_rw32.o: simbus_pci_rw32.c simbus_pci.h simbus_pci_priv.h simbus_priv.h

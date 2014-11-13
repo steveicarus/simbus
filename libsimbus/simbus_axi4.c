@@ -394,7 +394,7 @@ simbus_axi4_t simbus_axi4_connect(const char*server, const char*name,
       snprintf(arg_dw, sizeof arg_dw, "data_width=%zd", data_width);
       snprintf(arg_aw, sizeof arg_aw, "addr_width=%zd", addr_width);
       snprintf(arg_ww, sizeof arg_ww, "wid_width=%zd",  wid_width);
-      snprintf(arg_rw, sizeof arg_rw, "rid_width=%zd",  wid_width);
+      snprintf(arg_rw, sizeof arg_rw, "rid_width=%zd",  rid_width);
       snprintf(arg_iw, sizeof arg_iw, "irq_width=%zd",  irq_width);
       char*args[5];
       args[0] = arg_dw;

@@ -18,6 +18,7 @@
  */
 
 # include  "AXI4Protocol.h"
+# include  <iostream>
 # include  <cassert>
 
 using namespace std;
@@ -79,8 +80,6 @@ bool AXI4Protocol::wrap_up_configuration()
 	    addr_width_ = 32;
       if (wid_width_ == 0)
 	    wid_width_ = 4;
-      if (irq_width_ == 0)
-	    irq_width_ = 1;
 
       return true;
 }
@@ -130,8 +129,10 @@ void AXI4Protocol::trace_init()
       make_trace_("RDATA",   PT_BITS, data_width_);
       make_trace_("RRESP",   PT_BITS, 2);
       make_trace_("RID",     PT_BITS, rid_width_);
-	// Interrupts
-      make_trace_("IRQ",     PT_BITS, irq_width_);
+      if (irq_width_ > 0) {
+	      // Interrupts
+	    make_trace_("IRQ",     PT_BITS, irq_width_);
+      }
 }
 
 void AXI4Protocol::run_init()
@@ -323,6 +324,11 @@ void AXI4Protocol::run_slave_to_master_(const char*name, size_t bits)
       valarray<bit_state_t>tmp;
 
       tmp = slave_->second->client_signals[name];
+      if (tmp.size() != bits) {
+	    cerr << "AXI4Protocol: Expected " << bits << " bits"
+		 << " for " << name
+		 << ", got " << tmp.size() << "." << endl;
+      }
       assert(tmp.size() == bits);
 
       master_->second->send_signals[name] = tmp;
@@ -394,8 +400,10 @@ void AXI4Protocol::run_run()
       run_slave_to_master_("RRESP",   2);
       run_slave_to_master_("RID",     rid_width_);
 
-	// Interrupts
-      run_slave_to_master_("IRQ",     irq_width_);
+      if (irq_width_ > 0) {
+	      // Interrupts
+	    run_slave_to_master_("IRQ",irq_width_);
+      }
 }
 
 void AXI4Protocol::advance_bus_clock_(void)

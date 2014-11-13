@@ -1,0 +1,35 @@
+
+bus {
+    protocol = "AXI4";
+
+    name = "example";
+    pipe = "example_pipe";
+
+    # We have t specify the bus clock. Here we define a clock
+    # with 30ns period.
+    CLOCK_high = 15000;
+    CLOCK_low  = 15000;
+
+    CLOCK_hold = 1000;
+    CLOCK_setup = 2000;
+
+    # The data and address widths will be declared by the devices,
+    # and the server will validate that they match. So there is
+    # nothing to be done about that here.
+
+    # 
+    host    0 "master";
+    device  1 "slave";
+}
+
+process {
+    name = "master";
+    exec = "./master pipe:example_pipe";
+    stdout = "-";
+}
+
+process {
+    name = "slave";
+    exec = "./slave pipe:example_pipe";
+    stdout = "-";
+}

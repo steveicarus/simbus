@@ -3,6 +3,7 @@
 Make.rules
 configure
 config.*
+core
 autom4te.cache/*
 
 # libsimbus/
@@ -27,3 +28,9 @@ example/example_axi4/bus.lxt
 example/example_axi4/dump.*
 example/example_axi4/master
 example/example_axi4/slave
+
+# example/example_axi4s/
+example/example_axi4s/bus.lxt
+example/example_axi4s/master
+example/example_axi4s/slave
+example/example_axi4s/*.log

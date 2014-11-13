@@ -164,7 +164,7 @@ simbus_axi4_resp_t simbus_axi4_write64(simbus_axi4_t bus,
       int data_pref = addr % (bus->data_width/8);
 
 	/* Drive the write address to the write address channel */
-      waddr_setup(bus, addr, bus->axsize_word, prot);
+      waddr_setup(bus, addr, 3, prot);
       bus->awvalid = BIT_1;
 
 	/* Drive the write data to the write data channel */
@@ -208,7 +208,7 @@ simbus_axi4_resp_t simbus_axi4_write32(simbus_axi4_t bus,
       int data_pref = addr % (bus->data_width/8);
 
 	/* Drive the write address to the write address channel. */
-      waddr_setup(bus, addr, bus->axsize_word, prot);
+      waddr_setup(bus, addr, 2, prot);
       bus->awvalid = BIT_1;
 
 	/* Drive the write data to the write data channel */
@@ -256,7 +256,7 @@ simbus_axi4_resp_t simbus_axi4_write16(simbus_axi4_t bus,
       int data_pref = addr % (bus->data_width/8);
 
 	/* Setup the write address to the write address channel */
-      waddr_setup(bus, addr, bus->axsize_word, prot);
+      waddr_setup(bus, addr, 1, prot);
       bus->awvalid = BIT_1;
 
 	/* Drive the write data to the write data channel */
@@ -299,7 +299,7 @@ simbus_axi4_resp_t simbus_axi4_write8(simbus_axi4_t bus,
       int data_pref = addr % (bus->data_width / 8);
 
 	/* Setup the write address to the write address channel. */
-      waddr_setup(bus, addr, bus->axsize_word, prot);
+      waddr_setup(bus, addr, 0, prot);
       bus->awvalid = BIT_1;
 
 	/* Drive the write data to the write data channel. */
