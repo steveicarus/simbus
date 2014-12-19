@@ -877,6 +877,7 @@ static void set_handle_to_value(vpiHandle sig, const char*val)
       if (vpi_get(vpiSize, sig) != width) {
 	    vpi_printf("ERROR: %s is %d bits, got %zu from server\n",
 		       vpi_get_str(vpiName, sig), vpi_get(vpiSize, sig), width);
+	    vpi_flush();
       }
 
       assert(vpi_get(vpiSize, sig) == width);
