@@ -1,0 +1,35 @@
+
+bus {
+    protocol = "xilinx-pcie";
+
+    name = "example";
+    pipe = "example_pipe";
+
+    # We have to specify the bus clock. Here we define a clock
+    # with 30ns period.
+    CLOCK_high = 15000;
+    CLOCK_low  = 15000;
+
+    CLOCK_hold = 1000;
+    CLOCK_setup = 2000;
+
+    # The data and address widths will be declared by the devices,
+    # and the server will validate that they match. So there is
+    # nothing to be done about that here.
+
+    # 
+    host    0 "root";
+    device  1 "endpoint";
+}
+
+process {
+    name = "root";
+    exec = "./example_root pipe:example_pipe";
+    stdout = "-";
+}
+
+process {
+    name = "endpoint";
+    exec = "vvp -v -n -m../../vpi/simbus.vpi example_endpoint -fst -simbus-debug-mask=0 -simbus-version +simbus-endpoint-bus=pipe:example_pipe";
+    stdout = "endpoint.log";
+}

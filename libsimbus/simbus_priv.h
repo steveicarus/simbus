@@ -72,4 +72,17 @@ extern int __simbus_server_send_recv(int server_fd, char*buf, size_t buf_size,
 
 extern void __parse_time_token(const char*token, uint64_t*tile_mant, int*time_exp);
 
+/*
+ * Draw out the signal values in the format for the "READY..."
+ * message. Include a leading SP so that this effectively appends the
+ * token to an existing READY message line.
+ *
+ * Vectors are written out MSB first (the simbus interchange
+ * standard), but are assumed to be stored in the vector LSB
+ * first. Thus, the bits of the val array are reversed on output.
+ */
+extern size_t __ready_signal(char*dst, const char*name, const bus_bitval_t*val, size_t nval);
+
+extern void __until_signal(const char*src, bus_bitval_t*val, size_t nval);
+
 #endif

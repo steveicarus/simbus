@@ -272,3 +272,27 @@ void __parse_time_token(const char*token, uint64_t*time_mant, int*time_exp)
       cp += 1;
       *time_exp = strtol(cp, 0, 10);
 }
+
+size_t __ready_signal(char*dst, const char*name, const bus_bitval_t*val, size_t nval)
+{
+      char*cp = dst;
+
+      *cp++ = ' ';
+      strcpy(cp, name);
+      cp += strlen(cp);
+
+      *cp++ = '=';
+
+      for (size_t idx = 0 ; idx < nval ; idx += 1)
+	    *cp++ = __bitval_to_char(val[nval-1-idx]);
+
+      return cp - dst;
+}
+
+void __until_signal(const char*src, bus_bitval_t*val, size_t nval)
+{
+      assert(nval == strlen(src));
+
+      for (size_t idx = 0 ; idx < nval ; idx += 1)
+	    val[nval-1-idx] = __char_to_bitval(*src++);
+}
