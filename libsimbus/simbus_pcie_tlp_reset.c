@@ -1,5 +1,3 @@
-#ifndef __XilinxPcie_H
-#define __XilinxPcie_H
 /*
  * Copyright (c) 2014 Stephen Williams (steve@icarus.com)
  *
@@ -16,35 +14,23 @@
  *
  *    You should have received a copy of the GNU General Public License
  *    along with this program; if not, write to the Free Software
- *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+ *    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-# include  "protocol.h"
 
-class XilinxPcie  : public protocol_t {
+# include  "simbus_pcie_tlp.h"
+# include  "simbus_pcie_tlp_priv.h"
+# include  <stdlib.h>
+# include  <string.h>
+# include  <assert.h>
 
-    public:
-      XilinxPcie(struct bus_state*);
-      ~XilinxPcie();
+void simbus_pcie_tlp_reset(simbus_pcie_tlp_t bus, unsigned width, unsigned settle)
+{
+      assert(width > 0);
 
-      void trace_init();
-      void run_init();
-      void run_run();
+      bus->user_reset_out = BIT_1;
+      simbus_pcie_tlp_wait(bus, width);
 
-    private:
-      void advance_bus_clock_(void);
-
-
-    private:
-
-	// Current state of the PCI clock. (It toggles.)
-      int phase_;
-      uint64_t clock_phase_map_[4];
-
-	// The PCIe bus should have exactly two ends, which
-	// we arbitrarily name master and slave.
-      bus_device_map_t::iterator master_;
-      bus_device_map_t::iterator slave_;
-};
-
-#endif
+      bus->user_reset_out = BIT_0;
+      if (settle > 0) simbus_pcie_tlp_wait(bus, settle);
+}

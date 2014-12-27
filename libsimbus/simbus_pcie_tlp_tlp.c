@@ -17,8 +17,8 @@
  *    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-# include  "simbus_xilinx_pcie.h"
-# include  "simbus_xilinx_pcie_priv.h"
+# include  "simbus_pcie_tlp.h"
+# include  "simbus_pcie_tlp_priv.h"
 # include  <stdlib.h>
 # include  <string.h>
 # include  <assert.h>
@@ -29,7 +29,7 @@
  * specification, with 32bit words. This function matches up the words
  * with the AXIS stream that connects to the Xilinx PCIe core.
  */
-void __xilinx_pcie_send_tlp(simbus_xilinx_pcie_t bus,
+void __pcie_tlp_send_tlp(simbus_pcie_tlp_t bus,
 			    const uint32_t*data, size_t ndata)
 {
       while (ndata >= 1) {
@@ -66,7 +66,7 @@ void __xilinx_pcie_send_tlp(simbus_xilinx_pcie_t bus,
 	    bus->m_axis_rx_tvalid = BIT_1;
 
 	      /* Clock it out. */
-	    __xilinx_pcie_next_posedge(bus);
+	    __pcie_tlp_next_posedge(bus);
 
 	      /* If the receiver was ready, then step to the next word. */
 	    if (bus->m_axis_rx_tready == BIT_1) {
@@ -90,7 +90,7 @@ void __xilinx_pcie_send_tlp(simbus_xilinx_pcie_t bus,
       }
 }
 
-static void crank_recv_tlp(simbus_xilinx_pcie_t bus, uint32_t val)
+static void crank_recv_tlp(simbus_pcie_tlp_t bus, uint32_t val)
 {
       if (bus->debug) {
 	    fprintf(bus->debug, "TLP word %d: 0x%08" PRIx32 "\n",
@@ -101,7 +101,7 @@ static void crank_recv_tlp(simbus_xilinx_pcie_t bus, uint32_t val)
       bus->s_tlp_buf[bus->s_tlp_cnt++] = val;
 }
 
-static void copy_tlp_to_completion(simbus_xilinx_pcie_t bus,
+static void copy_tlp_to_completion(simbus_pcie_tlp_t bus,
 				   int tag, size_t words)
 {
       assert(bus->completions[tag] == 0);
@@ -113,7 +113,7 @@ static void copy_tlp_to_completion(simbus_xilinx_pcie_t bus,
 	    bus->completions[tag][idx] = bus->s_tlp_buf[idx];
 }
 
-static void complete_recv_tlp(simbus_xilinx_pcie_t bus)
+static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 {
       if (bus->debug) {
 	    fprintf(bus->debug, "Received TLP:\n");
@@ -146,7 +146,7 @@ static void complete_recv_tlp(simbus_xilinx_pcie_t bus)
       bus->s_tlp_cnt = 0;
 }
 
-void __xilinx_pcie_recv_tlp(simbus_xilinx_pcie_t bus)
+void __pcie_tlp_recv_tlp(simbus_pcie_tlp_t bus)
 {
 	/* If the data from the slave is not tvalid, or if we are not
 	   tready to receive it, then there is nothing to do here. */

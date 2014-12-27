@@ -17,14 +17,14 @@
  *    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-# include  "simbus_xilinx_pcie.h"
-# include  "simbus_xilinx_pcie_priv.h"
+# include  "simbus_pcie_tlp.h"
+# include  "simbus_pcie_tlp_priv.h"
 # include  <stdlib.h>
 # include  <string.h>
 # include  <unistd.h>
 # include  <assert.h>
 
-static void init_simbus_xilinx_pcie(simbus_xilinx_pcie_t bus)
+static void init_simbus_pcie_tlp(simbus_pcie_tlp_t bus)
 {
       bus->debug = 0;
       bus->time_mant = 0;
@@ -45,7 +45,7 @@ static void init_simbus_xilinx_pcie(simbus_xilinx_pcie_t bus)
       bus->s_axis_tx_tready = BIT_1;
 }
 
-simbus_xilinx_pcie_t simbus_xilinx_pcie_connect(const char*server, const char*name)
+simbus_pcie_tlp_t simbus_pcie_tlp_connect(const char*server, const char*name)
 {
       int server_fd = __simbus_server_socket(server);
       assert(server_fd >= 0);
@@ -56,9 +56,9 @@ simbus_xilinx_pcie_t simbus_xilinx_pcie_connect(const char*server, const char*na
       if (rc < 0)
 	    return 0;
 
-      struct simbus_xilinx_pcie_s*bus = calloc(1, sizeof(struct simbus_xilinx_pcie_s));
+      struct simbus_pcie_tlp_s*bus = calloc(1, sizeof(struct simbus_pcie_tlp_s));
       assert(bus);
-      init_simbus_xilinx_pcie(bus);
+      init_simbus_pcie_tlp(bus);
       bus->name = strdup(name);
       bus->fd = server_fd;
       bus->ident = ident;
@@ -72,24 +72,24 @@ simbus_xilinx_pcie_t simbus_xilinx_pcie_connect(const char*server, const char*na
       return bus;
 }
 
-void simbus_xilinx_pcie_debug(simbus_xilinx_pcie_t bus, FILE*debug)
+void simbus_pcie_tlp_debug(simbus_pcie_tlp_t bus, FILE*debug)
 {
       bus->debug = debug;
 }
 
-void simbus_xilinx_pcie_disconnect(simbus_xilinx_pcie_t bus)
+void simbus_pcie_tlp_disconnect(simbus_pcie_tlp_t bus)
 {
       close(bus->fd);
       free(bus->name);
       free(bus);
 }
 
-void simbus_xilinx_pcie_end_simulation(simbus_xilinx_pcie_t bus)
+void simbus_pcie_tlp_end_simulation(simbus_pcie_tlp_t bus)
 {
 	/* Send the FINISH command */
       __simbus_server_finish(bus->fd);
 	/* Clean up connection. */
-      simbus_xilinx_pcie_disconnect(bus);
+      simbus_pcie_tlp_disconnect(bus);
 }
 
 /*
@@ -97,7 +97,7 @@ void simbus_xilinx_pcie_end_simulation(simbus_xilinx_pcie_t bus)
  * READY command, then waits for an UNTIL command where I get back the
  * resolved values.
  */
-static int send_ready_command(simbus_xilinx_pcie_t bus)
+static int send_ready_command(simbus_pcie_tlp_t bus)
 {
       int rc;
       char buf[4096];
@@ -133,7 +133,7 @@ static int send_ready_command(simbus_xilinx_pcie_t bus)
 		  fprintf(bus->debug, "%s: Abort by error on stream\n", bus->name);
 		  fflush(bus->debug);
 	    }
-	    return SIMBUS_XILINX_PCIE_FINISHED;
+	    return SIMBUS_PCIE_TLP_FINISHED;
       }
 
       if (strcmp(argv[0],"FINISH") == 0) {
@@ -141,7 +141,7 @@ static int send_ready_command(simbus_xilinx_pcie_t bus)
 		  fprintf(bus->debug, "%s: Abort by FINISH command\n", bus->name);
 		  fflush(bus->debug);
 	    }
-	    return SIMBUS_XILINX_PCIE_FINISHED;
+	    return SIMBUS_PCIE_TLP_FINISHED;
       }
 
       assert(strcmp(argv[0],"UNTIL") == 0);
@@ -187,7 +187,7 @@ static int send_ready_command(simbus_xilinx_pcie_t bus)
       return 0;
 }
 
-void __xilinx_pcie_next_posedge(simbus_xilinx_pcie_t bus)
+void __pcie_tlp_next_posedge(simbus_pcie_tlp_t bus)
 {
       int idx;
 
@@ -202,13 +202,13 @@ void __xilinx_pcie_next_posedge(simbus_xilinx_pcie_t bus)
       }
 
 	/* See about any TLP data coming in. */
-      __xilinx_pcie_recv_tlp(bus);
+      __pcie_tlp_recv_tlp(bus);
 }
 
-int simbus_xilinx_pcie_wait(simbus_xilinx_pcie_t bus, unsigned clks)
+int simbus_pcie_tlp_wait(simbus_pcie_tlp_t bus, unsigned clks)
 {
       while (clks > 0) {
-	    __xilinx_pcie_next_posedge(bus);
+	    __pcie_tlp_next_posedge(bus);
 	    clks -= 1;
       }
 

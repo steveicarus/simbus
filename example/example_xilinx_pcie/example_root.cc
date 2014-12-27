@@ -18,7 +18,7 @@
  */
 
 # define __STDC_FORMAT_MACROS
-# include  <simbus_xilinx_pcie.h>
+# include  <simbus_pcie_tlp.h>
 # include  <inttypes.h>
 # include  <cstdio>
 # include  <cassert>
@@ -26,35 +26,35 @@
 
 int main(int argc, char*argv[])
 {
-      simbus_xilinx_pcie_t bus = simbus_xilinx_pcie_connect(argv[1], "root");
+      simbus_pcie_tlp_t bus = simbus_pcie_tlp_connect(argv[1], "root");
 
       FILE*debug = fopen("root.log", "wt");
-      if (debug) simbus_xilinx_pcie_debug(bus, debug);
+      if (debug) simbus_pcie_tlp_debug(bus, debug);
 
       printf("Wait 4 clocks...\n");
       fflush(stdout);
-      simbus_xilinx_pcie_wait(bus, 4);
+      simbus_pcie_tlp_wait(bus, 4);
 
       printf("Reset bus...");
       fflush(stdout);
-      simbus_xilinx_pcie_reset(bus, 1, 8);
+      simbus_pcie_tlp_reset(bus, 1, 8);
 
       printf("Wait 4 more clocks...\n");
       fflush(stdout);
-      simbus_xilinx_pcie_wait(bus, 4);
+      simbus_pcie_tlp_wait(bus, 4);
 
       printf("Read device id from PCIe config space...\n");
       uint32_t id;
-      simbus_xilinx_pcie_cfg_read32(bus, 0x0000, 0x0000, &id);
+      simbus_pcie_tlp_cfg_read32(bus, 0x0000, 0x0000, &id);
       printf("  Id: 0x%08" PRIx32 "\n", id);
       fflush(stdout);
 
-      simbus_xilinx_pcie_cfg_write32(bus, 0x0000, 0x0010, 0xaaaaaaaa);
+      simbus_pcie_tlp_cfg_write32(bus, 0x0000, 0x0010, 0xaaaaaaaa);
       uint32_t val;
-      simbus_xilinx_pcie_cfg_read32(bus, 0x0000, 0x0010, &val);
+      simbus_pcie_tlp_cfg_read32(bus, 0x0000, 0x0010, &val);
       printf("  BAR0: 0x%08" PRIx32 "\n", val);
       fflush(stdout);
 
-      simbus_xilinx_pcie_end_simulation(bus);
+      simbus_pcie_tlp_end_simulation(bus);
       if (debug) fclose(debug);
 }

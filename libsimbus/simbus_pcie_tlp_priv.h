@@ -1,5 +1,5 @@
-#ifndef __simbus_xilinx_pcie_priv_H
-#define __simbus_xilinx_pcie_priv_H
+#ifndef __simbus_pcie_tlp_priv_H
+#define __simbus_pcie_tlp_priv_H
 /*
  * Copyright (c) 2014 Stephen Williams (steve@icarus.com)
  *
@@ -25,7 +25,7 @@
  */
 # define MAX_TLP (1024+8)
 
-struct simbus_xilinx_pcie_s {
+struct simbus_pcie_tlp_s {
 	/* The name given in the simbus_pci_connect function. This is
 	   also the name sent to the server in order to get my id. */
       char*name;
@@ -81,19 +81,19 @@ struct simbus_xilinx_pcie_s {
 /*
  * Wait for the next posedge of the transaction clock.
  */
-extern void __xilinx_pcie_next_posedge(simbus_xilinx_pcie_t bus);
+extern void __pcie_tlp_next_posedge(simbus_pcie_tlp_t bus);
 
 /*
  * Send a TLP to the PCIe remote. This function takes the assembled
  * TLP, arranged as 32bit words, maps it to the 64bit AXI4Stream and
  * clocks it out.
  */
-extern void __xilinx_pcie_send_tlp(simbus_xilinx_pcie_t bus,
-				   const uint32_t*data, size_t ndata);
+extern void __pcie_tlp_send_tlp(simbus_pcie_tlp_t bus,
+				const uint32_t*data, size_t ndata);
 
 /*
  * Run the state machine for receiving TLPs from the slave.
  */
-extern void __xilinx_pcie_recv_tlp(simbus_xilinx_pcie_t bus);
+extern void __pcie_tlp_recv_tlp(simbus_pcie_tlp_t bus);
 
 #endif

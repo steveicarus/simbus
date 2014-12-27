@@ -1,5 +1,5 @@
-#ifndef __simbus_xilinx_pcie_H
-#define __simbus_xilinx_pcie_H
+#ifndef __simbus_pcie_tlp_H
+#define __simbus_pcie_tlp_H
 /*
  * Copyright (c) 2014 Stephen Williams (steve@icarus.com)
  *
@@ -28,25 +28,25 @@
 # define EXTERN extern
 #endif
 
-typedef struct simbus_xilinx_pcie_s* simbus_xilinx_pcie_t;
+typedef struct simbus_pcie_tlp_s* simbus_pcie_tlp_t;
 
 /*
  * Open the connection to the bus server for a Xilinx PCIe core bus. The
  * name is the devname to use, which is conventionally "root".
  */
-EXTERN simbus_xilinx_pcie_t simbus_xilinx_pcie_connect(const char*server, const char*name);
+EXTERN simbus_pcie_tlp_t simbus_pcie_tlp_connect(const char*server, const char*name);
 
 /*
  * Set a log file for the pci interface. This causes detailed library
  * debug messages to that file. Turn debugging off by setting the file
  * to NIL
  */
-EXTERN void simbus_xilinx_pcie_debug(simbus_xilinx_pcie_t bus, FILE*fd);
+EXTERN void simbus_pcie_tlp_debug(simbus_pcie_tlp_t bus, FILE*fd);
 
 
-EXTERN int simbus_xilinx_pcie_wait(simbus_xilinx_pcie_t bus, unsigned clks);
-# define SIMBUS_XILINX_PCIE_ERROR    (-1)
-# define SIMBUS_XILINX_PCIE_FINISHED (-2)
+EXTERN int simbus_pcie_tlp_wait(simbus_pcie_tlp_t bus, unsigned clks);
+# define SIMBUS_PCIE_TLP_ERROR    (-1)
+# define SIMBUS_PCIE_TLP_FINISHED (-2)
 
 /*
  * Cause a "user_reset_out" pulse to be generated on the PCI bus of the
@@ -54,19 +54,19 @@ EXTERN int simbus_xilinx_pcie_wait(simbus_xilinx_pcie_t bus, unsigned clks);
  * time is specified, the simulation runs that many more clocks to let
  * PCI devices settle.
  */
-EXTERN void simbus_xilinx_pcie_reset(simbus_xilinx_pcie_t bus, unsigned width, unsigned settle);
+EXTERN void simbus_pcie_tlp_reset(simbus_pcie_tlp_t bus, unsigned width, unsigned settle);
 
-EXTERN void simbus_xilinx_pcie_cfg_write32(simbus_xilinx_pcie_t bus,
+EXTERN void simbus_pcie_tlp_cfg_write32(simbus_pcie_tlp_t bus,
 					   uint16_t bus_devfn, uint16_t addr,
 					   uint32_t val);
-EXTERN void simbus_xilinx_pcie_cfg_write16(simbus_xilinx_pcie_t bus,
+EXTERN void simbus_pcie_tlp_cfg_write16(simbus_pcie_tlp_t bus,
 					   uint16_t bus_devfn, uint16_t addr,
 					   uint16_t val);
-EXTERN void simbus_xilinx_pcie_cfg_write8(simbus_xilinx_pcie_t bus,
+EXTERN void simbus_pcie_tlp_cfg_write8(simbus_pcie_tlp_t bus,
 					   uint16_t bus_devfn, uint16_t addr,
 					   uint8_t val);
 
-EXTERN void simbus_xilinx_pcie_cfg_read32(simbus_xilinx_pcie_t bus,
+EXTERN void simbus_pcie_tlp_cfg_read32(simbus_pcie_tlp_t bus,
 					  uint16_t bus_devfn, uint16_t addr,
 					  uint32_t*val);
 
@@ -87,15 +87,15 @@ EXTERN void simbus_xilinx_pcie_cfg_read32(simbus_xilinx_pcie_t bus,
  * 0, 1, 2, or 3) and the "len" in the byte out of all the valid
  * data. The value len+off must be <= 4*ndata and > 4*(ndata-1).
  */
-EXTERN void simbus_xilinx_pcie_write(simbus_xilinx_pcie_t bus, uint64_t addr,
+EXTERN void simbus_pcie_tlp_write(simbus_pcie_tlp_t bus, uint64_t addr,
 				     const uint32_t*data, size_t ndata,
 				     int off, size_t len);
 
 /*
  * Send an end-of-simulation message to the simulator, then dosconnect
  * and close the bus object. Only HOST devices should call the
- * simbus_xilinx_pcie_end_simulation function.
+ * simbus_pcie_tlp_end_simulation function.
  */
-EXTERN void simbus_xilinx_pcie_end_simulation(simbus_xilinx_pcie_t bus);
+EXTERN void simbus_pcie_tlp_end_simulation(simbus_pcie_tlp_t bus);
 
 #endif

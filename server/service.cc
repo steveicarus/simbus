@@ -36,7 +36,7 @@
 # include  "PciProtocol.h"
 # include  "PointToPoint.h"
 # include  "AXI4Protocol.h"
-# include  "XilinxPcie.h"
+# include  "PCIeTLP.h"
 # include  "lxt2_write.h"
 # include  <assert.h>
 
@@ -128,8 +128,8 @@ void service_add_bus(const std::string&port, const std::string&name,
       } else if (bus_protocol_name == "AXI4") {
 	    tmp->proto = new AXI4Protocol(tmp);
 
-      } else if (bus_protocol_name == "xilinx-pcie") {
-	    tmp->proto = new XilinxPcie(tmp);
+      } else if (bus_protocol_name == "pcie-tlp") {
+	    tmp->proto = new PCIeTLP(tmp);
 
       } else {
 	    cerr << "Unknown protocol (" << bus_protocol_name << ")"

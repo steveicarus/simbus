@@ -18,8 +18,8 @@
  */
 
 
-# include  "simbus_xilinx_pcie.h"
-# include  "simbus_xilinx_pcie_priv.h"
+# include  "simbus_pcie_tlp.h"
+# include  "simbus_pcie_tlp_priv.h"
 # include  <stdlib.h>
 # include  <string.h>
 # include  <assert.h>
@@ -44,7 +44,7 @@
  *    dddddddd dddddddd dddddddd dddddddd  (data)
  *
  */
-void simbus_xilinx_pcie_cfg_write32(simbus_xilinx_pcie_t bus,
+void simbus_pcie_tlp_cfg_write32(simbus_pcie_tlp_t bus,
 				    uint16_t bus_devfn, uint16_t addr,
 				    uint32_t val)
 {
@@ -58,11 +58,11 @@ void simbus_xilinx_pcie_cfg_write32(simbus_xilinx_pcie_t bus,
 
       bus->tlp_next_tag = (bus->tlp_next_tag + 1) % 32;
 
-      __xilinx_pcie_send_tlp(bus, tlp, 4);
+      __pcie_tlp_send_tlp(bus, tlp, 4);
 
 	/* Wait for the completion to come back. */
       while (bus->completions[use_tag] == 0) {
-	    __xilinx_pcie_next_posedge(bus);
+	    __pcie_tlp_next_posedge(bus);
       }
 
       if (bus->debug) {
@@ -73,7 +73,7 @@ void simbus_xilinx_pcie_cfg_write32(simbus_xilinx_pcie_t bus,
       bus->completions[use_tag] = 0;
 }
 
-void simbus_xilinx_pcie_cfg_write16(simbus_xilinx_pcie_t bus,
+void simbus_pcie_tlp_cfg_write16(simbus_pcie_tlp_t bus,
 				    uint16_t bus_devfn, uint16_t addr,
 				    uint16_t val)
 {
@@ -88,10 +88,10 @@ void simbus_xilinx_pcie_cfg_write16(simbus_xilinx_pcie_t bus,
 
       bus->tlp_next_tag = (bus->tlp_next_tag + 1) % 32;
 
-      __xilinx_pcie_send_tlp(bus, tlp, 4);
+      __pcie_tlp_send_tlp(bus, tlp, 4);
 
       while (bus->completions[use_tag] == 0) {
-	    __xilinx_pcie_next_posedge(bus);
+	    __pcie_tlp_next_posedge(bus);
       }
 
       free(bus->completions[use_tag]);
@@ -99,7 +99,7 @@ void simbus_xilinx_pcie_cfg_write16(simbus_xilinx_pcie_t bus,
 
 }
 
-void simbus_xilinx_pcie_cfg_write8(simbus_xilinx_pcie_t bus,
+void simbus_pcie_tlp_cfg_write8(simbus_pcie_tlp_t bus,
 				    uint16_t bus_devfn, uint16_t addr,
 				    uint8_t val)
 {
@@ -114,10 +114,10 @@ void simbus_xilinx_pcie_cfg_write8(simbus_xilinx_pcie_t bus,
 
       bus->tlp_next_tag = (bus->tlp_next_tag + 1) % 32;
 
-      __xilinx_pcie_send_tlp(bus, tlp, 4);
+      __pcie_tlp_send_tlp(bus, tlp, 4);
 
       while (bus->completions[use_tag] == 0) {
-	    __xilinx_pcie_next_posedge(bus);
+	    __pcie_tlp_next_posedge(bus);
       }
 
       free(bus->completions[use_tag]);
@@ -138,7 +138,7 @@ void simbus_xilinx_pcie_cfg_write8(simbus_xilinx_pcie_t bus,
  *    ffffffff ffffffff 0000aaaa aaaaaaaa  (12bit address)
  *
  */
-void simbus_xilinx_pcie_cfg_read32(simbus_xilinx_pcie_t bus,
+void simbus_pcie_tlp_cfg_read32(simbus_pcie_tlp_t bus,
 				   uint16_t bus_devfn, uint16_t addr,
 				   uint32_t*val)
 {
@@ -151,10 +151,10 @@ void simbus_xilinx_pcie_cfg_read32(simbus_xilinx_pcie_t bus,
 
       bus->tlp_next_tag = (bus->tlp_next_tag + 1) % 32;
 
-      __xilinx_pcie_send_tlp(bus, tlp, 3);
+      __pcie_tlp_send_tlp(bus, tlp, 3);
 
       while (bus->completions[use_tag] == 0) {
-	    __xilinx_pcie_next_posedge(bus);
+	    __pcie_tlp_next_posedge(bus);
       }
 
       uint32_t*ctlp = bus->completions[use_tag];

@@ -1,3 +1,5 @@
+#ifndef __PCIeTLP_H
+#define __PCIeTLP_H
 /*
  * Copyright (c) 2014 Stephen Williams (steve@icarus.com)
  *
@@ -14,23 +16,35 @@
  *
  *    You should have received a copy of the GNU General Public License
  *    along with this program; if not, write to the Free Software
- *    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
 
+# include  "protocol.h"
 
-# include  "simbus_xilinx_pcie.h"
-# include  "simbus_xilinx_pcie_priv.h"
-# include  <stdlib.h>
-# include  <string.h>
-# include  <assert.h>
+class PCIeTLP  : public protocol_t {
 
-void simbus_xilinx_pcie_reset(simbus_xilinx_pcie_t bus, unsigned width, unsigned settle)
-{
-      assert(width > 0);
+    public:
+      PCIeTLP(struct bus_state*);
+      ~PCIeTLP();
 
-      bus->user_reset_out = BIT_1;
-      simbus_xilinx_pcie_wait(bus, width);
+      void trace_init();
+      void run_init();
+      void run_run();
 
-      bus->user_reset_out = BIT_0;
-      if (settle > 0) simbus_xilinx_pcie_wait(bus, settle);
-}
+    private:
+      void advance_bus_clock_(void);
+
+
+    private:
+
+	// Current state of the PCI clock. (It toggles.)
+      int phase_;
+      uint64_t clock_phase_map_[4];
+
+	// The PCIe bus should have exactly two ends, which
+	// we arbitrarily name master and slave.
+      bus_device_map_t::iterator master_;
+      bus_device_map_t::iterator slave_;
+};
+
+#endif

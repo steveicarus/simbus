@@ -17,7 +17,7 @@
  *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
 
-# include  "XilinxPcie.h"
+# include  "PCIeTLP.h"
 # include  <iostream>
 # include  <cassert>
 
@@ -37,7 +37,7 @@ using namespace std;
  *  -----+          +----------+          +----------
  */
 
-XilinxPcie::XilinxPcie(struct bus_state*b)
+PCIeTLP::PCIeTLP(struct bus_state*b)
 : protocol_t(b)
 {
       phase_ = 0;
@@ -61,11 +61,11 @@ XilinxPcie::XilinxPcie(struct bus_state*b)
       clock_phase_map_[3] = clock_setup;
 }
 
-XilinxPcie::~XilinxPcie()
+PCIeTLP::~PCIeTLP()
 {
 }
 
-void XilinxPcie::trace_init()
+void PCIeTLP::trace_init()
 {
       make_trace_("user_clk",    PT_BITS);
       make_trace_("user_reset",  PT_BITS);
@@ -86,7 +86,7 @@ void XilinxPcie::trace_init()
       make_trace_("s_axis_tx_tuser", PT_BITS,  4);
 }
 
-void XilinxPcie::run_init()
+void PCIeTLP::run_init()
 {
 	// PCIe links are onlt 2 devices: root and endpoint
       assert(device_map().size() == 2);
@@ -171,7 +171,7 @@ void XilinxPcie::run_init()
 	    master_->second->send_signals["s_axis_tx_user"][idx] = BIT_X;
 }
 
-void XilinxPcie::run_run()
+void PCIeTLP::run_run()
 {
 	// Step the PCI clock.
       advance_bus_clock_();
@@ -245,7 +245,7 @@ void XilinxPcie::run_run()
       set_trace_("s_axis_tx_user", tmp);
 }
 
-void XilinxPcie::advance_bus_clock_(void)
+void PCIeTLP::advance_bus_clock_(void)
 {
 	// Advance the phase pointer
       phase_ = (phase_ + 1) % 4;

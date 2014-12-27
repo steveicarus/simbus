@@ -1,6 +1,6 @@
 
 bus {
-    protocol = "xilinx-pcie";
+    protocol = "pcie-tlp";
 
     name = "example";
     pipe = "example_pipe";

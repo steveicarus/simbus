@@ -17,8 +17,8 @@
  *    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-# include  "simbus_xilinx_pcie.h"
-# include  "simbus_xilinx_pcie_priv.h"
+# include  "simbus_pcie_tlp.h"
+# include  "simbus_pcie_tlp_priv.h"
 # include  <stdlib.h>
 # include  <string.h>
 # include  <assert.h>
@@ -50,7 +50,7 @@
  *    dddddddd dddddddd dddddddd dddddddd  (data[0])
  *    [... More data words ...]
  */
-void simbus_xilinx_pcie_write(simbus_xilinx_pcie_t bus, uint64_t addr,
+void simbus_pcie_tlp_write(simbus_pcie_tlp_t bus, uint64_t addr,
 			      const uint32_t*data, size_t ndata,
 			      int off, size_t len)
 {
@@ -112,7 +112,7 @@ void simbus_xilinx_pcie_write(simbus_xilinx_pcie_t bus, uint64_t addr,
 	    tlp[ntlp++] = *data++;
 
 	/* Send it! */
-      __xilinx_pcie_send_tlp(bus, tlp, ntlp);
+      __pcie_tlp_send_tlp(bus, tlp, ntlp);
 
       free(tlp);
 }
