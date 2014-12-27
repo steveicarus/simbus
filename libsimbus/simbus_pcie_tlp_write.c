@@ -77,7 +77,6 @@ void simbus_pcie_tlp_write(simbus_pcie_tlp_t bus, uint64_t addr,
 	   calculations. */
       assert(off <= 3);
       assert(off+len <= 4*ndata);
-      assert(off+4 > 4*(ndata-1));
 
       if (ndata == 1) {
 	    uint32_t lmask = 0x0f & ~(0xf << len);

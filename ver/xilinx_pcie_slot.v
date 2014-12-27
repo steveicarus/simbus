@@ -122,6 +122,8 @@ module xilinx_pcie_slot
     input wire 				       rx_np_reg,
 
     // Receive channel AXI4 Stream (master side)
+    // This stream carries TLPs from the remote (the root) to
+    // this slot.
     output wire [63:0] 			       m_axis_rx_tdata,
     output wire [7:0] 			       m_axis_rx_tkeep,
     output wire 			       m_axis_rx_tlast,
@@ -806,6 +808,7 @@ module xilinx_pcie_rx_buffer
 
    reg [1:0] 	     ptr;
    reg [2:0] 	     fill;
+   reg 		     tlp_pass_drain;
 
    task push_beat;
       reg [1:0] nxt;
@@ -827,6 +830,7 @@ module xilinx_pcie_rx_buffer
 	 o_axis_rx_tvalid <= 1;
 	 o_axis_rx_tuser  <= tuser_buf[ptr];
 	 ptr = ptr+1;
+	 fill = fill - 1;
       end
    endtask // always
 
@@ -835,6 +839,7 @@ module xilinx_pcie_rx_buffer
      if (user_reset) begin
 	ptr  = 0;
 	fill = 0;
+	tlp_pass_drain <= 0;
 
 	i_axis_rx_tready <= 1;
 
@@ -848,21 +853,31 @@ module xilinx_pcie_rx_buffer
 	ptr  = 0;
 	fill = 0;
 
-     end else if (tlp_pass) begin
+     end else if (tlp_pass | tlp_pass_drain) begin
 	// If we are in pass mode, then clock the TLP out to the
 	// destination as quickly as it will go.
-	
+
+	// Set this flag so that we continue the pass until we
+	// send the last word.
+	tlp_pass_drain <= ~o_axis_rx_tlast;
+
 	if (fill>0 && o_axis_rx_tready && o_axis_rx_tvalid)
 	  pull_beat;
 	else if (fill>0 && !o_axis_rx_tvalid)
 	  pull_beat;
-	else if (fill==0 && o_axis_rx_tready && o_axis_rx_tvalid)
-	  o_axis_rx_tvalid <= 0;
+	else if (fill==0 && o_axis_rx_tready && o_axis_rx_tvalid) begin
+	   o_axis_rx_tvalid <= 0;
+	   o_axis_rx_tlast  <= 0;
+	   o_axis_rx_tdata = 64'bx;
+	   o_axis_rx_tkeep = 8'bx;
+	end
 
 	if (i_axis_rx_tready & i_axis_rx_tvalid)
 	  push_beat;
 
-     end else begin
+     end else if (i_axis_rx_tready & i_axis_rx_tvalid) begin // if (tlp_pass)
+	push_beat;
+
      end
 
 endmodule // xilinx_pcie_rx_buffer

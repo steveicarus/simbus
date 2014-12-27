@@ -27,6 +27,20 @@ module main;
 
    wire tx_cfg_req;
 
+   wire [63:0] s_axis_tx_tdata;
+   wire [7:0]  s_axis_tx_tkeep;
+   wire        s_axis_tx_tlast;
+   wire        s_axis_tx_tready;
+   wire        s_axis_tx_tvalid;
+   wire [3:0]  s_axis_tx_tuser;
+
+   wire [63:0] m_axis_rx_tdata;
+   wire [7:0]  m_axis_rx_tkeep;
+   wire        m_axis_rx_tlast;
+   wire        m_axis_rx_tready;
+   wire        m_axis_rx_tvalid;
+   wire [21:0] m_axis_rx_tuser;
+
    xilinx_pcie_slot
      #(.dev_id("5555"),
        .ven_id("aaaa"),
@@ -37,15 +51,45 @@ module main;
      (/* */
       .user_clk_out(user_clk_out),
       .user_reset_out(user_reset_out),
-      // Arbitration for the transmit channel
+      // Arbitration for the transmit channel. For now, just give
+      // the cfg engine the bus  whenever it asks.
       .tx_cfg_req(tx_cfg_req),
-      .tx_cfg_gnt(tx_cfg_req)
+      .tx_cfg_gnt(tx_cfg_req),
+
+      .s_axis_tx_tdata(s_axis_tx_tdata),
+      .s_axis_tx_tkeep(s_axis_tx_tkeep),
+      .s_axis_tx_tlast(s_axis_tx_tlast),
+      .s_axis_tx_tready(s_axis_tx_tready),
+
+      .s_axis_tx_tuser(s_axis_tx_tuser),
+
+      .m_axis_rx_tdata(m_axis_rx_tdata),
+      .m_axis_rx_tkeep(m_axis_rx_tkeep),
+      .m_axis_rx_tlast(m_axis_rx_tlast),
+      .m_axis_rx_tready(m_axis_rx_tready),
+      .m_axis_rx_tvalid(m_axis_rx_tvalid),
+      .m_axis_rx_tuser(m_axis_rx_tuser)
+
       /* */);
 
    device dut
      (/* */
       .user_clk  (user_clk_out),
-      .user_reset(user_reset_out)
+      .user_reset(user_reset_out),
+
+      .s_axis_tx_tdata(s_axis_tx_tdata),
+      .s_axis_tx_tkeep(s_axis_tx_tkeep),
+      .s_axis_tx_tlast(s_axis_tx_tlast),
+      .s_axis_tx_tready(s_axis_tx_tready),
+      .s_axis_tx_tvalid(s_axis_tx_tvalid),
+      .s_axis_tx_tuser(s_axis_tx_tuser),
+
+      .m_axis_rx_tdata(m_axis_rx_tdata),
+      .m_axis_rx_tkeep(m_axis_rx_tkeep),
+      .m_axis_rx_tlast(m_axis_rx_tlast),
+      .m_axis_rx_tready(m_axis_rx_tready),
+      .m_axis_rx_tvalid(m_axis_rx_tvalid),
+      .m_axis_rx_tuser(m_axis_rx_tuser)
       /* */);
 
    initial begin
@@ -56,8 +100,23 @@ endmodule // main
 
 module device
   (/* */
-   input wire user_clk,
-   input wire user_reset
+   input wire 	     user_clk,
+   input wire 	     user_reset,
+
+   // Receive TLP stream
+   input wire [63:0] m_axis_rx_tdata,
+   input wire [7:0]  m_axis_rx_tkeep,
+   input wire 	     m_axis_rx_tlast,
+   output reg 	     m_axis_rx_tready,
+   input wire 	     m_axis_rx_tvalid,
+   input wire [21:0] m_axis_rx_tuser,
+
+   output reg [63:0] s_axis_tx_tdata,
+   output reg [7:0]  s_axis_tx_tkeep,
+   output reg 	     s_axis_tx_tlast,
+   input wire 	     s_axis_tx_tready,
+   output reg 	     s_axis_tx_tvalid,
+   output reg [3:0]  s_axis_tx_tuser
    /* */);
 
    reg 	      reset_flag = 0;
@@ -71,5 +130,45 @@ module device
       end
       reset_flag = user_reset;
    end
+
+   // Buffer to receive TLPs.
+   reg [31:0] tlp_buf [0:2047];
+   reg [11:0] tlp_cnt;
+
+   task collect_tlp_word(input [31:0] val);
+      begin
+	 tlp_buf[tlp_cnt] = val;
+	 tlp_cnt = tlp_cnt+1;
+      end
+   endtask
+
+   task complete_tlp;
+      integer idx;
+      begin
+	 $display("%m: Received TLP at t=%0t", $time);
+	 for (idx = 0 ; idx < tlp_cnt ; idx = idx+1) begin
+	    $display("%m: %4d: %8h", idx, tlp_buf[idx]);
+	 end
+
+	 tlp_cnt = 0;
+      end
+   endtask
+
+   always @(posedge user_clk)
+     if (user_reset) begin
+	tlp_cnt <= 0;
+	m_axis_rx_tready <= 1;
+
+     end else if (m_axis_rx_tvalid & m_axis_rx_tready) begin
+	if (m_axis_rx_tkeep[3:0] == 4'b1111)
+	  collect_tlp_word(m_axis_rx_tdata[31:0]);
+	if (m_axis_rx_tkeep[7:4] == 4'b1111)
+	  collect_tlp_word(m_axis_rx_tdata[63:32]);
+
+	if (m_axis_rx_tlast)
+	  complete_tlp;
+
+     end else begin
+     end
 
 endmodule // device

@@ -55,6 +55,17 @@ int main(int argc, char*argv[])
       printf("  BAR0: 0x%08" PRIx32 "\n", val);
       fflush(stdout);
 
+      printf("Write dome sample data...\n");
+
+      uint32_t buf[4];
+      buf[0] = 0xaaaaaaaa;
+      buf[1] = 0x55555555;
+      buf[2] = 0x12345678;
+      buf[3] = 0x87654321;
+
+      simbus_pcie_tlp_write(bus, 0x00000010, buf, 4, 0, 16);
+      simbus_pcie_tlp_wait(bus, 4);
+
       simbus_pcie_tlp_end_simulation(bus);
       if (debug) fclose(debug);
 }
