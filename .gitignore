@@ -34,3 +34,10 @@ example/example_axi4s/bus.lxt
 example/example_axi4s/master
 example/example_axi4s/slave
 example/example_axi4s/*.log
+
+# example/example_xilinx_pcie/
+example/example_xilinx_pcie/*.fst
+example/example_xilinx_pcie/*.log
+example/example_xilinx_pcie/*.lxt
+example/example_xilinx_pcie/example_endpoint
+example/example_xilinx_pcie/example_root

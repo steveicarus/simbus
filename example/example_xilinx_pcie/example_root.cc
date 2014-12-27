@@ -49,6 +49,12 @@ int main(int argc, char*argv[])
       printf("  Id: 0x%08" PRIx32 "\n", id);
       fflush(stdout);
 
+      simbus_xilinx_pcie_cfg_write32(bus, 0x0000, 0x0010, 0xaaaaaaaa);
+      uint32_t val;
+      simbus_xilinx_pcie_cfg_read32(bus, 0x0000, 0x0010, &val);
+      printf("  BAR0: 0x%08" PRIx32 "\n", val);
+      fflush(stdout);
+
       simbus_xilinx_pcie_end_simulation(bus);
       if (debug) fclose(debug);
 }

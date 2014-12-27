@@ -20,13 +20,37 @@
 `default_nettype none
 `timescale 1ps/1ps
 
+/*
+ * NOTES:
+ * The transmit channel is mux'ed by the tx_cfg_gnt signal. the internal
+ * core sometimes wants to take over the transmit channel, which it does
+ * by asserting the tx_cfg_req signal. The user hands the bus over by
+ * asserting the tx_cfg_gnt. The core holds the _req as long as it runs
+ * a transaction. It will release the _req signal when it does not need
+ * the channel, and the user can withdraw the grant.
+ */
 module xilinx_pcie_slot
-  #(parameter integer LINK_CAP_MAX_LINK_WIDTH = 6'h8,
-    parameter ven_id = "FFFF",
-    parameter dev_id = "FFFF",
-    parameter rev_id = "00",
+  #(// PCIe is point-to-point, and this slot only simulates an endpoint,
+    // so a good default for the device name is "endpoint". If the device
+    // wants multiple endpoints, this will need to be overridden.
+    parameter  name = "endpoint",
+
+    parameter integer LINK_CAP_MAX_LINK_WIDTH = 6'h8,
+
+    // Identifiers
+    parameter ven_id        = "FFFF",
+    parameter dev_id        = "FFFF",
+    parameter rev_id        = "00",
     parameter subsys_ven_id = "FFFF",
-    parameter subsys_id = "FFFF"
+    parameter subsys_id     = "FFFF",
+    // BARs
+    parameter bar_0    = "FFFFFFF4",
+    parameter bar_1    = "FFFFFFFF",
+    parameter bar_2    = "00000000",
+    parameter bar_3    = "00000000",
+    parameter bar_4    = "00000000",
+    parameter bar_5    = "00000000",
+    parameter xrom_bar = "00000000"
     /* */)
    (// The Xilinx X7 core interface are all synchronous with this
     // clock, so for hte purposes of simbus simulation we'll use this
@@ -83,7 +107,7 @@ module xilinx_pcie_slot
     // Transmit buffer was dropped due to error
     output reg 				       tx_err_drop,
 
-    output reg 				       tx_cfg_req,
+    output wire 			       tx_cfg_req,
     input wire 				       tx_cfg_gnt,
 
     // Transmit channel AXI4 stream (slave side)
@@ -98,12 +122,12 @@ module xilinx_pcie_slot
     input wire 				       rx_np_reg,
 
     // Receive channel AXI4 Stream (master side)
-    output reg [63:0] 			       m_axis_rx_tdata,
-    output reg [7:0] 			       m_axis_rx_tkeep,
-    output reg 				       m_axis_rx_tlast,
+    output wire [63:0] 			       m_axis_rx_tdata,
+    output wire [7:0] 			       m_axis_rx_tkeep,
+    output wire 			       m_axis_rx_tlast,
     input wire 				       m_axis_rx_tready,
-    output reg 				       m_axis_rx_tvalid,
-    output reg [21:0] 			       m_axis_rx_tuser,
+    output wire 			       m_axis_rx_tvalid,
+    output wire [21:0] 			       m_axis_rx_tuser,
 
     // Configuration interface
     output reg [31:0] 			       cfg_mgmt_do,
@@ -240,11 +264,6 @@ module xilinx_pcie_slot
 
     /* */);
 
-   // PCIe is point-to-point, and this slot only simulates an endpoint,
-   // so a good default for the device name is "endpoint". If the device
-   // wants multiple endpoints, this will need to be overridden.
-   parameter  name = "endpoint";
-
    // The *_drv signals are copies of the port signals that are driven
    // by the $simbus_until system function. After the UNTIL completes,
    // we assign them to the proper pins by a non-blocking assignment so
@@ -265,9 +284,16 @@ module xilinx_pcie_slot
    reg        m_axis_rx_tvalid_drv = 1'bz;
    reg [21:0] m_axis_rx_tuser_drv = 22'bz;
 
+   reg [63:0] m_axis_rx_tdata_int;
+   reg [7:0]  m_axis_rx_tkeep_int;
+   reg        m_axis_rx_tlast_int;
+   reg        m_axis_rx_tvalid_int;
+   reg [21:0] m_axis_rx_tuser_int;
+
    wire [63:0] s_axis_tx_tdata_int = 64'bz;
    wire [7:0]  s_axis_tx_tkeep_int =  8'bz;
    reg 	       s_axis_tx_tready_drv = 1'bz;
+   reg 	       s_axis_tx_tready_int = 1'bz;
    wire        s_axis_tx_tlast_int =  1'bz;
    wire        s_axis_tx_tvalid_int = 1'bz;
    wire [3:0]  s_axis_tx_tuser_int  = 4'bz;
@@ -303,11 +329,11 @@ module xilinx_pcie_slot
 		       /* Receive Interace (to remote) */
 		       "m_axis_rx_tready", m_axis_rx_tready_int, 1'bz,
 		       /* Transmit Interface (to remote) */
-		       "s_axis_tx_tdata",  s_axis_tx_tdata_int, 64'bz,
-		       "s_axis_tx_tkeep",  s_axis_tx_tkeep_int,  8'bz,
-		       "s_axis_tx_tlast",  s_axis_tx_tlast_int,  1'bz,
-		       "s_axis_tx_tvalid", s_axis_tx_tvalid_int, 1'bz,
-		       "s_axis_tx_tuser",  s_axis_tx_tuser_int,  4'bz
+		       "s_axis_tx_tdata",  tx_cfg_gnt? s_axis_tx_tdata_int  : s_axis_tx_tdata, 64'bz,
+		       "s_axis_tx_tkeep",  tx_cfg_gnt? s_axis_tx_tkeep_int  : s_axis_tx_tkeep,  8'bz,
+		       "s_axis_tx_tlast",  tx_cfg_gnt? s_axis_tx_tlast_int  : s_axis_tx_tlast,  1'bz,
+		       "s_axis_tx_tvalid", tx_cfg_gnt? s_axis_tx_tvalid_int : s_axis_tx_tvalid, 1'bz,
+		       "s_axis_tx_tuser",  tx_cfg_gnt? s_axis_tx_tuser_int  : s_axis_tx_tuser,  4'bz
 		       /* */);
 
 	 // Check if the bus is ready for me to continue. The $simbus_poll
@@ -345,35 +371,60 @@ module xilinx_pcie_slot
 	 user_lnk_up <= user_lnk_up_drv;
 	 user_app_rdy <= 1'b1;
 
-	 m_axis_rx_tdata  <= m_axis_rx_tdata_drv;
-	 m_axis_rx_tkeep  <= m_axis_rx_tkeep_drv;
-	 m_axis_rx_tlast  <= m_axis_rx_tlast_drv;
-	 m_axis_rx_tvalid <= m_axis_rx_tvalid_drv;
-	 m_axis_rx_tuser  <= m_axis_rx_tuser_drv;
+	 m_axis_rx_tdata_int  <= m_axis_rx_tdata_drv;
+	 m_axis_rx_tkeep_int  <= m_axis_rx_tkeep_drv;
+	 m_axis_rx_tlast_int  <= m_axis_rx_tlast_drv;
+	 m_axis_rx_tvalid_int <= m_axis_rx_tvalid_drv;
+	 m_axis_rx_tuser_int  <= m_axis_rx_tuser_drv;
 
-	 s_axis_tx_tready <= s_axis_tx_tready_drv;
+	 if (tx_cfg_gnt) begin
+	    s_axis_tx_tready_int <= s_axis_tx_tready_drv;
+	    s_axis_tx_tready     <= 1'b0;
+	 end else begin
+	    s_axis_tx_tready_int <= 1'b0;
+	    s_axis_tx_tready     <= s_axis_tx_tready_drv;
+	 end
       end // forever begin
    end // initial begin
 
    xilinx_pcie_cfg_space
      #(.ven_id(ven_id),
        .dev_id(dev_id),
-       .rev_id(rev_id)
+       .rev_id(rev_id),
+       .subsys_id(subsys_id),
+       .subsys_ven_id(subsys_ven_id),
+       .bar_0(bar_0),
+       .bar_1(bar_1),
+       .bar_2(bar_2),
+       .bar_3(bar_3),
+       .bar_4(bar_4),
+       .bar_5(bar_5),
+       .xrom_bar(xrom_bar)
        /* */) cfg_space
        (.user_clk(user_clk_out),
 	.user_reset(user_reset_out),
+	// Transmit channel arbitration
+	.tx_cfg_req(tx_cfg_req),
+	.tx_cfg_gnt(tx_cfg_gnt),
 	// Receive channel AXI4 Stream
-	.m_axis_rx_tdata (m_axis_rx_tdata),
-	.m_axis_rx_tkeep (m_axis_rx_tkeep),
-	.m_axis_rx_tlast (m_axis_rx_tlast),
+	.m_axis_rx_tdata (m_axis_rx_tdata_int),
+	.m_axis_rx_tkeep (m_axis_rx_tkeep_int),
+	.m_axis_rx_tlast (m_axis_rx_tlast_int),
 	.m_axis_rx_tready(m_axis_rx_tready_int),
-	.m_axis_rx_tvalid(m_axis_rx_tvalid),
-	.m_axis_rx_tuser (m_axis_rx_tuser),
+	.m_axis_rx_tvalid(m_axis_rx_tvalid_int),
+	.m_axis_rx_tuser (m_axis_rx_tuser_int),
+	// Receive channel AXI4 Stream (filtered for user)
+	.o_axis_rx_tdata (m_axis_rx_tdata),
+	.o_axis_rx_tkeep (m_axis_rx_tkeep),
+	.o_axis_rx_tlast (m_axis_rx_tlast),
+	.o_axis_rx_tready(m_axis_rx_tready),
+	.o_axis_rx_tvalid(m_axis_rx_tvalid),
+	.o_axis_rx_tuser (m_axis_rx_tuser),
 	// Transmit channel AXI4 Stream
 	.s_axis_tx_tdata (s_axis_tx_tdata_int),
 	.s_axis_tx_tkeep (s_axis_tx_tkeep_int),
 	.s_axis_tx_tlast (s_axis_tx_tlast_int),
-	.s_axis_tx_tready(s_axis_tx_tready),
+	.s_axis_tx_tready(s_axis_tx_tready_int),
 	.s_axis_tx_tvalid(s_axis_tx_tvalid_int),
 	.s_axis_tx_tuser (s_axis_tx_tuser_int)
 	/* */);
@@ -387,43 +438,103 @@ endmodule // xilinx_pcie_slot
 module xilinx_pcie_cfg_space
   #(parameter ven_id = "FFFF",
     parameter dev_id = "FFFF",
-    parameter rev_id = "00"
+    parameter rev_id = "00",
+    parameter subsys_ven_id = "FFFF",
+    parameter subsys_id     = "FFFF",
+    // BARs
+    parameter bar_0    = "FFFFFFF4",
+    parameter bar_1    = "FFFFFFFF",
+    parameter bar_2    = "00000000",
+    parameter bar_3    = "00000000",
+    parameter bar_4    = "00000000",
+    parameter bar_5    = "00000000",
+    parameter xrom_bar = "00000000"
     /* */)
    (input wire user_clk,
-    input wire 	      user_reset,
+    input wire 	       user_reset,
+
+    output reg 	       tx_cfg_req,
+    input wire 	       tx_cfg_gnt,
 
     // Receive channel AXI4 Stream
-    input wire [63:0] m_axis_rx_tdata,
-    input wire [7:0]  m_axis_rx_tkeep,
-    input wire 	      m_axis_rx_tlast,
-    output reg 	      m_axis_rx_tready,
-    input wire 	      m_axis_rx_tvalid,
-    input wire [21:0] m_axis_rx_tuser,
+    input wire [63:0]  m_axis_rx_tdata,
+    input wire [7:0]   m_axis_rx_tkeep,
+    input wire 	       m_axis_rx_tlast,
+    output wire        m_axis_rx_tready,
+    input wire 	       m_axis_rx_tvalid,
+    input wire [21:0]  m_axis_rx_tuser,
+
+    // Receive channel AXI4 Stream (passed to user)
+    output wire [63:0] o_axis_rx_tdata,
+    output wire [7:0]  o_axis_rx_tkeep,
+    output wire        o_axis_rx_tlast,
+    input wire 	       o_axis_rx_tready,
+    output wire        o_axis_rx_tvalid,
+    output wire [21:0] o_axis_rx_tuser,
 
     // Transmit channel AXI4 stream
-    output reg [63:0] s_axis_tx_tdata,
-    output reg [7:0]  s_axis_tx_tkeep,
-    output reg 	      s_axis_tx_tlast,
-    input wire 	      s_axis_tx_tready,
-    output reg 	      s_axis_tx_tvalid,
-    output reg [3:0]  s_axis_tx_tuser
+    output reg [63:0]  s_axis_tx_tdata,
+    output reg [7:0]   s_axis_tx_tkeep,
+    output reg 	       s_axis_tx_tlast,
+    input wire 	       s_axis_tx_tready,
+    output reg 	       s_axis_tx_tvalid,
+    output reg [3:0]   s_axis_tx_tuser
     /* */);
 
    reg [31:0]  cfg_mem[0 : 1023];
+
+   reg [31:0]  bar_mask[0:5];
 
    // State for receiving a TLP.
    reg [31:0]  tlp [0:3];
    reg [7:0]   ntlp;
    reg 	       tlp_is_config, tlp_is_skip;
 
+   // TREADY signal from the buffer. The flow control through this module
+   // relies on the buf as well as the config receiver itself.
+   wire        m_axis_rx_tready_buf;
+   reg 	       m_axis_rx_tready_int;
+   assign m_axis_rx_tready = m_axis_rx_tready_buf & m_axis_rx_tready_int;
+
    // State for transmitting a completion TLP.
    reg [63:0]  cmp_data[0:1];
    reg [7:0]   cmp_keep[0:1];
    reg [7:0]   ncmp, cmp_cur;
 
+   // Configuration writes are sometimes non-trivial, because not all
+   // registers, and in some cases not all bits, are necessarily writable.
+   // This task figures all that out and causes the correct memory bits
+   // to be written.
+   task do_cfg_write(input [11:2]adr, input [31:0]val, input [3:0]ben);
+      reg [31:0] mask;
+      begin
+	 mask[31:24] = ben[3]? 8'hff : 8'h00;
+	 mask[23:16] = ben[2]? 8'hff : 8'h00;
+	 mask[15: 8] = ben[1]? 8'hff : 8'h00;
+	 mask[ 7: 0] = ben[0]? 8'hff : 8'h00;
+	 case (adr)
+	   0: begin
+	   end
+	   // BARs can only have some of their bits written.
+	   4,5,6,7,8,9: begin
+	      mask = mask & bar_mask[adr-4];
+	      cfg_mem[adr] = val&mask | cfg_mem[adr]&~mask;
+	   end
+
+	   default: begin
+	      cfg_mem[adr] = val&mask | cfg_mem[adr]&~mask;
+	   end
+	 endcase
+      end
+   endtask // do_cfg_write
+
+   // A configuration TLP is finished, so process it and make
+   // a completion.
    task make_completion;
       reg [7:0]  tlp_tag;
       reg [11:2] tlp_adr;
+      reg [31:0] tlp_val;
+      reg [3:0]  tlp_ben;
       begin
 	 if (ncmp != 0) begin
 	    $display("%m: ERROR: Completion buffer overrun?!");
@@ -431,12 +542,15 @@ module xilinx_pcie_cfg_space
 	 end
 	 // Extract parts that we will need to make up the completion
 	 tlp_tag = tlp[1][15:8];
+	 tlp_ben = tlp[1][3:0];
 	 tlp_adr = tlp[2][11:2];
+	 tlp_val = ntlp==4? tlp[3] : 32'h00000000;
+
 	 // Generate the completion based on the request.
 	 case (tlp[0][31:24])
 	   'b000_00100: begin // CfgRd0
-	      $display("%m: Got a CfgRd0 (tag=%h, adr=%h, val=%h)",
-		       tlp_tag, tlp_adr, cfg_mem[tlp_adr]);
+	      $display("%m: Got a CfgRd0 (tag=%h, adr=%h, , ben=%b, val=%h)",
+		       tlp_tag, tlp_adr, tlp_ben, cfg_mem[tlp_adr]);
 	      cmp_data[0] = 64'h00000000_4a000001;
 	      cmp_data[1] = {cfg_mem[tlp_adr], 16'h0000, tlp_tag, 8'h00};
 	      cmp_keep[0] = 8'hff;
@@ -444,6 +558,18 @@ module xilinx_pcie_cfg_space
 	      ncmp <= 2;
 	      cmp_cur <= 0;
 	   end
+
+	   'b010_00100: begin // CfgWr0
+	      $display("%m: Got a CfgWr0 (tag=%h, adr-%h, ben=%b val=%h)", tlp_tag, tlp_adr, tlp_ben, tlp_val);
+	      do_cfg_write(tlp_adr, tlp_val, tlp_ben);
+	      cmp_data[0] = 64'h00000000_0a000000;
+	      cmp_data[1] = {32'h00000000, 16'h0000, tlp_tag, 8'h00};
+	      cmp_keep[0] = 8'hff;
+	      cmp_keep[1] = 8'h0f;
+	      ncmp <= 2;
+	      cmp_cur <= 0;
+	   end
+
 	   default: begin // Unknown or unsupported
 	   end
 	 endcase // case (tlp[0][31:24])
@@ -459,7 +585,7 @@ module xilinx_pcie_cfg_space
 	 ntlp <= 0;
 	 tlp_is_config <= 0;
 	 tlp_is_skip   <= 0;
-	 m_axis_rx_tready <= 1;
+	 m_axis_rx_tready_int <= 1;
 
       end else if ((tlp_is_config||~tlp_is_skip) && m_axis_rx_tready && m_axis_rx_tvalid) begin
 
@@ -541,6 +667,7 @@ module xilinx_pcie_cfg_space
 	 ncmp    <= 0;
 	 s_axis_tx_tvalid <= 0;
 	 s_axis_tx_tuser  <= 0;
+	 tx_cfg_req       <= 0;
 
       end else if (s_axis_tx_tready & s_axis_tx_tvalid) begin
 	 // If the remote consumes a word, set up the next word. If the
@@ -552,6 +679,7 @@ module xilinx_pcie_cfg_space
 	    s_axis_tx_tlast  <= 0;
 	    cmp_cur <= 0;
 	    ncmp    <= 0;
+	    tx_cfg_req <= 0;
 
 	 end else begin
 	    drive_cmp_word(cmp_cur);
@@ -560,26 +688,181 @@ module xilinx_pcie_cfg_space
 
       end else if (s_axis_tx_tvalid==0 && ncmp!=0) begin
 	 // Is there a completion waiting to be started?
-	 drive_cmp_word(0);
-	 cmp_cur <= 1;
+
+	 // Request the transmit stream, if not requested already.
+	 if (tx_cfg_req == 0)
+	   tx_cfg_req <= 1;
+	 // Drive the first word of the completion TLP. The remaining
+	 // words will be handled in another condition.
+	 if (tx_cfg_gnt) begin
+	    drive_cmp_word(0);
+	    cmp_cur <= 1;
+	 end
 
       end else begin
       end
    end // block: cmp_machine
 
+   xilinx_pcie_rx_buffer buffer
+     (.user_clk(user_clk),
+      .user_reset(user_reset),
+
+      .tlp_pass(tlp_is_skip),
+      .tlp_drop(tlp_is_config),
+
+      .i_axis_rx_tdata(m_axis_rx_tdata),
+      .i_axis_rx_tkeep(m_axis_rx_tkeep),
+      .i_axis_rx_tlast(m_axis_rx_tlast),
+      .i_axis_rx_tready(m_axis_rx_tready_buf),
+      .i_axis_rx_tvalid(m_axis_rx_tvalid),
+      .i_axis_rx_tuser(m_axis_rx_tuser),
+
+      .o_axis_rx_tdata(o_axis_rx_tdata),
+      .o_axis_rx_tkeep(o_axis_rx_tkeep),
+      .o_axis_rx_tlast(o_axis_rx_tlast),
+      .o_axis_rx_tready(o_axis_rx_tready),
+      .o_axis_rx_tvalid(o_axis_rx_tvalid),
+      .o_axis_rx_tuser(o_axis_rx_tuser)
+      /* */);
+
    // Pre-reset initialization
    initial begin : init
       integer rc;
       reg [15:0] val16;
+      reg [31:0] val32;
 
       // Initialize the config space.
-      rc = $sscanf(dev_id, "%h", val16);
-      cfg_mem[0][15:0] = val16;
       rc = $sscanf(ven_id, "%h", val16);
+      cfg_mem[0][15:0] = val16;
+      rc = $sscanf(dev_id, "%h", val16);
       cfg_mem[0][31:16] = val16;
+      rc = $sscanf(bar_0, "%h", val32);
+      cfg_mem[4] = val32;
+      bar_mask[0] = val32 & 32'hfffffff0;
+      rc = $sscanf(bar_1, "%h", val32);
+      cfg_mem[5] = val32;
+      bar_mask[1] = val32 & 32'hfffffff0;
+      rc = $sscanf(bar_2, "%h", val32);
+      cfg_mem[6] = val32;
+      bar_mask[2] = val32 & 32'hfffffff0;
+      rc = $sscanf(bar_3, "%h", val32);
+      cfg_mem[7] = val32;
+      bar_mask[3] = val32 & 32'hfffffff0;
+      rc = $sscanf(bar_4, "%h", val32);
+      cfg_mem[8] = val32;
+      bar_mask[4] = val32 & 32'hfffffff0;
+      rc = $sscanf(bar_5, "%h", val32);
+      cfg_mem[9] = val32;
+      bar_mask[5] = val32 & 32'hfffffff0;
+      rc = $sscanf(subsys_ven_id, "%h", val16);
+      cfg_mem[11][15:0] = val16;
+      rc = $sscanf(subsys_id, "%h", val16);
+      cfg_mem[11][31:16] = val16;
+      rc = $sscanf(xrom_bar, "%h", val32);
+      cfg_mem[12] = val32;
       $display("%m: Initialize config space:");
-      for (rc = 0 ; rc < 256 ; rc = rc+4)
+      for (rc = 0 ; rc < 16 ; rc = rc+4)
 	$display("%m: %h: %h %h %h %h", rc[7:0], cfg_mem[rc+0], cfg_mem[rc+1], cfg_mem[rc+2], cfg_mem[rc+3]);
    end
 
 endmodule // xilinx_pcie_cfg_space
+
+/*
+ * This module captures and buffers a TLP from the remote. Once it is
+ * determined by the context that the incoming TLP is to be passed
+ * through, it starts directing it through to the output. If it is
+ * determinted that the TLP is to be consumed, then it is ignored
+ * and dropped.
+ */
+module xilinx_pcie_rx_buffer
+  (/* */
+   input wire 	     user_clk,
+   input wire 	     user_reset,
+
+   input wire 	     tlp_pass,
+   input wire 	     tlp_drop,
+
+   // Receive channel AXI4 Stream (master side)
+   input wire [63:0] i_axis_rx_tdata,
+   input wire [7:0]  i_axis_rx_tkeep,
+   input wire 	     i_axis_rx_tlast,
+   output reg 	     i_axis_rx_tready,
+   input wire 	     i_axis_rx_tvalid,
+   input wire [21:0] i_axis_rx_tuser,
+
+    // Receive channel AXI4 Stream (master side)
+   output reg [63:0] o_axis_rx_tdata,
+   output reg [7:0]  o_axis_rx_tkeep,
+   output reg 	     o_axis_rx_tlast,
+   input wire 	     o_axis_rx_tready,
+   output reg 	     o_axis_rx_tvalid,
+   output reg [21:0] o_axis_rx_tuser
+   /* */);
+
+   reg [63:0] 	     tdata_buf[0:3];
+   reg [7:0] 	     tkeep_buf[0:3];
+   reg 		     tlast_buf[0:3];
+   reg [21:0] 	     tuser_buf[0:3];
+
+   reg [1:0] 	     ptr;
+   reg [2:0] 	     fill;
+
+   task push_beat;
+      reg [1:0] nxt;
+      begin
+	 nxt = ptr + fill;
+	 tdata_buf[nxt] = i_axis_rx_tdata;
+	 tkeep_buf[nxt] = i_axis_rx_tkeep;
+	 tlast_buf[nxt] = i_axis_rx_tlast;
+	 tuser_buf[nxt] = i_axis_rx_tuser;
+	 fill = fill + 1;
+      end
+   endtask // always
+
+   task pull_beat;
+      begin
+	 o_axis_rx_tdata  <= tdata_buf[ptr];
+	 o_axis_rx_tkeep  <= tkeep_buf[ptr];
+	 o_axis_rx_tlast  <= tlast_buf[ptr];
+	 o_axis_rx_tvalid <= 1;
+	 o_axis_rx_tuser  <= tuser_buf[ptr];
+	 ptr = ptr+1;
+      end
+   endtask // always
+
+
+   always @(posedge user_clk)
+     if (user_reset) begin
+	ptr  = 0;
+	fill = 0;
+
+	i_axis_rx_tready <= 1;
+
+	o_axis_rx_tlast  <= 0;
+	o_axis_rx_tvalid <= 0;
+
+     end else if (tlp_drop) begin
+	// If we are in drop mode, then forget the beats that
+	// we collected so far, and ignore the remaining until
+	// we exit from drop mode.
+	ptr  = 0;
+	fill = 0;
+
+     end else if (tlp_pass) begin
+	// If we are in pass mode, then clock the TLP out to the
+	// destination as quickly as it will go.
+	
+	if (fill>0 && o_axis_rx_tready && o_axis_rx_tvalid)
+	  pull_beat;
+	else if (fill>0 && !o_axis_rx_tvalid)
+	  pull_beat;
+	else if (fill==0 && o_axis_rx_tready && o_axis_rx_tvalid)
+	  o_axis_rx_tvalid <= 0;
+
+	if (i_axis_rx_tready & i_axis_rx_tvalid)
+	  push_beat;
+
+     end else begin
+     end
+
+endmodule // xilinx_pcie_rx_buffer

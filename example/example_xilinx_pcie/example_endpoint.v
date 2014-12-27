@@ -25,10 +25,21 @@ module main;
    wire user_clk_out;
    wire user_reset_out;
 
-   xilinx_pcie_slot bus
+   wire tx_cfg_req;
+
+   xilinx_pcie_slot
+     #(.dev_id("5555"),
+       .ven_id("aaaa"),
+       .subsys_id("1111"),
+       .subsys_ven_id("bbbb")
+       /* */)
+   bus
      (/* */
       .user_clk_out(user_clk_out),
-      .user_reset_out(user_reset_out)
+      .user_reset_out(user_reset_out),
+      // Arbitration for the transmit channel
+      .tx_cfg_req(tx_cfg_req),
+      .tx_cfg_gnt(tx_cfg_req)
       /* */);
 
    device dut
