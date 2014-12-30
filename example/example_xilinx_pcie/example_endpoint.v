@@ -60,6 +60,7 @@ module main;
       .s_axis_tx_tkeep(s_axis_tx_tkeep),
       .s_axis_tx_tlast(s_axis_tx_tlast),
       .s_axis_tx_tready(s_axis_tx_tready),
+      .s_axis_tx_tvalid(s_axis_tx_tvalid),
 
       .s_axis_tx_tuser(s_axis_tx_tuser),
 
@@ -119,6 +120,9 @@ module device
    output reg [3:0]  s_axis_tx_tuser
    /* */);
 
+   // Keep a memory buffer that the remove can write/read.
+   reg [31:0] 	     memory [0:8191];
+
    reg 	      reset_flag = 0;
    always @(posedge user_clk) begin
       if (user_reset) begin
@@ -135,10 +139,62 @@ module device
    reg [31:0] tlp_buf [0:2047];
    reg [11:0] tlp_cnt;
 
+   reg [31:0] otlp_buf [0:2047];
+   reg [12:0] otlp_cnt, otlp_idx;
+
    task collect_tlp_word(input [31:0] val);
       begin
 	 tlp_buf[tlp_cnt] = val;
 	 tlp_cnt = tlp_cnt+1;
+      end
+   endtask
+
+   task complete_tlp_write32;
+      reg [31:2] addr, idx;
+      reg [9:0]  ndata;
+      begin
+	 ndata = tlp_buf[0][9:0];
+	 addr = tlp_buf[2][31:2];
+	 for (idx = 0 ; idx < ndata ; idx = idx+1)
+	   memory[addr+idx] = tlp_buf[3+idx];
+      end
+   endtask
+
+   task complete_tlp_write64;
+      reg [63:2] addr, idx;
+      reg [9:0]  ndata;
+      begin
+	 ndata = tlp_buf[0][9:0];
+	 addr[63:32] = tlp_buf[2];
+	 addr[31:2] = tlp_buf[3][31:2];
+	 for (idx = 0 ; idx < ndata ; idx = idx+1)
+	    memory[addr+idx] = tlp_buf[4+idx];
+      end
+   endtask
+
+   task complete_tlp_read32;
+      reg [31:2] addr, idx;
+      reg [9:0]  ndata;
+      reg [7:0]  tag;
+      begin
+	 ndata = tlp_buf[0][9:0];
+	 addr = tlp_buf[2][31:2];
+	 tag = tlp_buf[1][15:8];
+
+	 // Build a completion w/ data.
+	 otlp_buf[0] = {8'b010_01010, 14'h0, ndata};
+	 otlp_buf[1] = 0;
+	 otlp_buf[2] = {16'h00_00, tag, 8'h00};
+	 for (idx = 0 ; idx < ndata ; idx = idx+1)
+	   otlp_buf[3+idx] = memory[addr+idx];
+
+	 otlp_cnt <= ndata + 3;
+      end
+   endtask //
+
+   task complete_tlp_unknown;
+      begin
+	 $display("%m: Unknown TLP Fmt=%b, Type=%b", tlp_buf[0][31:29], tlp_buf[0][28:24]);
       end
    endtask
 
@@ -150,6 +206,13 @@ module device
 	    $display("%m: %4d: %8h", idx, tlp_buf[idx]);
 	 end
 
+	 case (tlp_buf[0][31:24])
+	   'b010_00000: complete_tlp_write32;
+	   'b011_00000: complete_tlp_write64;
+	   'b000_00000: complete_tlp_read32;
+	   default:     complete_tlp_unknown;
+	 endcase // case (tlp_buf[0][31:24])
+
 	 tlp_cnt = 0;
       end
    endtask
@@ -159,7 +222,7 @@ module device
 	tlp_cnt <= 0;
 	m_axis_rx_tready <= 1;
 
-     end else if (m_axis_rx_tvalid & m_axis_rx_tready) begin
+     end else if (m_axis_rx_tvalid && m_axis_rx_tready) begin
 	if (m_axis_rx_tkeep[3:0] == 4'b1111)
 	  collect_tlp_word(m_axis_rx_tdata[31:0]);
 	if (m_axis_rx_tkeep[7:4] == 4'b1111)
@@ -171,4 +234,48 @@ module device
      end else begin
      end
 
+   always @(posedge user_clk)
+     if (user_reset) begin
+	s_axis_tx_tvalid <= 0;
+	s_axis_tx_tkeep  <= 0;
+	s_axis_tx_tlast  <= 0;
+	otlp_cnt <= 0;
+	otlp_idx <= 0;
+
+     end else if (otlp_idx<otlp_cnt && s_axis_tx_tvalid && s_axis_tx_tready) begin
+	s_axis_tx_tvalid <= 1;
+	if (otlp_cnt-otlp_idx >= 2) begin
+	   s_axis_tx_tdata <= {otlp_buf[otlp_idx+1], otlp_buf[otlp_idx+0]};
+	   s_axis_tx_tkeep <= 8'b1111_1111;
+	   s_axis_tx_tlast <= (otlp_cnt-otlp_idx == 2)? 1 : 0;
+	   otlp_idx <= otlp_idx + 2;
+	end else begin
+	   s_axis_tx_tdata <= {32'hxxxxxxxx, otlp_buf[otlp_idx+0]};
+	   s_axis_tx_tkeep <= 8'b0000_1111;
+	   s_axis_tx_tlast <= 1;
+	   otlp_idx <= otlp_idx + 1;
+	end
+
+     end else if (0<otlp_cnt && otlp_idx==0) begin
+	s_axis_tx_tvalid <= 1;
+	if (otlp_cnt >= 2) begin
+	   s_axis_tx_tdata <= {otlp_buf[1], otlp_buf[0]};
+	   s_axis_tx_tkeep <= 8'b1111_1111;
+	   otlp_idx <= 2;
+	end else begin
+	   s_axis_tx_tdata <= {32'hxxxxxxxx, otlp_buf[0]};
+	   s_axis_tx_tkeep <= 8'b0000_1111;
+	   otlp_idx <= 1;
+	end
+	s_axis_tx_tlast <= otlp_cnt<=2? 1 : 0;
+
+     end else if (s_axis_tx_tvalid & s_axis_tx_tready) begin
+	s_axis_tx_tvalid <= 0;
+	s_axis_tx_tkeep <= 8'b0000_0000;
+	s_axis_tx_tlast <= 0;
+	otlp_idx <= 0;
+	otlp_cnt <= 0;
+
+     end else begin
+     end
 endmodule // device

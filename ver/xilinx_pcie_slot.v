@@ -814,10 +814,10 @@ module xilinx_pcie_rx_buffer
       reg [1:0] nxt;
       begin
 	 nxt = ptr + fill;
-	 tdata_buf[nxt] = i_axis_rx_tdata;
-	 tkeep_buf[nxt] = i_axis_rx_tkeep;
-	 tlast_buf[nxt] = i_axis_rx_tlast;
-	 tuser_buf[nxt] = i_axis_rx_tuser;
+	 tdata_buf[nxt] <= i_axis_rx_tdata;
+	 tkeep_buf[nxt] <= i_axis_rx_tkeep;
+	 tlast_buf[nxt] <= i_axis_rx_tlast;
+	 tuser_buf[nxt] <= i_axis_rx_tuser;
 	 fill = fill + 1;
       end
    endtask // always
@@ -868,8 +868,8 @@ module xilinx_pcie_rx_buffer
 	else if (fill==0 && o_axis_rx_tready && o_axis_rx_tvalid) begin
 	   o_axis_rx_tvalid <= 0;
 	   o_axis_rx_tlast  <= 0;
-	   o_axis_rx_tdata = 64'bx;
-	   o_axis_rx_tkeep = 8'bx;
+	   o_axis_rx_tdata  <= 64'bx;
+	   o_axis_rx_tkeep  <= 8'bx;
 	end
 
 	if (i_axis_rx_tready & i_axis_rx_tvalid)

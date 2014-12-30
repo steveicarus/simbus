@@ -91,6 +91,10 @@ EXTERN void simbus_pcie_tlp_write(simbus_pcie_tlp_t bus, uint64_t addr,
 				     const uint32_t*data, size_t ndata,
 				     int off, size_t len);
 
+EXTERN void simbus_pcie_tlp_read(simbus_pcie_tlp_t bus, uint64_t addr,
+				 uint32_t*data, size_t ndata,
+				 int off, size_t len);
+
 /*
  * Send an end-of-simulation message to the simulator, then dosconnect
  * and close the bus object. Only HOST devices should call the

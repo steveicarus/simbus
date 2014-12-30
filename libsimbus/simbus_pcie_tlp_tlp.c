@@ -107,7 +107,7 @@ static void copy_tlp_to_completion(simbus_pcie_tlp_t bus,
       assert(bus->completions[tag] == 0);
       assert(words >= 3 && words <= bus->s_tlp_cnt);
 
-      bus->completions[tag] = calloc(3, sizeof(uint32_t));
+      bus->completions[tag] = calloc(words, sizeof(uint32_t));
 
       for (size_t idx = 0 ; idx < words ; idx += 1)
 	    bus->completions[tag][idx] = bus->s_tlp_buf[idx];

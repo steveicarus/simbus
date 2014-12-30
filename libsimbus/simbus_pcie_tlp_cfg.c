@@ -143,13 +143,11 @@ void simbus_pcie_tlp_cfg_read32(simbus_pcie_tlp_t bus,
 				   uint32_t*val)
 {
       uint32_t tlp[4];
-      uint8_t use_tag = bus->tlp_next_tag;
+      uint8_t use_tag = __pcie_tlp_choose_tag(bus);
 
       tlp[0] = 0x04000001;
       tlp[1] = 0x00000000 | (use_tag << 8) | 0xf;
       tlp[2] = (bus_devfn << 16) | (addr & 0x0ffc);
-
-      bus->tlp_next_tag = (bus->tlp_next_tag + 1) % 32;
 
       __pcie_tlp_send_tlp(bus, tlp, 3);
 

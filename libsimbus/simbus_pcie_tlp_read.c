@@ -23,10 +23,8 @@
 # include  <string.h>
 # include  <assert.h>
 
-# define WRITE_TID (0)
-
 /*
- * Make a write TLP with these formats:
+ * Make a read TLP with these formats:
  *
  *        n...n is the data word count
  *        a...a is the address low 32 bits
@@ -36,35 +34,30 @@
  *        t...t is the transaction tag.
  *
  * 32bit address version:
- *    01000000 00000000 000000nn nnnnnnnn
+ *    00000000 00000000 000000nn nnnnnnnn
  *    00000000 00000000 tttttttt EEEEeeee
  *    aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa  (32bit address)
- *    dddddddd dddddddd dddddddd dddddddd  (data[0])
- *    [... More data words ...]
  *
  * 64bit address version:
- *    01100000 00000000 000000nn nnnnnnnn
+ *    00100000 00000000 000000nn nnnnnnnn
  *    00000000 00000000 tttttttt EEEEeeee
- *    AAAAAAAA AAAAAAAA AAAAAAAA AAAAAAAA
- *    aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa  (32bit address)
- *    dddddddd dddddddd dddddddd dddddddd  (data[0])
- *    [... More data words ...]
+ *    AAAAAAAA AAAAAAAA AAAAAAAA AAAAAAAA  (high bits of address)
+ *    aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa  (low bits of address)
  */
-void simbus_pcie_tlp_write(simbus_pcie_tlp_t bus, uint64_t addr,
-			      const uint32_t*data, size_t ndata,
+void simbus_pcie_tlp_read(simbus_pcie_tlp_t bus, uint64_t addr,
+			  uint32_t*data, size_t ndata,
 			      int off, size_t len)
 {
-      uint32_t*tlp = calloc(ndata+4, sizeof(uint32_t));
-      assert(tlp);
+      uint32_t tlp[4];
 
       uint32_t addr_h = (addr >> 32) & 0xffffffffUL;
       uint32_t addr_l = (addr >>  0) & 0xffffffffUL;
 
 	/* Memory Write Request Fmt/type */
       if (addr_h==0)
-	    tlp[0] = 0x40000000; /* MWr w/ 32bit addr */
+	    tlp[0] = 0x00000000; /* MRd w/ 32bit addr */
       else
-	    tlp[0] = 0x60000000; /* MWr w/ 64bit addr */
+	    tlp[0] = 0x20000000; /* MRd w/ 64bit addr */
 
 	/* Write the data count into the length field. */
       assert(ndata <= 0x3ff && ndata >= 1);
@@ -78,26 +71,13 @@ void simbus_pcie_tlp_write(simbus_pcie_tlp_t bus, uint64_t addr,
       assert(off <= 3);
       assert(off+len <= 4*ndata);
 
-      if (ndata == 1) {
-	    uint32_t lmask = 0x0f & ~(0xf << len);
-	    uint32_t omask = 0x0f & (0xf<<off);
-	    uint32_t mask = lmask & omask;
-
-	    tlp[1] |= mask;
-      } else {
-	    uint32_t omask = 0xf & (0xf << off);
-	    size_t olen = (off + len) % 4;
-	    if (olen == 0) olen = 4;
-
-	    uint32_t lmask = 0xf0 & ~(0xf0 << olen);
-
-	    tlp[1] |= lmask;
-	    tlp[1] |= omask;
-      }
+      assert(off==0 && len==ndata*4);
+      tlp[1] |= 0xff;
 
 	/* The write transaction does not require a completion, so
 	   there is no need for a unique transaction id (TID) */
-      tlp[1] |= WRITE_TID << 8;
+      uint8_t use_tag = __pcie_tlp_choose_tag(bus);
+      tlp[1] |= use_tag << 8;
 
 	/* Write the address into the header. If the address has high
 	   bits, then write the high bits first. */
@@ -106,12 +86,45 @@ void simbus_pcie_tlp_write(simbus_pcie_tlp_t bus, uint64_t addr,
 	    tlp[ntlp++] = addr_h;
       tlp[ntlp++] = addr_l;
 
-	/* Finally, load the data into the TLP. */
-      for (size_t idx = 0 ; idx < ndata ; idx += 1)
-	    tlp[ntlp++] = *data++;
-
 	/* Send it! */
       __pcie_tlp_send_tlp(bus, tlp, ntlp);
 
-      free(tlp);
+	/* Wait for a response to the read. */
+      while (bus->completions[use_tag] == 0) {
+	    __pcie_tlp_next_posedge(bus);
+      }
+
+      uint32_t*ctlp = bus->completions[use_tag];
+      bus->completions[use_tag] = 0;
+
+	/*
+	 * We are expecting a completion w/ data, with ndata words
+	 * of data.
+	 *
+	 *        n...n is the data word count, and should be 1.
+	 *        d...d is the data
+	 *        s...s is the completion status
+	 *        t...t is the requestor tag, and should be use_tag
+	 *
+	 *    01001010 ........ ......nn nnnnnnnn
+	 *    ........ ........ sss..... ........
+	 *    ........ ........ tttttttt ........
+	 *    dddddddd dddddddd dddddddd dddddddd
+	 */
+      size_t ndata2 = ctlp[0] & 0x03ff;
+      int status = (ctlp[1] >> 13) & 0x07;
+
+      switch (status) {
+	  case 0: /* Successful Completion */
+	    assert(ndata == ndata2);
+	    for (size_t idx = 0 ; idx < ndata ; idx += 1)
+		  data[idx] = ctlp[3+idx];
+	    break;
+	  default: /* Unexpected completion type */
+	    for (size_t idx = 0 ; idx < ndata ; idx += 1)
+		  data[idx] = 0xffffffff;
+	    break;
+      }
+
+      free(ctlp);
 }

@@ -214,3 +214,12 @@ int simbus_pcie_tlp_wait(simbus_pcie_tlp_t bus, unsigned clks)
 
       return 0;
 }
+
+uint8_t __pcie_tlp_choose_tag(simbus_pcie_tlp_t bus)
+{
+      uint8_t res = bus->tlp_next_tag;
+
+      bus->tlp_next_tag = (bus->tlp_next_tag + 1) % 32;
+
+      return res;
+}

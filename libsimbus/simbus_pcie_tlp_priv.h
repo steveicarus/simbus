@@ -78,6 +78,8 @@ struct simbus_pcie_tlp_s {
       bus_bitval_t s_axis_tx_tuser[4];
 };
 
+extern uint8_t __pcie_tlp_choose_tag(simbus_pcie_tlp_t bus);
+
 /*
  * Wait for the next posedge of the transaction clock.
  */

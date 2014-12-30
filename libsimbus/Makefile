@@ -41,6 +41,7 @@ L = simbus.o \
 	simbus_p2p.o \
 	simbus_pcie_tlp.o \
 	simbus_pcie_tlp_cfg.o \
+	simbus_pcie_tlp_read.o \
 	simbus_pcie_tlp_reset.o \
 	simbus_pcie_tlp_tlp.o \
 	simbus_pcie_tlp_write.o
@@ -62,6 +63,7 @@ simbus_pci_target.o: simbus_pci_target.c simbus_pci.h simbus_pci_priv.h simbus_p
 simbus_p2p.o: simbus_p2p.c simbus_p2p.h simbus_p2p_priv.h simbus_priv.h
 simbus_pcie_tlp.o: simbus_pcie_tlp.c simbus_pcie_tlp.h simbus_pcie_tlp_priv.h simbus_priv.h
 simbus_pcie_tlp_cfg.o: simbus_pcie_tlp_cfg.c simbus_pcie_tlp.h simbus_pcie_tlp_priv.h simbus_priv.h
+simbus_pcie_tlp_read.o: simbus_pcie_tlp_read.c simbus_pcie_tlp.h simbus_pcie_tlp_priv.h simbus_priv.h
 simbus_pcie_tlp_reset.o: simbus_pcie_tlp_reset.c simbus_pcie_tlp.h simbus_pcie_tlp_priv.h simbus_priv.h
 simbus_pcie_tlp_tlp.o: simbus_pcie_tlp_tlp.c simbus_pcie_tlp.h simbus_pcie_tlp_priv.h simbus_priv.h
 simbus_pcie_tlp_write.o: simbus_pcie_tlp_write.c simbus_pcie_tlp.h simbus_pcie_tlp_priv.h simbus_priv.h
