@@ -76,6 +76,10 @@ int main(int argc, char*argv[])
 		   0x10+4*idx, dst[idx], buf[idx]);
       }
 
+      printf("Wait 4 more clocks...\n");
+      fflush(stdout);
+      simbus_pcie_tlp_wait(bus, 4);
+
       simbus_pcie_tlp_end_simulation(bus);
       if (debug) fclose(debug);
 }

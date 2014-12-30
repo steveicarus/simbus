@@ -250,7 +250,7 @@ module device
 	   s_axis_tx_tlast <= (otlp_cnt-otlp_idx == 2)? 1 : 0;
 	   otlp_idx <= otlp_idx + 2;
 	end else begin
-	   s_axis_tx_tdata <= {32'hxxxxxxxx, otlp_buf[otlp_idx+0]};
+	   s_axis_tx_tdata <= {32'h00000000, otlp_buf[otlp_idx+0]};
 	   s_axis_tx_tkeep <= 8'b0000_1111;
 	   s_axis_tx_tlast <= 1;
 	   otlp_idx <= otlp_idx + 1;
@@ -263,7 +263,7 @@ module device
 	   s_axis_tx_tkeep <= 8'b1111_1111;
 	   otlp_idx <= 2;
 	end else begin
-	   s_axis_tx_tdata <= {32'hxxxxxxxx, otlp_buf[0]};
+	   s_axis_tx_tdata <= {32'h00000000, otlp_buf[0]};
 	   s_axis_tx_tkeep <= 8'b0000_1111;
 	   otlp_idx <= 1;
 	end

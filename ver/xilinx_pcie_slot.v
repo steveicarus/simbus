@@ -279,6 +279,10 @@ module xilinx_pcie_slot
    reg 	      user_reset_drv = 1'bz;
    reg 	      user_lnk_up_drv = 1'b0;
 
+   // Sometimes the config engine needs to take control over the axis_tx
+   // port. This is set true when that is allowed.
+   reg 	      tx_cfg_gnt_int = 1'b0;
+
    reg [63:0] m_axis_rx_tdata_drv = 64'bz;
    reg [7:0]  m_axis_rx_tkeep_drv = 8'bz;
    wire       m_axis_rx_tready_int = 1'bz;
@@ -331,11 +335,11 @@ module xilinx_pcie_slot
 		       /* Receive Interace (to remote) */
 		       "m_axis_rx_tready", m_axis_rx_tready_int, 1'bz,
 		       /* Transmit Interface (to remote) */
-		       "s_axis_tx_tdata",  tx_cfg_gnt? s_axis_tx_tdata_int  : s_axis_tx_tdata, 64'bz,
-		       "s_axis_tx_tkeep",  tx_cfg_gnt? s_axis_tx_tkeep_int  : s_axis_tx_tkeep,  8'bz,
-		       "s_axis_tx_tlast",  tx_cfg_gnt? s_axis_tx_tlast_int  : s_axis_tx_tlast,  1'bz,
-		       "s_axis_tx_tvalid", tx_cfg_gnt? s_axis_tx_tvalid_int : s_axis_tx_tvalid, 1'bz,
-		       "s_axis_tx_tuser",  tx_cfg_gnt? s_axis_tx_tuser_int  : s_axis_tx_tuser,  4'bz
+		       "s_axis_tx_tdata",  tx_cfg_gnt_int? s_axis_tx_tdata_int  : s_axis_tx_tdata, 64'bz,
+		       "s_axis_tx_tkeep",  tx_cfg_gnt_int? s_axis_tx_tkeep_int  : s_axis_tx_tkeep,  8'bz,
+		       "s_axis_tx_tlast",  tx_cfg_gnt_int? s_axis_tx_tlast_int  : s_axis_tx_tlast,  1'bz,
+		       "s_axis_tx_tvalid", tx_cfg_gnt_int? s_axis_tx_tvalid_int : s_axis_tx_tvalid, 1'bz,
+		       "s_axis_tx_tuser",  tx_cfg_gnt_int? s_axis_tx_tuser_int  : s_axis_tx_tuser,  4'bz
 		       /* */);
 
 	 // Check if the bus is ready for me to continue. The $simbus_poll
@@ -379,7 +383,7 @@ module xilinx_pcie_slot
 	 m_axis_rx_tvalid_int <= m_axis_rx_tvalid_drv;
 	 m_axis_rx_tuser_int  <= m_axis_rx_tuser_drv;
 
-	 if (tx_cfg_gnt) begin
+	 if (tx_cfg_gnt_int) begin
 	    s_axis_tx_tready_int <= s_axis_tx_tready_drv;
 	    s_axis_tx_tready     <= 1'b0;
 	 end else begin
@@ -388,6 +392,35 @@ module xilinx_pcie_slot
 	 end
       end // forever begin
    end // initial begin
+
+   // This state machine manages who gets control over the s_axis_tx port.
+   // If the user starts a transaction, then it gets the port until it
+   // sends the last beat. If the config space requests, and it granted,
+   // the bus, then it gets it. Whoever has the port, it releases the
+   // port when the last beat is transmitted.
+   reg tx_user_busy;
+   always @(posedge user_clk_out)
+     if (user_reset_out) begin
+	tx_cfg_gnt_int <= 0;
+	tx_user_busy <= 0;
+
+     end else if (tx_user_busy & s_axis_tx_tready & s_axis_tx_tvalid & s_axis_tx_tlast) begin
+	// User gives up the port after the last beat
+	tx_user_busy <= 0;
+
+     end else if (tx_cfg_gnt_int & s_axis_tx_tready_int & s_axis_tx_tvalid_int & s_axis_tx_tlast_int) begin
+	// CFg engine gives up the port after the last beat.
+	tx_cfg_gnt_int <= 0;
+
+     end else if (s_axis_tx_tvalid & ~tx_cfg_req & ~tx_user_busy) begin
+	// User gets port when it starts a TLP
+	tx_user_busy <= 1;
+
+     end else if (tx_cfg_req & tx_cfg_gnt & ~tx_user_busy) begin
+	// Cfg engine gets port if requested, and granted.
+	tx_cfg_gnt_int <= 1;
+
+     end
 
    xilinx_pcie_cfg_space
      #(.ven_id(ven_id),
@@ -407,7 +440,7 @@ module xilinx_pcie_slot
 	.user_reset(user_reset_out),
 	// Transmit channel arbitration
 	.tx_cfg_req(tx_cfg_req),
-	.tx_cfg_gnt(tx_cfg_gnt),
+	.tx_cfg_gnt(tx_cfg_gnt_int),
 	// Receive channel AXI4 Stream
 	.m_axis_rx_tdata (m_axis_rx_tdata_int),
 	.m_axis_rx_tkeep (m_axis_rx_tkeep_int),
