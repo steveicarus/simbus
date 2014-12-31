@@ -99,6 +99,14 @@ module main;
 
 endmodule // main
 
+/*
+ * Address map:
+ *     0x0000: Command register
+ *         [0] -- Start writing data to arg1.
+ *     0x0004: Arg1 register
+ *
+ *     0x0010: data...
+ */
 module device
   (/* */
    input wire 	     user_clk,
@@ -217,6 +225,9 @@ module device
       end
    endtask
 
+   // This state machine watches for arriving TLPs and collects
+   // them into an input buffer. When the TLP is complete, it
+   // calls the complete_tlp task to process it.
    always @(posedge user_clk)
      if (user_reset) begin
 	tlp_cnt <= 0;
@@ -234,6 +245,9 @@ module device
      end else begin
      end
 
+   // This state machine transmits TLPs. It senses that a TLP has been
+   // placed in the otlp_buf buffer by noting the otlp_cnt status. When
+   // it senses the TLP, it transmits the TLP and clears the otlp buffer.
    always @(posedge user_clk)
      if (user_reset) begin
 	s_axis_tx_tvalid <= 0;
@@ -278,4 +292,22 @@ module device
 
      end else begin
      end
+
+   // This state machine performs DMA writes when the write command is set.
+   always @(posedge user_clk)
+     if (user_reset) begin
+	memory[0][0] <= 0;
+
+     end else if (memory[0][0]) begin
+	otlp_buf[0] = {8'b010_00000, 24'd4};
+	otlp_buf[1] = {16'h00_00, 8'h00, 8'b1111_1111};
+	otlp_buf[2] = memory[1];
+	otlp_buf[3] = memory[4];
+	otlp_buf[4] = memory[5];
+	otlp_buf[5] = memory[6];
+	otlp_buf[6] = memory[7];
+	otlp_cnt <= 7;
+	memory[0][0] <= 0;
+     end
+
 endmodule // device

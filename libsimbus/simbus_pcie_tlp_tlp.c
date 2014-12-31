@@ -139,7 +139,69 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 	    size_t words = (bus->s_tlp_buf[0] >> 0) & 0x03ff;
 	    copy_tlp_to_completion(bus, tag, 3+words);
 
+      } else if ((tmp&0xff000000) == 0x40000000) { /* Write w/ 32bit address */
+
+	    size_t ndata = bus->s_tlp_buf[0] & 0x03ff;
+	    uint64_t addr = bus->s_tlp_buf[2];
+	    int be0 = bus->s_tlp_buf[1] & 0x0f;
+	    int beN = (bus->s_tlp_buf[1] & 0xf0) >> 4;
+	    if (bus->write_fun)
+		  bus->write_fun (bus, bus->write_cookie, addr, bus->s_tlp_buf+3, ndata, be0, beN);
+	      /* No need for completions to writes */
+
+      } else if ((tmp&0xff000000) == 0x60000000) { /* Write w/ 64bit address */
+
+	    size_t ndata = bus->s_tlp_buf[0] & 0x03ff;
+	    uint64_t addr = bus->s_tlp_buf[2];
+	    int be0 = bus->s_tlp_buf[1] & 0x0f;
+	    int beN = (bus->s_tlp_buf[1] & 0xf0) >> 4;
+	    addr <<= 32;
+	    addr |= bus->s_tlp_buf[3];
+
+	    if (bus->write_fun)
+		  bus->write_fun (bus, bus->write_cookie, addr, bus->s_tlp_buf+4, ndata, be0, beN);
+	      /* No need for completions to writes */
+
+      } else if ((tmp&0xff000000) == 0x00000000) { /* Read w/ 32bit address */
+
+	    uint32_t*tlp;
+	    size_t ndata = bus->s_tlp_buf[0] & 0x03ff;
+	    uint64_t addr = bus->s_tlp_buf[2];
+	    int be0 = bus->s_tlp_buf[1] & 0x0f;
+	    int beN = (bus->s_tlp_buf[1] & 0xf0) >> 4;
+
+	    tlp = calloc(3+ndata, sizeof(uint32_t));
+
+	    if (bus->read_fun)
+		  bus->read_fun (bus, bus->read_cookie, addr, tlp+3, ndata, be0, beN);
+
+	    __pcie_tlp_send_tlp(bus, tlp, 3+ndata);
+	    free(tlp);
+
+      } else if ((tmp&0xff000000) == 0x40000000) { /* Read w/ 64bit address */
+
+	    uint32_t*tlp;
+	    size_t ndata = bus->s_tlp_buf[0] & 0x03ff;
+	    uint64_t addr = bus->s_tlp_buf[2];
+	    int be0 = bus->s_tlp_buf[1] & 0x0f;
+	    int beN = (bus->s_tlp_buf[1] & 0xf0) >> 4;
+	    addr <<= 32;
+	    addr |= bus->s_tlp_buf[3];
+
+	    tlp = calloc(3+ndata, sizeof(uint32_t));
+
+	    if (bus->read_fun)
+		  bus->read_fun (bus, bus->read_cookie, addr, tlp+3, ndata, be0, beN);
+
+	    __pcie_tlp_send_tlp(bus, tlp, 3+ndata);
+	    free(tlp);
+
       } else {
+	    fprintf(stderr, "%s:%d: Received unhandled TLP:\n", __FILE__, __LINE__);
+	    for (size_t idx = 0 ; idx < bus->s_tlp_cnt ; idx += 1)
+		  fprintf(stderr, "    0x%08" PRIx32 "\n",
+			  bus->s_tlp_buf[idx]);
+	    fflush(stderr);
       }
 
 	/* Now erase the buffer and make ready to receive more TLPs. */

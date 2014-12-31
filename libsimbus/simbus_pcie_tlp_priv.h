@@ -38,6 +38,13 @@ struct simbus_pcie_tlp_s {
       uint32_t s_tlp_buf[MAX_TLP];
       size_t s_tlp_cnt;
 
+	/* Callback functions for read/write from the remote. */
+      simbus_pcie_tlp_write_t write_fun;
+      simbus_pcie_tlp_cookie_t write_cookie;
+
+      simbus_pcie_tlp_read_t read_fun;
+      simbus_pcie_tlp_cookie_t read_cookie;
+
 	/* The bus structure automatically generates tags for
 	   transactions, use this for the next tag. */
       uint8_t tlp_next_tag;

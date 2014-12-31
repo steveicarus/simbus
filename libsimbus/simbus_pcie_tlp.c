@@ -223,3 +223,19 @@ uint8_t __pcie_tlp_choose_tag(simbus_pcie_tlp_t bus)
 
       return res;
 }
+
+void simbus_pcie_tlp_write_handle(simbus_pcie_tlp_t bus,
+				  simbus_pcie_tlp_write_t fun,
+				  simbus_pcie_tlp_cookie_t cookie)
+{
+      bus->write_fun = fun;
+      bus->write_cookie = cookie;
+}
+
+void simbus_pcie_tlp_read_handle(simbus_pcie_tlp_t bus,
+				 simbus_pcie_tlp_read_t fun,
+				 simbus_pcie_tlp_cookie_t cookie)
+{
+      bus->read_fun = fun;
+      bus->read_cookie = cookie;
+}

@@ -96,6 +96,41 @@ EXTERN void simbus_pcie_tlp_read(simbus_pcie_tlp_t bus, uint64_t addr,
 				 int off, size_t len);
 
 /*
+ * When Write/read TLPs are received from the remote, the function
+ * calls a callback to handle the data. The *_read_t and *_write_t
+ * types describe pointers to functions that the bus calls to respond
+ * to the types of TLPs.
+ *
+ * The simbus_pcie_tlp_cookie_t type is a pointer to a structure that
+ * the user can define to point to user defined details. Private data,
+ * in other words. The simbus_pcie_tlp library doesn't provide a
+ * definition for the struct, the user can supply whatever definition
+ * is desired.
+ *
+ * In any case, these functions can only be called by some other
+ * function that waits on PCIe clocks.
+ */
+typedef struct simbus_pcie_tlp_cookie_s*simbus_pcie_tlp_cookie_t;
+
+typedef void (*simbus_pcie_tlp_write_t) (simbus_pcie_tlp_t bus,
+					 simbus_pcie_tlp_cookie_t cookie,
+					 uint64_t addr,
+					 const uint32_t*data, size_t ndata,
+					 int be0, int beN);
+typedef void (*simbus_pcie_tlp_read_t) (simbus_pcie_tlp_t bus,
+					simbus_pcie_tlp_cookie_t cookie,
+					uint64_t addr,
+					uint32_t*data, size_t ndata,
+					int be0, int beN);
+
+EXTERN void simbus_pcie_tlp_write_handle(simbus_pcie_tlp_t bus,
+					 simbus_pcie_tlp_write_t fun,
+					 simbus_pcie_tlp_cookie_t cookie);
+EXTERN void simbus_pcie_tlp_read_handle(simbus_pcie_tlp_t bus,
+					simbus_pcie_tlp_read_t fun,
+					simbus_pcie_tlp_cookie_t cookie);
+
+/*
  * Send an end-of-simulation message to the simulator, then dosconnect
  * and close the bus object. Only HOST devices should call the
  * simbus_pcie_tlp_end_simulation function.

@@ -23,10 +23,63 @@
 # include  <cstdio>
 # include  <cassert>
 
+uint32_t address_space[16*1024/4];
+
+static uint32_t mask_from_be(int be)
+{
+      uint32_t mask = 0;
+      if (be&8) mask |= 0xff000000;
+      if (be&4) mask |= 0x00ff0000;
+      if (be&2) mask |= 0x0000ff00;
+      if (be&1) mask |= 0x000000ff;
+      return mask;
+}
+
+static inline uint32_t& masked_assign(uint32_t&l, uint32_t val, uint32_t mask)
+{
+      l = (l&~mask) | (val&mask);
+      return l;
+}
+
+static void write_fun (simbus_pcie_tlp_t bus,
+		       simbus_pcie_tlp_cookie_t,
+		       uint64_t addr,
+		       const uint32_t*data, size_t ndata,
+		       int be0, int beN)
+{
+      assert(addr%4 == 0);
+      addr /= 4;
+
+      masked_assign(address_space[addr+0], data[0], mask_from_be(be0));
+
+      for (size_t idx = 1 ; idx+1 < ndata ; idx += 1)
+	    address_space[addr+idx] = data[idx];
+
+      if (ndata > 1)
+	    masked_assign(address_space[addr+ndata-1], data[ndata-1], mask_from_be(beN));
+}
+
+static void read_fun (simbus_pcie_tlp_t bus,
+		      simbus_pcie_tlp_cookie_t,
+		      uint64_t addr,
+		      uint32_t*data, size_t ndata,
+		      int, int)
+{
+      assert(addr%4 == 0);
+      addr /= 4;
+
+      for (size_t idx = 0 ; idx < ndata ; idx += 1)
+	    data[idx] = address_space[addr+idx];
+
+}
+
 
 int main(int argc, char*argv[])
 {
       simbus_pcie_tlp_t bus = simbus_pcie_tlp_connect(argv[1], "root");
+
+      simbus_pcie_tlp_write_handle(bus, &write_fun, 0);
+      simbus_pcie_tlp_read_handle(bus, &read_fun, 0);
 
       FILE*debug = fopen("root.log", "wt");
       if (debug) simbus_pcie_tlp_debug(bus, debug);
@@ -79,6 +132,21 @@ int main(int argc, char*argv[])
       printf("Wait 4 more clocks...\n");
       fflush(stdout);
       simbus_pcie_tlp_wait(bus, 4);
+
+      printf("Write a DMA command. This should cause a DMA write.\n");
+      buf[0] = 0x00000001;
+      buf[1] = 0x00000020;
+      simbus_pcie_tlp_write(bus, 0x00000000, buf, 2, 0, 8);
+
+      printf("Wait 256 more clocks...\n");
+      fflush(stdout);
+      simbus_pcie_tlp_wait(bus, 256);
+
+      printf("Check memory as 0x20:\n");
+      for (size_t idx = 8 ; idx < 12 ; idx += 1) {
+	    printf("    0x%04x:  0x%08" PRIx32 "\n",
+		   idx+4, address_space[idx]);
+      }
 
       simbus_pcie_tlp_end_simulation(bus);
       if (debug) fclose(debug);
