@@ -188,7 +188,7 @@ module xilinx_pcie_slot
 
     input wire [63:0] 			       cfg_dsn,
     input wire 				       cfg_interrupt,
-    output reg 				       cfg_interrupt_rdy,
+    output wire 			       cfg_interrupt_rdy,
     input wire 				       cfg_interrupt_assert,
     input wire [7:0] 			       cfg_interrupt_di,
     output reg [7:0] 			       cfg_interrupt_do,
@@ -461,7 +461,12 @@ module xilinx_pcie_slot
 	.s_axis_tx_tlast (s_axis_tx_tlast_int),
 	.s_axis_tx_tready(s_axis_tx_tready_int),
 	.s_axis_tx_tvalid(s_axis_tx_tvalid_int),
-	.s_axis_tx_tuser (s_axis_tx_tuser_int)
+	.s_axis_tx_tuser (s_axis_tx_tuser_int),
+	// Interrupt management
+	.cfg_interrupt(cfg_interrupt),
+	.cfg_interrupt_rdy(cfg_interrupt_rdy),
+	.cfg_interrupt_assert(cfg_interrupt_assert),
+	.cfg_interrupt_di(cfg_interrupt_di)
 	/* */);
 
 endmodule // xilinx_pcie_slot
@@ -513,7 +518,13 @@ module xilinx_pcie_cfg_space
     output reg 	       s_axis_tx_tlast,
     input wire 	       s_axis_tx_tready,
     output reg 	       s_axis_tx_tvalid,
-    output reg [3:0]   s_axis_tx_tuser
+    output reg [3:0]   s_axis_tx_tuser,
+
+    // Interupt management
+    input wire 	       cfg_interrupt,
+    output reg 	       cfg_interrupt_rdy,
+    input wire 	       cfg_interrupt_assert,
+    input wire [7:0]   cfg_interrupt_di
     /* */);
 
    reg [31:0]  cfg_mem[0 : 1023];
@@ -737,6 +748,38 @@ module xilinx_pcie_cfg_space
       end else begin
       end
    end // block: cmp_machine
+
+   // This machine takes in the interrupt generation requests from the
+   // user code and generates the messages needed to transmit the
+   // right controls to the root.
+   always @(posedge user_clk) begin : interrupts_machine
+      reg [7:0] code;
+
+      if (user_reset) begin
+	 cfg_interrupt_rdy <= 0;
+
+      end else if (cfg_interrupt & cfg_interrupt_rdy) begin
+	 cfg_interrupt_rdy <= 0;
+
+      end else if (cfg_interrupt & ncmp == 0) begin
+	 // Make a Message Request TLP to send the assert/deassert message
+	 // to the root. When that is done, we tell the user that we have
+	 // received the interrupt command. The transmit will happen at
+	 // its own pace.
+	 if (cfg_interrupt_assert)
+	   code = 8'h20;
+	 else
+	   code = 8'h24;
+	 cmp_data[0] <= {24'h000000, code, 32'h30_000000};
+	 cmp_keep[0] <= 8'b1111_1111;
+	 cmp_data[1] <= {64'h00000000_00000000};
+	 cmp_keep[1] <= 8'b1111_1111;
+	 ncmp <= 2;
+	 cfg_interrupt_rdy <= 1;
+
+      end else begin
+      end
+   end
 
    xilinx_pcie_rx_buffer buffer
      (.user_clk(user_clk),

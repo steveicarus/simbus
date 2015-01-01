@@ -29,8 +29,8 @@ void simbus_pcie_tlp_reset(simbus_pcie_tlp_t bus, unsigned width, unsigned settl
       assert(width > 0);
 
       bus->user_reset_out = BIT_1;
-      simbus_pcie_tlp_wait(bus, width);
+      simbus_pcie_tlp_wait(bus, width, 0);
 
       bus->user_reset_out = BIT_0;
-      if (settle > 0) simbus_pcie_tlp_wait(bus, settle);
+      if (settle > 0) simbus_pcie_tlp_wait(bus, settle, 0);
 }

@@ -43,8 +43,14 @@ EXTERN simbus_pcie_tlp_t simbus_pcie_tlp_connect(const char*server, const char*n
  */
 EXTERN void simbus_pcie_tlp_debug(simbus_pcie_tlp_t bus, FILE*fd);
 
-
-EXTERN int simbus_pcie_tlp_wait(simbus_pcie_tlp_t bus, unsigned clks);
+/*
+ * Wait for the number of clocks, or until the enabled interupt
+ * trips. The irq_mask points to a mask of enabled interrupts. If any
+ * of the enabled interrupts in the mask are asserted, or become
+ * asserted, then the function sets the irq_mask value with the value
+ * of the enabled interrupts that are asserted.
+ */
+EXTERN int simbus_pcie_tlp_wait(simbus_pcie_tlp_t bus, unsigned clks, int*irq_mask);
 # define SIMBUS_PCIE_TLP_ERROR    (-1)
 # define SIMBUS_PCIE_TLP_FINISHED (-2)
 

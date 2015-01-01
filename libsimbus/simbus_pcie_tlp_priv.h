@@ -34,6 +34,9 @@ struct simbus_pcie_tlp_s {
 	/* Identifier returned by the server during connect. */
       unsigned ident;
 
+	/* Mask of interrupts that are active. */
+      int intx_mask;
+
 	/* Support for receiving a TLP. */
       uint32_t s_tlp_buf[MAX_TLP];
       size_t s_tlp_cnt;

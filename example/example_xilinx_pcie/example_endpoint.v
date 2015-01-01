@@ -41,6 +41,11 @@ module main;
    wire        m_axis_rx_tvalid;
    wire [21:0] m_axis_rx_tuser;
 
+   wire        cfg_interrupt;
+   wire        cfg_interrupt_rdy;
+   wire        cfg_interrupt_assert;
+   wire [7:0]  cfg_interrupt_di;
+
    xilinx_pcie_slot
      #(.dev_id("5555"),
        .ven_id("aaaa"),
@@ -69,8 +74,13 @@ module main;
       .m_axis_rx_tlast(m_axis_rx_tlast),
       .m_axis_rx_tready(m_axis_rx_tready),
       .m_axis_rx_tvalid(m_axis_rx_tvalid),
-      .m_axis_rx_tuser(m_axis_rx_tuser)
+      .m_axis_rx_tuser(m_axis_rx_tuser),
 
+      // Interrupt control flags
+      .cfg_interrupt(cfg_interrupt),
+      .cfg_interrupt_rdy(cfg_interrupt_rdy),
+      .cfg_interrupt_assert(cfg_interrupt_assert),
+      .cfg_interrupt_di(cfg_interrupt_di)
       /* */);
 
    device dut
@@ -90,7 +100,13 @@ module main;
       .m_axis_rx_tlast(m_axis_rx_tlast),
       .m_axis_rx_tready(m_axis_rx_tready),
       .m_axis_rx_tvalid(m_axis_rx_tvalid),
-      .m_axis_rx_tuser(m_axis_rx_tuser)
+      .m_axis_rx_tuser(m_axis_rx_tuser),
+
+      // Interrupt control flags
+      .cfg_interrupt(cfg_interrupt),
+      .cfg_interrupt_rdy(cfg_interrupt_rdy),
+      .cfg_interrupt_assert(cfg_interrupt_assert),
+      .cfg_interrupt_di(cfg_interrupt_di)
       /* */);
 
    initial begin
@@ -125,7 +141,12 @@ module device
    output reg 	     s_axis_tx_tlast,
    input wire 	     s_axis_tx_tready,
    output reg 	     s_axis_tx_tvalid,
-   output reg [3:0]  s_axis_tx_tuser
+   output reg [3:0]  s_axis_tx_tuser,
+
+   output reg 	     cfg_interrupt,
+   input wire 	     cfg_interrupt_rdy,
+   output reg 	     cfg_interrupt_assert,
+   output reg [7:0]  cfg_interrupt_di
    /* */);
 
    // Keep a memory buffer that the remove can write/read.
@@ -294,9 +315,18 @@ module device
      end
 
    // This state machine performs DMA writes when the write command is set.
+   reg processing_dma_flag = 0;
+   reg dma_done_interrupt = 0;
    always @(posedge user_clk)
      if (user_reset) begin
 	memory[0][0] <= 0;
+	processing_dma_flag <= 0;
+	dma_done_interrupt <= 0;
+
+     end else if (processing_dma_flag) begin
+	if (otlp_cnt == 0) begin
+	   dma_done_interrupt <= 1;
+	end
 
      end else if (memory[0][0]) begin
 	otlp_buf[0] = {8'b010_00000, 24'd4};
@@ -308,6 +338,29 @@ module device
 	otlp_buf[6] = memory[7];
 	otlp_cnt <= 7;
 	memory[0][0] <= 0;
+	processing_dma_flag <= 1;
+     end
+
+
+   // This state machine transmits INTA interrupts to follow the
+   // dma_done_interrupt flag.
+   always @(posedge user_clk)
+     if (user_reset) begin
+	cfg_interrupt_di <= 0;
+	cfg_interrupt <= 0;
+	cfg_interrupt_assert <= 0;
+
+     end else if (cfg_interrupt & cfg_interrupt_rdy) begin
+	cfg_interrupt <= 0;
+
+     end else if (cfg_interrupt) begin
+	// Wait for cfg_interrupt_rdy
+	
+     end else if (cfg_interrupt_assert != dma_done_interrupt) begin
+	cfg_interrupt_assert <= dma_done_interrupt;
+	cfg_interrupt <= 1;
+
+     end else begin
      end
 
 endmodule // device

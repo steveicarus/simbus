@@ -113,6 +113,9 @@ static void copy_tlp_to_completion(simbus_pcie_tlp_t bus,
 	    bus->completions[tag][idx] = bus->s_tlp_buf[idx];
 }
 
+static void process_Assert_INTx(simbus_pcie_tlp_t bus);
+static void process_Deassert_INTx(simbus_pcie_tlp_t bus);
+
 static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 {
       if (bus->debug) {
@@ -196,6 +199,13 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 	    __pcie_tlp_send_tlp(bus, tlp, 3+ndata);
 	    free(tlp);
 
+      } else if ((tmp&0xff000000) == 0x30000000) { /* Msg routed to root complex */
+
+	    if ((bus->s_tlp_buf[1]&0x000000fc) == 0x20)
+		  process_Assert_INTx(bus);
+	    else if ((bus->s_tlp_buf[1]&0x000000fc) == 0x24)
+		  process_Deassert_INTx(bus);
+
       } else {
 	    fprintf(stderr, "%s:%d: Received unhandled TLP:\n", __FILE__, __LINE__);
 	    for (size_t idx = 0 ; idx < bus->s_tlp_cnt ; idx += 1)
@@ -206,6 +216,38 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 
 	/* Now erase the buffer and make ready to receive more TLPs. */
       bus->s_tlp_cnt = 0;
+}
+
+
+/*
+ * Message Request TLPs (routed to the root) look like this:
+ *
+ *        c...c is the message code
+ *               0x20 -- Assert_INTA
+ *               0x21 -- Assert_INTB
+ *               0x22 -- Assert_INTC
+ *               0x23 -- Assert_INTD
+ *               0x24 -- Deassert_INTA
+ *               0x25 -- Deassert_INTB
+ *               0x26 -- Deassert_INTC
+ *               0x27 -- Deassert_INTD
+ *
+ *    00110000 00000000 00000000 00000000
+ *    00000000 00000000 00000000 cccccccc
+ *    xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx  (reserved)
+ *    xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx
+ */
+
+static void process_Assert_INTx(simbus_pcie_tlp_t bus)
+{
+      int intx = bus->s_tlp_buf[1]&3;
+      bus->intx_mask |= 1 << intx;
+}
+
+static void process_Deassert_INTx(simbus_pcie_tlp_t bus)
+{
+      int intx = bus->s_tlp_buf[1]&3;
+      bus->intx_mask &= ~ (1<<intx);
 }
 
 void __pcie_tlp_recv_tlp(simbus_pcie_tlp_t bus)

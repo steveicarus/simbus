@@ -86,7 +86,7 @@ int main(int argc, char*argv[])
 
       printf("Wait 4 clocks...\n");
       fflush(stdout);
-      simbus_pcie_tlp_wait(bus, 4);
+      simbus_pcie_tlp_wait(bus, 4, 0);
 
       printf("Reset bus...");
       fflush(stdout);
@@ -94,7 +94,7 @@ int main(int argc, char*argv[])
 
       printf("Wait 4 more clocks...\n");
       fflush(stdout);
-      simbus_pcie_tlp_wait(bus, 4);
+      simbus_pcie_tlp_wait(bus, 4, 0);
 
       printf("Read device id from PCIe config space...\n");
       uint32_t id;
@@ -117,7 +117,7 @@ int main(int argc, char*argv[])
       buf[3] = 0x87654321;
 
       simbus_pcie_tlp_write(bus, 0x00000010, buf, 4, 0, 16);
-      simbus_pcie_tlp_wait(bus, 4);
+      simbus_pcie_tlp_wait(bus, 4, 0);
 
       printf("Read sample data back...\n");
       fflush(stdout);
@@ -131,7 +131,7 @@ int main(int argc, char*argv[])
 
       printf("Wait 4 more clocks...\n");
       fflush(stdout);
-      simbus_pcie_tlp_wait(bus, 4);
+      simbus_pcie_tlp_wait(bus, 4, 0);
 
       printf("Write a DMA command. This should cause a DMA write.\n");
       buf[0] = 0x00000001;
@@ -139,8 +139,10 @@ int main(int argc, char*argv[])
       simbus_pcie_tlp_write(bus, 0x00000000, buf, 2, 0, 8);
 
       printf("Wait 256 more clocks...\n");
+      int intx_mask = 0xf;
       fflush(stdout);
-      simbus_pcie_tlp_wait(bus, 256);
+      int rc = simbus_pcie_tlp_wait(bus, 256, &intx_mask);
+      printf("intx_mask after wait is 0x%x, %d clocks left\n", intx_mask, rc);
 
       printf("Check memory as 0x20:\n");
       for (size_t idx = 8 ; idx < 12 ; idx += 1) {

@@ -205,14 +205,25 @@ void __pcie_tlp_next_posedge(simbus_pcie_tlp_t bus)
       __pcie_tlp_recv_tlp(bus);
 }
 
-int simbus_pcie_tlp_wait(simbus_pcie_tlp_t bus, unsigned clks)
+int simbus_pcie_tlp_wait(simbus_pcie_tlp_t bus, unsigned clks, int*irq_mask)
 {
-      while (clks > 0) {
-	    __pcie_tlp_next_posedge(bus);
-	    clks -= 1;
+      int return_mask = 0;
+      int enable_mask = irq_mask? *irq_mask : 0;
+
+      if (clks == 0) {
+	    if (irq_mask) *irq_mask = enable_mask & bus->intx_mask;
+	    return 0;
       }
 
-      return 0;
+      while (clks > 0 && return_mask==0) {
+	    __pcie_tlp_next_posedge(bus);
+	    clks -= 1;
+
+	    return_mask = enable_mask & bus->intx_mask;
+      }
+
+      if (irq_mask) *irq_mask = return_mask;
+      return clks;
 }
 
 uint8_t __pcie_tlp_choose_tag(simbus_pcie_tlp_t bus)
