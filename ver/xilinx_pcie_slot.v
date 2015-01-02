@@ -142,8 +142,8 @@ module xilinx_pcie_slot
     output reg 				       cfg_mgmt_rd_wr_done,
     input wire 				       cfg_mgmt_wr_rw1c_as_rw,
 
-    output reg [15:0] 			       cfg_status,
-    output reg [15:0] 			       cfg_command,
+    output wire [15:0] 			       cfg_status,
+    output wire [15:0] 			       cfg_command,
     output reg [7:0] 			       cfg_bus_number,
     output reg [4:0] 			       cfg_device_number,
     output reg [2:0] 			       cfg_function_number,
@@ -193,8 +193,8 @@ module xilinx_pcie_slot
     input wire [7:0] 			       cfg_interrupt_di,
     output reg [7:0] 			       cfg_interrupt_do,
     output reg [2:0] 			       cfg_interrupt_mmenable,
-    output reg 				       cfg_interrupt_msienable,
-    output reg 				       cfg_interrupt_msixenable,
+    output wire 			       cfg_interrupt_msienable,
+    output wire 			       cfg_interrupt_msixenable,
     output reg 				       cfg_interrupt_msixfm,
     input wire 				       cfg_interrupt_stat,
 
@@ -265,6 +265,10 @@ module xilinx_pcie_slot
     output reg [6:0] 			       cfg_vc_tcvc_map
 
     /* */);
+
+
+   // The core doesn't actually support this signal. Stub it out.
+   assign cfg_status = 16'h00;
 
    // The *_drv signals are copies of the port signals that are driven
    // by the $simbus_until system function. After the UNTIL completes,
@@ -466,7 +470,9 @@ module xilinx_pcie_slot
 	.cfg_interrupt(cfg_interrupt),
 	.cfg_interrupt_rdy(cfg_interrupt_rdy),
 	.cfg_interrupt_assert(cfg_interrupt_assert),
-	.cfg_interrupt_di(cfg_interrupt_di)
+	.cfg_interrupt_di(cfg_interrupt_di),
+	.cfg_interrupt_msienable(cfg_interrupt_msienable),
+	.cfg_interrupt_msixenable(cfg_interrupt_msixenable)
 	/* */);
 
 endmodule // xilinx_pcie_slot
@@ -520,11 +526,16 @@ module xilinx_pcie_cfg_space
     output reg 	       s_axis_tx_tvalid,
     output reg [3:0]   s_axis_tx_tuser,
 
+    // Configuration bits.
+    output reg [15:0]  cfg_command,
+
     // Interupt management
     input wire 	       cfg_interrupt,
     output reg 	       cfg_interrupt_rdy,
     input wire 	       cfg_interrupt_assert,
-    input wire [7:0]   cfg_interrupt_di
+    input wire [7:0]   cfg_interrupt_di,
+    output reg 	       cfg_interrupt_msienable,
+    output reg 	       cfg_interrupt_msixenable
     /* */);
 
    reg [31:0]  cfg_mem[0 : 1023];
@@ -552,6 +563,7 @@ module xilinx_pcie_cfg_space
    // This task figures all that out and causes the correct memory bits
    // to be written.
    task do_cfg_write(input [11:2]adr, input [31:0]val, input [3:0]ben);
+      parameter [31:0] CMD_STATUS_MASK = 32'h0000_0507;
       reg [31:0] mask;
       begin
 	 mask[31:24] = ben[3]? 8'hff : 8'h00;
@@ -560,6 +572,11 @@ module xilinx_pcie_cfg_space
 	 mask[ 7: 0] = ben[0]? 8'hff : 8'h00;
 	 case (adr)
 	   0: begin
+	   end
+	   // {Status/command} registers
+	   1: begin
+	      cfg_mem[1] = val&CMD_STATUS_MASK | cfg_mem[adr]&~CMD_STATUS_MASK;
+	      cfg_command <= cfg_mem[1];
 	   end
 	   // BARs can only have some of their bits written.
 	   4,5,6,7,8,9: begin
@@ -632,6 +649,10 @@ module xilinx_pcie_cfg_space
 	 tlp_is_config <= 0;
 	 tlp_is_skip   <= 0;
 	 m_axis_rx_tready_int <= 1;
+
+	 cfg_command <= 0;
+	 cfg_interrupt_msienable <= 0;
+	 cfg_interrupt_msixenable <= 0;
 
       end else if ((tlp_is_config||~tlp_is_skip) && m_axis_rx_tready && m_axis_rx_tvalid) begin
 
@@ -761,7 +782,7 @@ module xilinx_pcie_cfg_space
       end else if (cfg_interrupt & cfg_interrupt_rdy) begin
 	 cfg_interrupt_rdy <= 0;
 
-      end else if (cfg_interrupt & ncmp == 0) begin
+      end else if (cfg_interrupt & ncmp==0 & ~cfg_command[10]) begin
 	 // Make a Message Request TLP to send the assert/deassert message
 	 // to the root. When that is done, we tell the user that we have
 	 // received the interrupt command. The transmit will happen at

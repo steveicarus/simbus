@@ -49,6 +49,11 @@ EXTERN void simbus_pcie_tlp_debug(simbus_pcie_tlp_t bus, FILE*fd);
  * of the enabled interrupts in the mask are asserted, or become
  * asserted, then the function sets the irq_mask value with the value
  * of the enabled interrupts that are asserted.
+ *
+ * If the wait returns due to an interrupt (as opposed to an error)
+ * then the return code will be >0 the number of clocks remaining in
+ * the originally requested wait, and the *irq_mask value will be
+ * replaced with a mask of the interupts interrupting.
  */
 EXTERN int simbus_pcie_tlp_wait(simbus_pcie_tlp_t bus, unsigned clks, int*irq_mask);
 # define SIMBUS_PCIE_TLP_ERROR    (-1)
