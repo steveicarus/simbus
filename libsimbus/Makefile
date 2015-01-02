@@ -13,7 +13,6 @@ install: all installdirs \
 	$(includedir)/simbus_pci_memdev.h \
 	$(includedir)/simbus_p2p.h \
 	$(includedir)/simbus_axi4.h \
-	$(includedir)/sinbus_axi4s.h \
 	$(includedir)/simbus_axi4_common.h \
 	$(includedir)/simbus_pcie_tlp.h
 
@@ -72,6 +71,9 @@ simbus_pci_memdev.o: simbus_pci_memdev.c simbus_pci_memdev.h simbus_pci.h
 
 $(libdir)/libsimbus.a: libsimbus.a
 	$(INSTALL_DATA) libsimbus.a $(DESTDIR)$(libdir)/libsimbus.a
+
+$(includedir)/simbus_axi4_common.h: simbus_axi4_common.h
+	$(INSTALL_DATA) simbus_axi4_common.h $(DESTDIR)$(includedir)/simbus_axi4_common.h
 
 $(includedir)/simbus_axi4.h: simbus_axi4.h
 	$(INSTALL_DATA) simbus_axi4.h $(DESTDIR)$(includedir)/simbus_axi4.h
