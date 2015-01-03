@@ -84,6 +84,8 @@ void PCIeTLP::trace_init()
       make_trace_("s_axis_tx_tready",PT_BITS);
       make_trace_("s_axis_tx_tvalid",PT_BITS);
       make_trace_("s_axis_tx_tuser", PT_BITS,  4);
+
+      make_trace_("tx_buf_av",       PT_BITS,  6);
 }
 
 void PCIeTLP::run_init()
@@ -124,6 +126,10 @@ void PCIeTLP::run_init()
       slave_->second->send_signals["user_lnk_up"][0] = BIT_1;
 
       set_trace_("user_lnk_up", BIT_1);
+
+      slave_->second->send_signals["tx_buf_av"].resize(6);
+      for (size_t idx = 0 ; idx < 6 ; idx += 1)
+	    slave_->second->send_signals["tx_buf_av"][idx] = BIT_1;
 
 	/* Receive channel signals */
       slave_->second->send_signals["m_axis_rx_tdata"].resize(64);
@@ -193,6 +199,10 @@ void PCIeTLP::run_run()
       tmp = master_->second->client_signals["user_lnk_up"];
       slave_->second->send_signals["user_lnk_up"] = tmp;
       set_trace_("user_lnk_up", tmp);
+
+      tmp = master_->second->client_signals["tx_buf_av"];
+      slave_->second->send_signals["tx_buf_av"] = tmp;
+      set_trace_("tx_buf_av", tmp);
 
 	/* Receive channel AXI4 Stream */
       tmp = master_->second->client_signals["m_axis_rx_tdata"];

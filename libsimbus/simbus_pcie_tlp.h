@@ -60,6 +60,13 @@ EXTERN int simbus_pcie_tlp_wait(simbus_pcie_tlp_t bus, unsigned clks, int*irq_ma
 # define SIMBUS_PCIE_TLP_FINISHED (-2)
 
 /*
+ * Use this function to set the number of tx buffers that the remove
+ * sees. This is not actually a feature of PCIe, but something used
+ * by the Xilinx PCIe Core slot simulation.
+ */
+EXTERN int simbus_pcie_tlp_buf_avail(simbus_pcie_tlp_t bus, int nbuf);
+
+/*
  * Cause a "user_reset_out" pulse to be generated on the PCI bus of the
  * simulation. The pulse width is given in clocks, and if the settle
  * time is specified, the simulation runs that many more clocks to let

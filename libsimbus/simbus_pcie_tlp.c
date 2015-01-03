@@ -34,6 +34,13 @@ static void init_simbus_pcie_tlp(simbus_pcie_tlp_t bus)
       bus->user_reset_out = BIT_0;
       bus->user_lnk_up = BIT_1;
 
+      bus->tx_buf_av[5] = BIT_0;
+      bus->tx_buf_av[4] = BIT_1;
+      bus->tx_buf_av[3] = BIT_0;
+      bus->tx_buf_av[2] = BIT_0;
+      bus->tx_buf_av[1] = BIT_0;
+      bus->tx_buf_av[0] = BIT_0;
+
       for (size_t idx = 0 ; idx < 64 ; idx += 1)
 	    bus->m_axis_rx_tdata[idx] = BIT_X;
       for (size_t idx = 0 ; idx < 8 ; idx += 1)
@@ -107,6 +114,7 @@ static int send_ready_command(simbus_pcie_tlp_t bus)
 
       cp += __ready_signal(cp, "user_reset",  &bus->user_reset_out, 1);
       cp += __ready_signal(cp, "user_lnk_up", &bus->user_lnk_up,    1);
+      cp += __ready_signal(cp, "tx_buf_av",   bus->tx_buf_av,       6);
 
       cp += __ready_signal(cp, "m_axis_rx_tdata", bus->m_axis_rx_tdata, 64);
       cp += __ready_signal(cp, "m_axis_rx_tkeep", bus->m_axis_rx_tkeep,  8);
@@ -249,4 +257,17 @@ void simbus_pcie_tlp_read_handle(simbus_pcie_tlp_t bus,
 {
       bus->read_fun = fun;
       bus->read_cookie = cookie;
+}
+
+int simbus_pcie_tlp_buf_avail(simbus_pcie_tlp_t bus, int nbuf)
+{
+      assert(nbuf >= 0);
+
+	/* Saturate at the max possible value. */
+      if (nbuf > 0x3f) nbuf = 0x3f;
+
+      for (int idx = 0 ; idx < 6 ; idx += 1)
+	    bus->tx_buf_av[idx] =  (nbuf & (1 << idx))? BIT_1 : BIT_0;
+
+      return nbuf;
 }

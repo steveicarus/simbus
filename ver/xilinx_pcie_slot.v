@@ -36,6 +36,8 @@ module xilinx_pcie_slot
     parameter  name = "endpoint",
 
     parameter integer LINK_CAP_MAX_LINK_WIDTH = 6'h8,
+    // Max payload supported: 0 - 128bytes, 1 - 256bytes, 2 - 512bytes, 3 - 1024bytes
+    parameter integer DEV_CAP_MAX_PAYLOAD_SUPPORTED = 0,
 
     // Identifiers
     parameter ven_id        = "FFFF",
@@ -102,7 +104,8 @@ module xilinx_pcie_slot
     output reg [7:0] 			       fc_ph,
     input wire [2:0] 			       fc_sel,
 
-    // Transmit buffers available
+    // Transmit buffers available - This Verilog code passes TLPs
+    // directly through, so this should be managed by the remote.
     output reg [5:0] 			       tx_buf_av,
     // Transmit buffer was dropped due to error
     output reg 				       tx_err_drop,
@@ -144,17 +147,17 @@ module xilinx_pcie_slot
 
     output wire [15:0] 			       cfg_status,
     output wire [15:0] 			       cfg_command,
-    output reg [7:0] 			       cfg_bus_number,
-    output reg [4:0] 			       cfg_device_number,
-    output reg [2:0] 			       cfg_function_number,
-    output reg [15:0] 			       cfg_dstatus,
-    output reg [15:0] 			       cfg_dcommand,
-    output reg [15:0] 			       cfg_lstatus,
-    output reg [15:0] 			       cfg_lcommand,
+    output wire [7:0] 			       cfg_bus_number,
+    output wire [4:0] 			       cfg_device_number,
+    output wire [2:0] 			       cfg_function_number,
+    output wire [15:0] 			       cfg_dstatus,
+    output wire [15:0] 			       cfg_dcommand,
+    output wire [15:0] 			       cfg_lstatus,
+    output wire [15:0] 			       cfg_lcommand,
     output reg [15:0] 			       cfg_dcommand2,
     output reg [2:0] 			       cfg_pcie_link_state,
     output reg 				       cfg_pmcsr_pme_en,
-    output reg [1:0] 			       cfg_pmcsr_powerstate,
+    output wire [1:0] 			       cfg_pmcsr_powerstate,
     output reg 				       cfg_pmcsr_pme_status,
     output reg 				       cfg_received_func_lvl_rst,
 
@@ -241,17 +244,17 @@ module xilinx_pcie_slot
     input wire [1:0] 			       pl_directed_link_width,
     input wire 				       pl_directed_link_auton,
     input wire 				       pl_upstream_prefer_deemph,
-    output reg 				       pl_sel_lnk_rate,
-    output reg [1:0] 			       pl_sel_lnk_width,
-    output reg [5:0] 			       pl_ltssm_state,
-    output reg [1:0] 			       pl_lane_reversal_mode,
+    output wire 			       pl_sel_lnk_rate,
+    output wire [1:0] 			       pl_sel_lnk_width,
+    output wire [5:0] 			       pl_ltssm_state,
+    output wire [1:0] 			       pl_lane_reversal_mode,
     output reg 				       pl_phy_lnk_up,
     output reg [2:0] 			       pl_tx_pm_state,
     output reg [1:0] 			       pl_rx_pm_state,
     output reg 				       pl_link_upcfg_cap,
     output reg 				       pl_link_gen2_cap,
     output reg 				       pl_link_partner_gen2_supported,
-    output reg [2:0] 			       pl_initial_link_width,
+    output wire [2:0] 			       pl_initial_link_width,
     output reg 				       pl_directed_change_done,
     output reg 				       pl_received_hot_rst,
     input wire 				       pl_transmit_hot_rst,
@@ -269,6 +272,12 @@ module xilinx_pcie_slot
 
    // The core doesn't actually support this signal. Stub it out.
    assign cfg_status = 16'h00;
+   assign cfg_pmcsr_powerstate = 2'b00;
+   assign pl_sel_lnk_rate = 1'b0;
+   assign pl_sel_lnk_width = 2'b10;
+   assign pl_ltssm_state = 6'b000000;
+   assign pl_lane_reversal_mode = 2'b00;
+   assign pl_initial_link_width = 3'b010;
 
    // The *_drv signals are copies of the port signals that are driven
    // by the $simbus_until system function. After the UNTIL completes,
@@ -282,6 +291,7 @@ module xilinx_pcie_slot
    
    reg 	      user_reset_drv = 1'bz;
    reg 	      user_lnk_up_drv = 1'b0;
+   reg [5:0]  tx_buf_av_drv = 6'hzz;
 
    // Sometimes the config engine needs to take control over the axis_tx
    // port. This is set true when that is allowed.
@@ -374,7 +384,9 @@ module xilinx_pcie_slot
 				   "m_axis_rx_tvalid",m_axis_rx_tvalid_drv,
 				   "m_axis_rx_tuser", m_axis_rx_tuser_drv,
 				   /* Transmite channel (from remote) */
-				   "s_axis_tx_tready",s_axis_tx_tready_drv
+				   "s_axis_tx_tready",s_axis_tx_tready_drv,
+				   /* TX buffer management */
+				   "tx_buf_av",       tx_buf_av_drv
 				   /* */);
 
 	 user_reset_out <= user_reset_drv;
@@ -386,6 +398,7 @@ module xilinx_pcie_slot
 	 m_axis_rx_tlast_int  <= m_axis_rx_tlast_drv;
 	 m_axis_rx_tvalid_int <= m_axis_rx_tvalid_drv;
 	 m_axis_rx_tuser_int  <= m_axis_rx_tuser_drv;
+	 tx_buf_av            <= tx_buf_av_drv;
 
 	 if (tx_cfg_gnt_int) begin
 	    s_axis_tx_tready_int <= s_axis_tx_tready_drv;
@@ -466,13 +479,24 @@ module xilinx_pcie_slot
 	.s_axis_tx_tready(s_axis_tx_tready_int),
 	.s_axis_tx_tvalid(s_axis_tx_tvalid_int),
 	.s_axis_tx_tuser (s_axis_tx_tuser_int),
+	// dev/fun numbers collected from Cfg messages
+	.cfg_command(cfg_command),
+	.cfg_dcommand(cfg_dcommand),
+	.cfg_dstatus(cfg_dstatus),
+	.cfg_lcommand(cfg_lcommand),
+	.cfg_lstatus(cfg_lstatus),
+	.cfg_bus_number(cfg_bus_number),
+	.cfg_dev_number(cfg_device_number),
+	.cfg_fun_number(cfg_function_number),
 	// Interrupt management
 	.cfg_interrupt(cfg_interrupt),
 	.cfg_interrupt_rdy(cfg_interrupt_rdy),
 	.cfg_interrupt_assert(cfg_interrupt_assert),
 	.cfg_interrupt_di(cfg_interrupt_di),
 	.cfg_interrupt_msienable(cfg_interrupt_msienable),
-	.cfg_interrupt_msixenable(cfg_interrupt_msixenable)
+	.cfg_interrupt_msixenable(cfg_interrupt_msixenable),
+	// Various cfg control bits
+	.cfg_trn_pending(cfg_trn_pending)
 	/* */);
 
 endmodule // xilinx_pcie_slot
@@ -528,6 +552,13 @@ module xilinx_pcie_cfg_space
 
     // Configuration bits.
     output reg [15:0]  cfg_command,
+    output wire [15:0] cfg_dcommand,
+    output wire [15:0] cfg_dstatus,
+    output wire [15:0] cfg_lcommand,
+    output wire [15:0] cfg_lstatus,
+    output reg [7:0]   cfg_bus_number,
+    output reg [4:0]   cfg_dev_number,
+    output reg [2:0]   cfg_fun_number,
 
     // Interupt management
     input wire 	       cfg_interrupt,
@@ -535,7 +566,10 @@ module xilinx_pcie_cfg_space
     input wire 	       cfg_interrupt_assert,
     input wire [7:0]   cfg_interrupt_di,
     output reg 	       cfg_interrupt_msienable,
-    output reg 	       cfg_interrupt_msixenable
+    output reg 	       cfg_interrupt_msixenable,
+
+    // Various
+    input wire 	       cfg_trn_pending
     /* */);
 
    reg [31:0]  cfg_mem[0 : 1023];
@@ -558,12 +592,21 @@ module xilinx_pcie_cfg_space
    reg [7:0]   cmp_keep[0:1];
    reg [7:0]   ncmp, cmp_cur;
 
+   // Expose some registers through teh cfg_ interface
+   assign {cfg_dstatus, cfg_dcommand} = cfg_mem['h64/4];
+   assign {cfg_lstatus, cfg_lcommand} = cfg_mem['h70/4];
+
+   // The dstatus[5] bit tracks the trn_pending signal.
+   always @(cfg_trn_pending) cfg_mem['h64/4][16+5] = cfg_trn_pending;
+
    // Configuration writes are sometimes non-trivial, because not all
    // registers, and in some cases not all bits, are necessarily writable.
    // This task figures all that out and causes the correct memory bits
    // to be written.
    task do_cfg_write(input [11:2]adr, input [31:0]val, input [3:0]ben);
-      parameter [31:0] CMD_STATUS_MASK = 32'h0000_0507;
+      localparam [31:0] CMD_STATUS_MASK     = 32'h0000_0507;
+      localparam [31:0] DEV_CMD_STATUS_MASK = 32'h0000_7fff;
+      localparam [31:0] LNK_CMD_STATUS_MASK = 32'h0000_0ffb;
       reg [31:0] mask;
       begin
 	 mask[31:24] = ben[3]? 8'hff : 8'h00;
@@ -575,13 +618,21 @@ module xilinx_pcie_cfg_space
 	   end
 	   // {Status/command} registers
 	   1: begin
-	      cfg_mem[1] = val&CMD_STATUS_MASK | cfg_mem[adr]&~CMD_STATUS_MASK;
-	      cfg_command <= cfg_mem[1];
+	      cfg_mem[1] = val&(CMD_STATUS_MASK&mask) | cfg_mem[1]&~(CMD_STATUS_MASK&mask);
+	      cfg_command <= cfg_mem[1][15:0];
 	   end
 	   // BARs can only have some of their bits written.
 	   4,5,6,7,8,9: begin
 	      mask = mask & bar_mask[adr-4];
 	      cfg_mem[adr] = val&mask | cfg_mem[adr]&~mask;
+	   end
+	   // Device status/command registers
+	   'h64 / 4: begin
+	      cfg_mem['h64/4] = val&(DEV_CMD_STATUS_MASK&mask) | cfg_mem['h64/4]&~(DEV_CMD_STATUS_MASK&mask);
+	   end
+	   // Link Status/Control registers
+	   'h70 / 4: begin
+	      cfg_mem['h70/4] = val&(LNK_CMD_STATUS_MASK&mask) | cfg_mem['h70/4]&~(LNK_CMD_STATUS_MASK&mask);
 	   end
 
 	   default: begin
@@ -598,6 +649,9 @@ module xilinx_pcie_cfg_space
       reg [11:2] tlp_adr;
       reg [31:0] tlp_val;
       reg [3:0]  tlp_ben;
+      reg [7:0]  tlp_bus;
+      reg [4:0]  tlp_dev;
+      reg [2:0]  tlp_fun;
       begin
 	 if (ncmp != 0) begin
 	    $display("%m: ERROR: Completion buffer overrun?!");
@@ -606,15 +660,21 @@ module xilinx_pcie_cfg_space
 	 // Extract parts that we will need to make up the completion
 	 tlp_tag = tlp[1][15:8];
 	 tlp_ben = tlp[1][3:0];
+	 tlp_bus = tlp[2][31:24];
+	 tlp_dev = tlp[2][23:19];
+	 tlp_dev = tlp[2][18:16];
 	 tlp_adr = tlp[2][11:2];
 	 tlp_val = ntlp==4? tlp[3] : 32'h00000000;
+	 // This is how we find out our bus/dev/fn id.
+	 cfg_bus_number <= tlp_bus;
+	 cfg_dev_number <= tlp_dev;
 
 	 // Generate the completion based on the request.
 	 case (tlp[0][31:24])
 	   'b000_00100: begin // CfgRd0
 	      $display("%m: Got a CfgRd0 (tag=%h, adr=%h, , ben=%b, val=%h)",
 		       tlp_tag, tlp_adr, tlp_ben, cfg_mem[tlp_adr]);
-	      cmp_data[0] = 64'h00000000_4a000001;
+	      cmp_data[0] = {tlp_bus, tlp_dev, tlp_fun, 32'h4a000001};
 	      cmp_data[1] = {cfg_mem[tlp_adr], 16'h0000, tlp_tag, 8'h00};
 	      cmp_keep[0] = 8'hff;
 	      cmp_keep[1] = 8'hff;
@@ -625,7 +685,7 @@ module xilinx_pcie_cfg_space
 	   'b010_00100: begin // CfgWr0
 	      $display("%m: Got a CfgWr0 (tag=%h, adr-%h, ben=%b val=%h)", tlp_tag, tlp_adr, tlp_ben, tlp_val);
 	      do_cfg_write(tlp_adr, tlp_val, tlp_ben);
-	      cmp_data[0] = 64'h00000000_0a000000;
+	      cmp_data[0] = {tlp_bus, tlp_dev, tlp_fun, 32'h0a000000};
 	      cmp_data[1] = {32'h00000000, 16'h0000, tlp_tag, 8'h00};
 	      cmp_keep[0] = 8'hff;
 	      cmp_keep[1] = 8'h0f;
@@ -651,6 +711,9 @@ module xilinx_pcie_cfg_space
 	 m_axis_rx_tready_int <= 1;
 
 	 cfg_command <= 0;
+	 cfg_bus_number <= 0;
+	 cfg_dev_number <= 0;
+	 cfg_fun_number <= 0;
 	 cfg_interrupt_msienable <= 0;
 	 cfg_interrupt_msixenable <= 0;
 

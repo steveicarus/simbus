@@ -64,10 +64,12 @@ struct simbus_pcie_tlp_s {
       uint64_t time_mant;
       int time_exp;
 
+
 	/* Common Interface signals -- out, except for the clk. */
       bus_bitval_t user_clk;
       bus_bitval_t user_reset_out;
       bus_bitval_t user_lnk_up;
+      bus_bitval_t tx_buf_av[6];
 
 	/* Receive Interface signals -- out */
       bus_bitval_t m_axis_rx_tdata[64];
