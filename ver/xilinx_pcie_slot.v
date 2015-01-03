@@ -845,7 +845,13 @@ module xilinx_pcie_cfg_space
       end else if (cfg_interrupt & cfg_interrupt_rdy) begin
 	 cfg_interrupt_rdy <= 0;
 
-      end else if (cfg_interrupt & ncmp==0 & ~cfg_command[10]) begin
+      end else if (cfg_interrupt & ncmp==0) begin
+
+	 if (cfg_command[10] & cfg_interrupt_assert) begin
+	    $display("%m: ERROR: User trying to assert legacy interrupt while global interrupts blocked.");
+	    $display("%m:      : cfg_command=%h", cfg_command);
+	 end
+
 	 // Make a Message Request TLP to send the assert/deassert message
 	 // to the root. When that is done, we tell the user that we have
 	 // received the interrupt command. The transmit will happen at
