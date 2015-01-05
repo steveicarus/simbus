@@ -175,7 +175,7 @@ module xilinx_pcie_slot
     input wire 				       cfg_err_poisoned,
     input wire 				       cfg_err_norecovery,
     input wire 				       cfg_err_tlp_cpl_header,
-    output reg 				       cfg_err_clk_rdy,
+    output wire 			       cfg_err_cpl_rdy,
     input wire 				       cfg_err_locked,
     input wire 				       cfg_err_acs,
     input wire 				       cfg_err_internal_uncor,
@@ -495,6 +495,8 @@ module xilinx_pcie_slot
 	.cfg_interrupt_di(cfg_interrupt_di),
 	.cfg_interrupt_msienable(cfg_interrupt_msienable),
 	.cfg_interrupt_msixenable(cfg_interrupt_msixenable),
+	// Error completions bits
+	.cfg_err_cpl_rdy(cfg_err_cpl_rdy),
 	// Various cfg control bits
 	.cfg_trn_pending(cfg_trn_pending)
 	/* */);
@@ -568,6 +570,9 @@ module xilinx_pcie_cfg_space
     output reg 	       cfg_interrupt_msienable,
     output reg 	       cfg_interrupt_msixenable,
 
+    // Errors
+    output reg 	       cfg_err_cpl_rdy,
+
     // Various
     input wire 	       cfg_trn_pending
     /* */);
@@ -598,6 +603,9 @@ module xilinx_pcie_cfg_space
 
    // The dstatus[5] bit tracks the trn_pending signal.
    always @(cfg_trn_pending) cfg_mem['h64/4][16+5] = cfg_trn_pending;
+
+   // Stub the completion error machine to be always ready.
+   always @(posedge user_clk) cfg_err_cpl_rdy <= 1;
 
    // Configuration writes are sometimes non-trivial, because not all
    // registers, and in some cases not all bits, are necessarily writable.
