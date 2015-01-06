@@ -89,10 +89,10 @@ module xilinx_pcie_slot
     input wire 				       pipe_mmcm_lock_in,
     input wire 				       pipe_dclk_in,
     input wire 				       pipe_oobclk_in,
-    output reg 				       pipe_txoutclk_out,
-    output reg [1:0] 			       pipe_rxoutclk_out,
-    output reg [1:0] 			       pipe_pclk_sel_out,
-    output reg 				       pipe_gen3_out,
+    output wire 			       pipe_txoutclk_out,
+    output wire [1:0] 			       pipe_rxoutclk_out,
+    output wire [1:0] 			       pipe_pclk_sel_out,
+    output wire 			       pipe_gen3_out,
     output reg [3:0] 			       pipe_cpll_lock,
 
     // Flow control status
@@ -273,6 +273,10 @@ module xilinx_pcie_slot
    // The core doesn't actually support this signal. Stub it out.
    assign cfg_status = 16'h00;
    assign cfg_pmcsr_powerstate = 2'b00;
+   assign pipe_gen3_out = 1'd1;
+   assign pipe_pclk_sel_out = 4'd0;
+   assign pipe_txoutclk_out = {sys_clk, sys_clk};
+   assign pipe_txoutclk_out = sys_clk;
    assign pl_sel_lnk_rate = 1'b0;
    assign pl_sel_lnk_width = 2'b10;
    assign pl_ltssm_state = 6'b000000;
