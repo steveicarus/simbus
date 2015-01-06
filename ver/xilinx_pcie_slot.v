@@ -161,7 +161,7 @@ module xilinx_pcie_slot
     output reg 				       cfg_pmcsr_pme_status,
     output reg 				       cfg_received_func_lvl_rst,
 
-    input wire 				       cvg_err_ecrc,
+    input wire 				       cfg_err_ecrc,
     input wire 				       cfg_err_ur,
     input wire 				       cfg_err_cpl_timeout,
     input wire 				       cfg_err_cpl_unexpect,
