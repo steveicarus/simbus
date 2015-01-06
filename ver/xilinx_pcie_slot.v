@@ -265,7 +265,15 @@ module xilinx_pcie_slot
     output reg 				       cfg_err_aer_headerlog_set,
     output reg 				       cfg_aer_ecrc_check_en,
     output reg 				       cfg_aer_ecrc_gen_en,
-    output reg [6:0] 			       cfg_vc_tcvc_map
+    output reg [6:0] 			       cfg_vc_tcvc_map,
+
+    input wire 				       pcie_drp_clk,
+    input wire 				       pcie_drp_en,
+    input wire 				       pcie_drp_we,
+    output reg 				       pcie_drp_rdy,
+    input wire [8:0] 			       pcie_drp_addr,
+    input wire [15:0] 			       pcie_drp_di,
+    output reg [15:0] 			       pcid_drp_do
 
     /* */);
 
