@@ -122,7 +122,7 @@ module xilinx_pcie_slot
     input wire [3:0] 			       s_axis_tx_tuser,
 
     input wire 				       rx_np_ok,
-    input wire 				       rx_np_reg,
+    input wire 				       rx_np_req,
 
     // Receive channel AXI4 Stream (master side)
     // This stream carries TLPs from the remote (the root) to
@@ -174,7 +174,7 @@ module xilinx_pcie_slot
     input wire 				       cfg_err_mc_blocked,
     input wire 				       cfg_err_poisoned,
     input wire 				       cfg_err_norecovery,
-    input wire 				       cfg_err_tlp_cpl_header,
+    input wire [47:0] 			       cfg_err_tlp_cpl_header,
     output wire 			       cfg_err_cpl_rdy,
     input wire 				       cfg_err_locked,
     input wire 				       cfg_err_acs,
@@ -243,6 +243,7 @@ module xilinx_pcie_slot
     input wire [1:0] 			       pl_directed_link_change,
     input wire [1:0] 			       pl_directed_link_width,
     input wire 				       pl_directed_link_auton,
+    input wire 				       pl_directed_link_speed,
     input wire 				       pl_upstream_prefer_deemph,
     output wire 			       pl_sel_lnk_rate,
     output wire [1:0] 			       pl_sel_lnk_width,
@@ -273,7 +274,7 @@ module xilinx_pcie_slot
     output reg 				       pcie_drp_rdy,
     input wire [8:0] 			       pcie_drp_addr,
     input wire [15:0] 			       pcie_drp_di,
-    output reg [15:0] 			       pcid_drp_do
+    output reg [15:0] 			       pcie_drp_do
 
     /* */);
 
