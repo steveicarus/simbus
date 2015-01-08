@@ -106,9 +106,18 @@ void simbus_pcie_tlp_write(simbus_pcie_tlp_t bus, uint64_t addr,
 	    tlp[ntlp++] = addr_h;
       tlp[ntlp++] = addr_l;
 
-	/* Finally, load the data into the TLP. */
-      for (size_t idx = 0 ; idx < ndata ; idx += 1)
-	    tlp[ntlp++] = *data++;
+	/* Finally, load the data into the TLP. PCIe defines the byte
+	   order to be big-endian, not little endian. */
+      for (size_t idx = 0 ; idx < ndata ; idx += 1) {
+	    uint32_t val = *data++;
+	    uint32_t tmp = 0;
+	    for (size_t bdx = 0 ; bdx < 4 ; bdx += 1) {
+		  tmp <<= 8;
+		  tmp |= val & 0xff;
+		  val >>= 8;
+	    }
+	    tlp[ntlp++] = tmp;
+      }
 
 	/* Send it! */
       __pcie_tlp_send_tlp(bus, tlp, ntlp);

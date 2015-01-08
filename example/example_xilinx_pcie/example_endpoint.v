@@ -178,6 +178,12 @@ module device
       end
    endtask
 
+   function [31:0] byte_swap(input reg [31:0] val);
+      begin
+	 byte_swap = {val[7:0], val[15:8], val[23:16], val[31:24]};
+      end
+   endfunction
+
    task complete_tlp_write32;
       reg [31:2] addr, idx;
       reg [9:0]  ndata;
@@ -185,7 +191,7 @@ module device
 	 ndata = tlp_buf[0][9:0];
 	 addr = tlp_buf[2][31:2];
 	 for (idx = 0 ; idx < ndata ; idx = idx+1)
-	   memory[addr+idx] = tlp_buf[3+idx];
+	   memory[addr+idx] = byte_swap(tlp_buf[3+idx]);
       end
    endtask
 
@@ -197,7 +203,7 @@ module device
 	 addr[63:32] = tlp_buf[2];
 	 addr[31:2] = tlp_buf[3][31:2];
 	 for (idx = 0 ; idx < ndata ; idx = idx+1)
-	    memory[addr+idx] = tlp_buf[4+idx];
+	   memory[addr+idx] = byte_swap(tlp_buf[4+idx]);
       end
    endtask
 
@@ -215,7 +221,7 @@ module device
 	 otlp_buf[1] = 0;
 	 otlp_buf[2] = {16'h00_00, tag, 8'h00};
 	 for (idx = 0 ; idx < ndata ; idx = idx+1)
-	   otlp_buf[3+idx] = memory[addr+idx];
+	   otlp_buf[3+idx] = byte_swap(memory[addr+idx]);
 
 	 otlp_cnt <= ndata + 3;
       end

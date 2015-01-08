@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.62 (w)1999-2014 BSI
-[*] Fri Jan  2 22:18:24 2015
+[*] Thu Jan  8 23:12:16 2015
 [*]
 [dumpfile] "/home/u/wing/steve/icarus/eda/simbus/example/example_xilinx_pcie/bus.lxt"
-[dumpfile_mtime] "Fri Jan  2 22:17:47 2015"
-[dumpfile_size] 1363
+[dumpfile_mtime] "Thu Jan  8 23:11:11 2015"
+[dumpfile_size] 2853
 [savefile] "/home/u/wing/steve/icarus/eda/simbus/example/example_xilinx_pcie/bus.gtkw"
-[timestart] 0
+[timestart] 1078000
 [size] 1224 600
 [pos] -1 -1
-*-18.343996 2310000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-17.842802 1634000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [sst_width] 215
 [signals_width] 408
 [sst_expanded] 1

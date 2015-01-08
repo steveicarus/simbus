@@ -102,7 +102,8 @@ void simbus_pcie_tlp_read(simbus_pcie_tlp_t bus, uint64_t addr,
 
 	/*
 	 * We are expecting a completion w/ data, with ndata words
-	 * of data.
+	 * of data. Note that the data is big-endian, so needs to be
+	 * swapped to native byte order.
 	 *
 	 *        n...n is the data word count, and should be 1.
 	 *        d...d is the data
@@ -120,8 +121,15 @@ void simbus_pcie_tlp_read(simbus_pcie_tlp_t bus, uint64_t addr,
       switch (status) {
 	  case 0: /* Successful Completion */
 	    assert(ndata == ndata2);
-	    for (size_t idx = 0 ; idx < ndata ; idx += 1)
-		  data[idx] = ctlp[3+idx];
+	    for (size_t idx = 0 ; idx < ndata ; idx += 1) {
+		  uint32_t tmp = ctlp[3+idx];
+		  uint32_t val = 0;
+		  for (size_t bdx = 0 ; bdx < 4 ; bdx += 1) {
+			val = (val<<8) | tmp & 0xff;
+			tmp >>= 8;
+		  }
+		  data[idx] = val;
+	    }
 	    break;
 	  default: /* Unexpected completion type */
 	    for (size_t idx = 0 ; idx < ndata ; idx += 1)
