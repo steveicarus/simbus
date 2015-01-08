@@ -24,6 +24,17 @@
 # include  <unistd.h>
 # include  <assert.h>
 
+/*
+ * The BUS/dev/fun for the root device (me) and the endpoint device
+ * (the remote) are fixed by the design of the simbus simulation.
+ * These are the values:
+ *
+ *  Root id: 1/31/0
+ *  endpoint id: passed by the caller
+ */
+# define DEFAULT_ROOT_ID 0x01f8
+
+
 static void init_simbus_pcie_tlp(simbus_pcie_tlp_t bus)
 {
       bus->debug = 0;
@@ -33,6 +44,8 @@ static void init_simbus_pcie_tlp(simbus_pcie_tlp_t bus)
       bus->user_clk = BIT_1;
       bus->user_reset_out = BIT_0;
       bus->user_lnk_up = BIT_1;
+
+      bus->request_id = DEFAULT_ROOT_ID;
 
       bus->tx_buf_av[5] = BIT_0;
       bus->tx_buf_av[4] = BIT_1;

@@ -36,10 +36,11 @@
  *        a...a is the address low 32 bits
  *        e...e is the first word byte enables
  *        f...f is the bus/device/function address
+ *        r...r is the requester id.
  *        t...t is the transaction tag.
  *
  *    01000100 00000000 00000000 00000001  (always transfer 1 word)
- *    00000000 00000000 tttttttt 0000eeee
+ *    rrrrrrrr rrrrrrrr tttttttt 0000eeee
  *    ffffffff ffffffff 0000aaaa aaaaaaaa  (12bit address)
  *    dddddddd dddddddd dddddddd dddddddd  (data)
  *
@@ -52,7 +53,7 @@ void simbus_pcie_tlp_cfg_write32(simbus_pcie_tlp_t bus,
       uint8_t use_tag = bus->tlp_next_tag;
 
       tlp[0] = 0x44000001;
-      tlp[1] = 0x0000000f | (use_tag << 8);
+      tlp[1] = 0x0000000f | (use_tag << 8) | (bus->request_id << 16);
       tlp[2] = (bus_devfn << 16) | (addr & 0x0ffc);
       tlp[3] = val;
 
@@ -82,7 +83,7 @@ void simbus_pcie_tlp_cfg_write16(simbus_pcie_tlp_t bus,
       uint8_t use_tag = bus->tlp_next_tag;
 
       tlp[0] = 0x44000001;
-      tlp[1] = 0x00000000 | (use_tag << 8) | (3 << shift);
+      tlp[1] = 0x00000000 | (use_tag << 8) | (3 << shift) | (bus->request_id << 16);
       tlp[2] = (bus_devfn << 16) | (addr & 0x0ffc);
       tlp[3] = val << 8*shift;
 
@@ -108,7 +109,7 @@ void simbus_pcie_tlp_cfg_write8(simbus_pcie_tlp_t bus,
       uint8_t use_tag = bus->tlp_next_tag;
 
       tlp[0] = 0x44000001;
-      tlp[1] = 0x00000000 | (use_tag << 8) | (1 << shift);
+      tlp[1] = 0x00000000 | (use_tag << 8) | (1 << shift) | (bus->request_id << 16);
       tlp[2] = (bus_devfn << 16) | (addr & 0x0ffc);
       tlp[3] = val << 8*shift;
 
@@ -146,7 +147,7 @@ void simbus_pcie_tlp_cfg_read32(simbus_pcie_tlp_t bus,
       uint8_t use_tag = __pcie_tlp_choose_tag(bus);
 
       tlp[0] = 0x04000001;
-      tlp[1] = 0x00000000 | (use_tag << 8) | 0xf;
+      tlp[1] = 0x00000000 | (use_tag << 8) | 0xf | (bus->request_id << 16);
       tlp[2] = (bus_devfn << 16) | (addr & 0x0ffc);
 
       __pcie_tlp_send_tlp(bus, tlp, 3);

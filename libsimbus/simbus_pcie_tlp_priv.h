@@ -25,6 +25,7 @@
  */
 # define MAX_TLP (1024+8)
 
+
 struct simbus_pcie_tlp_s {
 	/* The name given in the simbus_pci_connect function. This is
 	   also the name sent to the server in order to get my id. */
@@ -47,6 +48,9 @@ struct simbus_pcie_tlp_s {
 
       simbus_pcie_tlp_read_t read_fun;
       simbus_pcie_tlp_cookie_t read_cookie;
+
+	/* This is the requester id to use it transaction TLPs. */
+      uint16_t request_id;
 
 	/* The bus structure automatically generates tags for
 	   transactions, use this for the next tag. */
