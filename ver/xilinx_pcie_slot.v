@@ -683,12 +683,13 @@ module xilinx_pcie_cfg_space
 	 tlp_ben = tlp[1][3:0];
 	 tlp_bus = tlp[2][31:24];
 	 tlp_dev = tlp[2][23:19];
-	 tlp_dev = tlp[2][18:16];
+	 tlp_fun = tlp[2][18:16];
 	 tlp_adr = tlp[2][11:2];
 	 tlp_val = ntlp==4? tlp[3] : 32'h00000000;
 	 // This is how we find out our bus/dev/fn id.
 	 cfg_bus_number <= tlp_bus;
 	 cfg_dev_number <= tlp_dev;
+	 cfg_fun_number <= tlp_fun;
 
 	 // Generate the completion based on the request.
 	 case (tlp[0][31:24])
