@@ -72,7 +72,10 @@ void simbus_pcie_tlp_read(simbus_pcie_tlp_t bus, uint64_t addr,
       assert(off+len <= 4*ndata);
 
       assert(off==0 && len==ndata*4);
-      tlp[1] |= 0xff;
+      if (ndata == 1)
+	    tlp[1] |= 0x0f;
+      else
+	    tlp[1] |= 0xff;
 
 	/* The write transaction does not require a completion, so
 	   there is no need for a unique transaction id (TID) */
