@@ -55,7 +55,8 @@ static void init_simbus_pcie_tlp(simbus_pcie_tlp_t bus)
 simbus_pcie_tlp_t simbus_pcie_tlp_connect(const char*server, const char*name)
 {
       int server_fd = __simbus_server_socket(server);
-      assert(server_fd >= 0);
+      if (server_fd < 0)
+	    return 0;
 
       unsigned ident = 0;
       int rc = __simbus_server_hello(server_fd, name, &ident, 0, 0);

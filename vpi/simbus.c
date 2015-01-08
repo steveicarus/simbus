@@ -23,6 +23,7 @@
 # include  <sys/socket.h>
 # include  <sys/un.h>
 # include  <ctype.h>
+# include  <errno.h>
 # include  <netdb.h>
 # include  <unistd.h>
 # include  <stdlib.h>
@@ -132,6 +133,12 @@ static PLI_INT32 poll_for_simbus_bus(struct t_cb_data*cb)
 	    return 0;
 
       rc = select(nfds+1, &read_set, 0, 0, 0);
+      assert(rc != 0);
+      if (rc < 0) {
+	    vpi_printf("ERROR:poll_for_simbus_bus:%s\n", sys_errlist[errno]);
+	    vpi_control(vpiFinish, 1);
+	    return 0;
+      }
       assert(rc > 0);
 
       for (idx = 0 ; idx < MAX_INSTANCES ; idx += 1) {

@@ -112,7 +112,12 @@ static int pipe_socket(const char*path)
       strcpy(addr.sun_path, path);
 
       int rc = connect(fd, (const struct sockaddr*)&addr, sizeof addr);
-      assert(rc >= 0);
+      perror(path);
+
+      if (rc < 0) {
+	    close(fd);
+	    fd = -1;
+      }
 
       return fd;
 }
