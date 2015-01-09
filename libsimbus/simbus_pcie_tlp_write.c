@@ -33,18 +33,19 @@
  *        A...A is the address high 32 bits
  *        e...e is the first word byte enables
  *        E...E is the last word byte enables
+ *        r...r is the requester id
  *        t...t is the transaction tag.
  *
  * 32bit address version:
  *    01000000 00000000 000000nn nnnnnnnn
- *    00000000 00000000 tttttttt EEEEeeee
+ *    rrrrrrrr rrrrrrrr tttttttt EEEEeeee
  *    aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa  (32bit address)
  *    dddddddd dddddddd dddddddd dddddddd  (data[0])
  *    [... More data words ...]
  *
  * 64bit address version:
  *    01100000 00000000 000000nn nnnnnnnn
- *    00000000 00000000 tttttttt EEEEeeee
+ *    rrrrrrrr rrrrrrrr tttttttt EEEEeeee
  *    AAAAAAAA AAAAAAAA AAAAAAAA AAAAAAAA
  *    aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa  (32bit address)
  *    dddddddd dddddddd dddddddd dddddddd  (data[0])
@@ -98,6 +99,9 @@ void simbus_pcie_tlp_write(simbus_pcie_tlp_t bus, uint64_t addr,
 	/* The write transaction does not require a completion, so
 	   there is no need for a unique transaction id (TID) */
       tlp[1] |= WRITE_TID << 8;
+
+	/* The Requester id */
+      tlp[1] |= bus->request_id << 16;
 
 	/* Write the address into the header. If the address has high
 	   bits, then write the high bits first. */

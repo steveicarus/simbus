@@ -31,16 +31,17 @@
  *        A...A is the address high 32 bits
  *        e...e is the first word byte enables
  *        E...E is the last word byte enables
+ *        r...r is the requester id
  *        t...t is the transaction tag.
  *
  * 32bit address version:
  *    00000000 00000000 000000nn nnnnnnnn
- *    00000000 00000000 tttttttt EEEEeeee
+ *    rrrrrrrr rrrrrrrr tttttttt EEEEeeee
  *    aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa  (32bit address)
  *
  * 64bit address version:
  *    00100000 00000000 000000nn nnnnnnnn
- *    00000000 00000000 tttttttt EEEEeeee
+ *    rrrrrrrr rrrrrrrr tttttttt EEEEeeee
  *    AAAAAAAA AAAAAAAA AAAAAAAA AAAAAAAA  (high bits of address)
  *    aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa  (low bits of address)
  */
@@ -81,6 +82,9 @@ void simbus_pcie_tlp_read(simbus_pcie_tlp_t bus, uint64_t addr,
 	   there is no need for a unique transaction id (TID) */
       uint8_t use_tag = __pcie_tlp_choose_tag(bus);
       tlp[1] |= use_tag << 8;
+
+	/* The Requester id */
+      tlp[1] |= bus->request_id << 16;
 
 	/* Write the address into the header. If the address has high
 	   bits, then write the high bits first. */

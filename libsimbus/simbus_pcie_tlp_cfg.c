@@ -132,10 +132,11 @@ void simbus_pcie_tlp_cfg_write8(simbus_pcie_tlp_t bus,
  *        a...a is the address low 32 bits
  *        e...e is the first word byte enables
  *        f...f is the bus/device/function address
+ *        r...r is the requester id.
  *        t...t is the transaction tag.
  *
  *    00000100 00000000 00000000 00000001  (always transfer 1 word)
- *    00000000 00000000 tttttttt 0000eeee
+ *    rrrrrrrr rrrrrrrr tttttttt 0000eeee
  *    ffffffff ffffffff 0000aaaa aaaaaaaa  (12bit address)
  *
  */
