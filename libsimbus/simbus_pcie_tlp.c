@@ -134,7 +134,6 @@ static int send_ready_command(simbus_pcie_tlp_t bus)
       cp += __ready_signal(cp, "m_axis_rx_tkeep", bus->m_axis_rx_tkeep,  8);
       cp += __ready_signal(cp, "m_axis_rx_tlast", &bus->m_axis_rx_tlast, 1);
       cp += __ready_signal(cp, "m_axis_rx_tvalid",&bus->m_axis_rx_tvalid,1);
-      cp += __ready_signal(cp, "m_axis_rx_tuser", bus->m_axis_rx_tuser, 22);
 
       cp += __ready_signal(cp, "s_axis_tx_tready",&bus->s_axis_tx_tready,1);
 

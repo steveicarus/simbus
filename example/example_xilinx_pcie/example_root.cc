@@ -102,7 +102,7 @@ int main(int argc, char*argv[])
       printf("  Id: 0x%08" PRIx32 "\n", id);
       fflush(stdout);
 
-      simbus_pcie_tlp_cfg_write32(bus, 0x0000, 0x0010, 0xaaaaaaaa);
+      simbus_pcie_tlp_cfg_write32(bus, 0x0000, 0x0010, 0xaaaaa000);
       uint32_t val;
       simbus_pcie_tlp_cfg_read32(bus, 0x0000, 0x0010, &val);
       printf("  BAR0: 0x%08" PRIx32 "\n", val);
@@ -116,13 +116,13 @@ int main(int argc, char*argv[])
       buf[2] = 0x12345678;
       buf[3] = 0x87654321;
 
-      simbus_pcie_tlp_write(bus, 0x00000010, buf, 4, 0, 16);
+      simbus_pcie_tlp_write(bus, 0xaaaaa010, buf, 4, 0, 16);
       simbus_pcie_tlp_wait(bus, 4, 0);
 
       printf("Read sample data back...\n");
       fflush(stdout);
       uint32_t dst[4];
-      simbus_pcie_tlp_read(bus, 0x00000010, dst, 4, 0, 16);
+      simbus_pcie_tlp_read(bus, 0xaaaaa010, dst, 4, 0, 16);
 
       for (size_t idx = 0 ; idx < 4 ; idx += 1) {
 	    printf("    0x%04x:  0x%08" PRIx32 "  (s.b. 0x%08" PRIx32 ")\n",
@@ -136,7 +136,7 @@ int main(int argc, char*argv[])
       printf("Write a DMA command. This should cause a DMA write.\n");
       buf[0] = 0x00000001;
       buf[1] = 0x00000020;
-      simbus_pcie_tlp_write(bus, 0x00000000, buf, 2, 0, 8);
+      simbus_pcie_tlp_write(bus, 0xaaaaa000, buf, 2, 0, 8);
 
       printf("Wait 256 more clocks...\n");
       int intx_mask = 0xf;

@@ -76,7 +76,6 @@ void PCIeTLP::trace_init()
       make_trace_("m_axis_rx_tlast", PT_BITS);
       make_trace_("m_axis_rx_tready",PT_BITS);
       make_trace_("m_axis_rx_tvalid",PT_BITS);
-      make_trace_("m_axis_rx_tuser", PT_BITS, 22);
 
       make_trace_("s_axis_tx_tdata", PT_BITS, 64);
       make_trace_("s_axis_tx_tkeep", PT_BITS,  8);
@@ -150,10 +149,6 @@ void PCIeTLP::run_init()
       slave_->second->send_signals["m_axis_rx_tvalid"].resize(1);
       slave_->second->send_signals["m_axis_rx_tvalid"][0] = BIT_X;
 
-      slave_->second->send_signals["m_axis_rx_tuser"].resize(22);
-      for (size_t idx = 0 ; idx < 22 ; idx += 1)
-	    slave_->second->send_signals["m_axis_rx_tuser"][idx] = BIT_X;
-
 	/* Transmit channel signals */
       master_->second->send_signals["s_axis_tx_tdata"].resize(64);
       for (size_t idx = 0 ; idx < 64 ; idx += 1)
@@ -224,10 +219,6 @@ void PCIeTLP::run_run()
       tmp = master_->second->client_signals["m_axis_rx_tvalid"];
       slave_->second->send_signals["m_axis_rx_tvalid"] = tmp;
       set_trace_("m_axis_rx_tvalid", tmp);
-
-      tmp = master_->second->client_signals["m_axis_rx_tuser"];
-      slave_->second->send_signals["m_axis_rx_tuser"] = tmp;
-      set_trace_("m_axis_rx_tuser", tmp);
 
 	/* Transmit channel AXI4 Stream */
       tmp = slave_->second->client_signals["s_axis_tx_tdata"];

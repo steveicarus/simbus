@@ -80,7 +80,6 @@ struct simbus_pcie_tlp_s {
       bus_bitval_t m_axis_rx_tkeep[8];
       bus_bitval_t m_axis_rx_tlast;
       bus_bitval_t m_axis_rx_tvalid;
-      bus_bitval_t m_axis_rx_tuser[22];
 	/* Receive Interface signals -- in */
       bus_bitval_t m_axis_rx_tready;
 

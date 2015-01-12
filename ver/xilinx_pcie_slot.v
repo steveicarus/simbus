@@ -315,13 +315,11 @@ module xilinx_pcie_slot
    wire       m_axis_rx_tready_int = 1'bz;
    reg        m_axis_rx_tlast_drv = 1'bz;
    reg        m_axis_rx_tvalid_drv = 1'bz;
-   reg [21:0] m_axis_rx_tuser_drv = 22'bz;
 
    reg [63:0] m_axis_rx_tdata_int;
    reg [7:0]  m_axis_rx_tkeep_int;
    reg        m_axis_rx_tlast_int;
    reg        m_axis_rx_tvalid_int;
-   reg [21:0] m_axis_rx_tuser_int;
 
    wire [63:0] s_axis_tx_tdata_int = 64'bz;
    wire [7:0]  s_axis_tx_tkeep_int =  8'bz;
@@ -395,7 +393,6 @@ module xilinx_pcie_slot
 				   "m_axis_rx_tkeep", m_axis_rx_tkeep_drv,
 				   "m_axis_rx_tlast", m_axis_rx_tlast_drv,
 				   "m_axis_rx_tvalid",m_axis_rx_tvalid_drv,
-				   "m_axis_rx_tuser", m_axis_rx_tuser_drv,
 				   /* Transmite channel (from remote) */
 				   "s_axis_tx_tready",s_axis_tx_tready_drv,
 				   /* TX buffer management */
@@ -410,7 +407,6 @@ module xilinx_pcie_slot
 	 m_axis_rx_tkeep_int  <= m_axis_rx_tkeep_drv;
 	 m_axis_rx_tlast_int  <= m_axis_rx_tlast_drv;
 	 m_axis_rx_tvalid_int <= m_axis_rx_tvalid_drv;
-	 m_axis_rx_tuser_int  <= m_axis_rx_tuser_drv;
 	 tx_buf_av            <= tx_buf_av_drv;
 
 	 if (tx_cfg_gnt_int) begin
@@ -477,7 +473,6 @@ module xilinx_pcie_slot
 	.m_axis_rx_tlast (m_axis_rx_tlast_int),
 	.m_axis_rx_tready(m_axis_rx_tready_int),
 	.m_axis_rx_tvalid(m_axis_rx_tvalid_int),
-	.m_axis_rx_tuser (m_axis_rx_tuser_int),
 	// Receive channel AXI4 Stream (filtered for user)
 	.o_axis_rx_tdata (m_axis_rx_tdata),
 	.o_axis_rx_tkeep (m_axis_rx_tkeep),
@@ -527,7 +522,7 @@ module xilinx_pcie_cfg_space
     parameter subsys_ven_id = "FFFF",
     parameter subsys_id     = "FFFF",
     // BARs
-    parameter bar_0    = "FFFFFFF4",
+    parameter bar_0    = "FFFFFFFC",
     parameter bar_1    = "FFFFFFFF",
     parameter bar_2    = "00000000",
     parameter bar_3    = "00000000",
@@ -547,7 +542,6 @@ module xilinx_pcie_cfg_space
     input wire 	       m_axis_rx_tlast,
     output wire        m_axis_rx_tready,
     input wire 	       m_axis_rx_tvalid,
-    input wire [21:0]  m_axis_rx_tuser,
 
     // Receive channel AXI4 Stream (passed to user)
     output wire [63:0] o_axis_rx_tdata,
@@ -592,12 +586,25 @@ module xilinx_pcie_cfg_space
 
    reg [31:0]  cfg_mem[0 : 1023];
 
-   reg [31:0]  bar_mask[0:5];
+   // Masks for the bar registers. This is fairly raw, and tells us
+   // which bits are writable.
+   reg [31:0]  bar_mask_reg[4:9];
+
+   // Calculated base addresses. These may be spread over multiple
+   // BAR registers for 64bit addresses. The bar_addr is the assembled
+   // address (64bits) for the bar, and the bar_map maps the BAR register
+   // to the bar_addr that is applies to. The bar_map[x][3] bit means
+   // the bar points to the high 32bits of a bar_addr, and bar_map[x][2:0]
+   // points to the bar_addr that is the target.
+   reg [63:0]  bar_addr[0:5];
+   reg [63:0]  bar_addr_mask[0:5];
+   reg [3:0]   bar_map[4:9];
 
    // State for receiving a TLP.
    reg [31:0]  tlp [0:3];
    reg [7:0]   ntlp;
-   reg 	       tlp_is_config, tlp_is_skip;
+   reg 	       tlp_is_config, tlp_is_skip, tlp_is_32addr, tlp_is_64addr;
+   reg [5:0]   tlp_bar_hit;
 
    // TREADY signal from the buffer. The flow control through this module
    // relies on the buf as well as the config receiver itself.
@@ -644,8 +651,12 @@ module xilinx_pcie_cfg_space
 	   end
 	   // BARs can only have some of their bits written.
 	   4,5,6,7,8,9: begin
-	      mask = mask & bar_mask[adr-4];
+	      mask = mask & bar_mask_reg[adr];
 	      cfg_mem[adr] = val&mask | cfg_mem[adr]&~mask;
+	      if (bar_map[adr][3])
+		bar_addr[ bar_map[adr][2:0] ][63:32] = cfg_mem[adr];
+	      else
+		bar_addr[ bar_map[adr][2:0] ][31:4] = cfg_mem[adr][31:4];
 	   end
 	   // Device status/command registers
 	   'h64 / 4: begin
@@ -721,28 +732,13 @@ module xilinx_pcie_cfg_space
       end
    endtask
 
-   always @(posedge user_clk) begin : tlp_in_block
+   task collect_tlp_words;
 
-      reg  [3:0] idx, nbyte, keep_bit;
+      reg [3:0] idx, nbyte, keep_bit;
       reg [31:0] val;
 
-      if (user_reset) begin
-	 ntlp <= 0;
-	 tlp_is_config <= 0;
-	 tlp_is_skip   <= 0;
-	 m_axis_rx_tready_int <= 1;
-
-	 cfg_command <= 0;
-	 cfg_bus_number <= 0;
-	 cfg_dev_number <= 0;
-	 cfg_fun_number <= 0;
-	 cfg_interrupt_msienable <= 0;
-	 cfg_interrupt_msixenable <= 0;
-
-      end else if ((tlp_is_config||~tlp_is_skip) && m_axis_rx_tready && m_axis_rx_tvalid) begin
-
-	 // Extract the bytes of the TLP from the word.
-	 nbyte = 0;
+      begin
+      	 nbyte = 0;
 	 for (idx = 0 ; idx < 8 ; idx = idx+1) begin
 	    keep_bit = {idx[2], 2'd3-idx[1:0]};
 	    if (m_axis_rx_tkeep[keep_bit]) begin
@@ -763,6 +759,69 @@ module xilinx_pcie_cfg_space
 	    $display("%m: ERROR: I don't know how to handle odd bytes in tdata!");
 	    $finish(1);
 	 end
+      end
+   endtask // if
+
+   always @(posedge user_clk) begin : tlp_in_block
+
+      reg  [3:0] idx;
+      reg [63:0] tmp_addr;
+
+      if (user_reset) begin
+	 ntlp <= 0;
+	 tlp_is_config <= 0;
+	 tlp_is_skip   <= 0;
+	 tlp_is_32addr <= 0;
+	 tlp_is_64addr <= 0;
+	 tlp_bar_hit   <= 6'b000000;
+	 m_axis_rx_tready_int <= 1;
+
+	 cfg_command <= 0;
+	 cfg_bus_number <= 0;
+	 cfg_dev_number <= 0;
+	 cfg_fun_number <= 0;
+	 cfg_interrupt_msienable <= 0;
+	 cfg_interrupt_msixenable <= 0;
+
+      end else if (tlp_is_32addr) begin // if (user_reset)
+
+	 if (m_axis_rx_tready && m_axis_rx_tvalid)
+	   collect_tlp_words;
+
+	 if (ntlp >= 3) begin
+	    tmp_addr[63:32] = 0;
+	    tmp_addr[31: 0] = tlp[2];
+	    for (idx = 0 ; idx < 6 ; idx = idx+1) begin
+	       //$display("%m: tmp_addr=%h, bar_addr[%0d]=%h, bar_addr_mask=%h",
+	       //	  tmp_addr, idx, bar_addr[idx], bar_addr_mask[idx]);
+	       if (bar_addr[idx] && (tmp_addr&bar_addr_mask[idx])==bar_addr[idx])
+		 tlp_bar_hit[idx] <= 1;
+	    end
+	    tlp_is_32addr <= 0;
+	    tlp_is_skip <= 1;
+	 end
+
+      end else if (tlp_is_64addr) begin // if (user_reset)
+
+	 if (m_axis_rx_tready && m_axis_rx_tvalid)
+	   collect_tlp_words;
+
+	 if (ntlp >= 4) begin
+	    tmp_addr[63:32] = tlp[2];
+	    tmp_addr[31: 0] = tlp[3];
+	    for (idx = 0 ; idx < 6 ; idx = idx+1) begin
+	      if (bar_addr[idx] && (tmp_addr&bar_addr_mask[idx])==bar_addr[idx])
+		tlp_bar_hit[idx] <= 1;
+	    end
+	    tlp_is_64addr <= 0;
+	    tlp_is_skip <= 1;
+	 end
+
+      end else if ((tlp_is_config||~tlp_is_skip) && m_axis_rx_tready && m_axis_rx_tvalid) begin
+	 // If this TLP is known to be a TLP, or not otherwise identified...
+	 
+	 // Extract the bytes of the TLP from the word.
+	 collect_tlp_words;
 
 	 // If this is the first word of the TLP, then check if it is a
 	 // a config. If it is, then set a flag so that we continue to
@@ -775,6 +834,10 @@ module xilinx_pcie_cfg_space
 	      'b010_00100: tlp_is_config <= 1; // CfgWr0
 	      'b000_00101: tlp_is_config <= 1; // CfgRd1
 	      'b010_00101: tlp_is_config <= 1; // CfgWr1
+	      'b000_00000: tlp_is_32addr <= 1; // Rd32
+	      'b010_00000: tlp_is_32addr <= 1; // Wr32
+	      'b001_00000: tlp_is_64addr <= 1; // Rd64
+	      'b011_00000: tlp_is_64addr <= 1; // Wr64
 	      default:     tlp_is_skip   <= 1;
 	    endcase
 	 end
@@ -788,6 +851,7 @@ module xilinx_pcie_cfg_space
 	    ntlp = 0;
 	    tlp_is_config <= 0;
 	    tlp_is_skip   <= 0;
+	    tlp_bar_hit   <= 6'b000000;
 	 end
 
       end else if (m_axis_rx_tready && m_axis_rx_tvalid && m_axis_rx_tlast) begin
@@ -796,6 +860,7 @@ module xilinx_pcie_cfg_space
 	 ntlp = 0;
 	 tlp_is_config <= 0;
 	 tlp_is_skip   <= 0;
+	 tlp_bar_hit   <= 6'b000000;
 
       end else begin
 	
@@ -899,13 +964,13 @@ module xilinx_pcie_cfg_space
 
       .tlp_pass(tlp_is_skip),
       .tlp_drop(tlp_is_config),
+      .tlp_bar_hit(tlp_bar_hit),
 
       .i_axis_rx_tdata(m_axis_rx_tdata),
       .i_axis_rx_tkeep(m_axis_rx_tkeep),
       .i_axis_rx_tlast(m_axis_rx_tlast),
       .i_axis_rx_tready(m_axis_rx_tready_buf),
       .i_axis_rx_tvalid(m_axis_rx_tvalid),
-      .i_axis_rx_tuser(m_axis_rx_tuser),
 
       .o_axis_rx_tdata(o_axis_rx_tdata),
       .o_axis_rx_tkeep(o_axis_rx_tkeep),
@@ -917,7 +982,7 @@ module xilinx_pcie_cfg_space
 
    // Pre-reset initialization
    initial begin : init
-      integer rc;
+      integer rc, bdx;
       reg [15:0] val16;
       reg [31:0] val32;
 
@@ -928,22 +993,22 @@ module xilinx_pcie_cfg_space
       cfg_mem[0][31:16] = val16;
       rc = $sscanf(bar_0, "%h", val32);
       cfg_mem[4] = val32;
-      bar_mask[0] = val32 & 32'hfffffff0;
+      bar_mask_reg[4] = val32 & 32'hfffffff0;
       rc = $sscanf(bar_1, "%h", val32);
       cfg_mem[5] = val32;
-      bar_mask[1] = val32 & 32'hfffffff0;
+      bar_mask_reg[5] = val32 & 32'hfffffff0;
       rc = $sscanf(bar_2, "%h", val32);
       cfg_mem[6] = val32;
-      bar_mask[2] = val32 & 32'hfffffff0;
+      bar_mask_reg[6] = val32 & 32'hfffffff0;
       rc = $sscanf(bar_3, "%h", val32);
       cfg_mem[7] = val32;
-      bar_mask[3] = val32 & 32'hfffffff0;
+      bar_mask_reg[7] = val32 & 32'hfffffff0;
       rc = $sscanf(bar_4, "%h", val32);
       cfg_mem[8] = val32;
-      bar_mask[4] = val32 & 32'hfffffff0;
+      bar_mask_reg[8] = val32 & 32'hfffffff0;
       rc = $sscanf(bar_5, "%h", val32);
       cfg_mem[9] = val32;
-      bar_mask[5] = val32 & 32'hfffffff0;
+      bar_mask_reg[9] = val32 & 32'hfffffff0;
       rc = $sscanf(subsys_ven_id, "%h", val16);
       cfg_mem[11][15:0] = val16;
       rc = $sscanf(subsys_id, "%h", val16);
@@ -953,6 +1018,23 @@ module xilinx_pcie_cfg_space
       $display("%m: Initialize config space:");
       for (rc = 0 ; rc < 16 ; rc = rc+4)
 	$display("%m: %h: %h %h %h %h", rc[7:0], cfg_mem[rc+0], cfg_mem[rc+1], cfg_mem[rc+2], cfg_mem[rc+3]);
+
+      rc = 4;
+      for (bdx = 0 ; bdx < 6 ; bdx = bdx+1) begin
+	 bar_addr[bdx] = 0;
+	 if (rc <= 9) begin
+	    bar_map[rc] = bdx;
+	    bar_addr_mask[bdx][31:0] = {cfg_mem[rc][31:4], 4'b0000};
+	    if (cfg_mem[rc][2:0] == 2'b10) begin
+	       bar_addr_mask[bdx][63:32] = cfg_mem[rc+1];
+	       bar_map[rc+1] = bdx | 'b1_000;
+	       rc = rc+2;
+	    end else begin
+	       bar_addr_mask[bdx][63:32] = 32'hffffffff;
+	       rc = rc+1;
+	    end
+	 end
+      end
    end
 
 endmodule // xilinx_pcie_cfg_space
@@ -971,6 +1053,7 @@ module xilinx_pcie_rx_buffer
 
    input wire 	     tlp_pass,
    input wire 	     tlp_drop,
+   input wire [5:0]  tlp_bar_hit,
 
    // Receive channel AXI4 Stream (master side)
    input wire [63:0] i_axis_rx_tdata,
@@ -978,7 +1061,6 @@ module xilinx_pcie_rx_buffer
    input wire 	     i_axis_rx_tlast,
    output reg 	     i_axis_rx_tready,
    input wire 	     i_axis_rx_tvalid,
-   input wire [21:0] i_axis_rx_tuser,
 
     // Receive channel AXI4 Stream (master side)
    output reg [63:0] o_axis_rx_tdata,
@@ -992,11 +1074,11 @@ module xilinx_pcie_rx_buffer
    reg [63:0] 	     tdata_buf[0:3];
    reg [7:0] 	     tkeep_buf[0:3];
    reg 		     tlast_buf[0:3];
-   reg [21:0] 	     tuser_buf[0:3];
 
    reg [1:0] 	     ptr;
    reg [2:0] 	     fill;
    reg 		     tlp_pass_drain;
+   reg [5:0] 	     sav_bar_hit;
 
    task push_beat;
       reg [1:0] nxt;
@@ -1005,18 +1087,22 @@ module xilinx_pcie_rx_buffer
 	 tdata_buf[nxt] <= i_axis_rx_tdata;
 	 tkeep_buf[nxt] <= i_axis_rx_tkeep;
 	 tlast_buf[nxt] <= i_axis_rx_tlast;
-	 tuser_buf[nxt] <= i_axis_rx_tuser;
 	 fill = fill + 1;
       end
    endtask // always
 
    task pull_beat;
+      reg [5:0] tmp_bar_hit;
       begin
+	 if (tlp_pass)
+	   tmp_bar_hit = tlp_bar_hit;
+	 else
+	   tmp_bar_hit = sav_bar_hit;
 	 o_axis_rx_tdata  <= tdata_buf[ptr];
 	 o_axis_rx_tkeep  <= tkeep_buf[ptr];
 	 o_axis_rx_tlast  <= tlast_buf[ptr];
 	 o_axis_rx_tvalid <= 1;
-	 o_axis_rx_tuser  <= tuser_buf[ptr];
+	 o_axis_rx_tuser  <= {14'b0, tmp_bar_hit, 2'b00};
 	 ptr = ptr+1;
 	 fill = fill - 1;
       end
@@ -1028,6 +1114,7 @@ module xilinx_pcie_rx_buffer
 	ptr  = 0;
 	fill = 0;
 	tlp_pass_drain <= 0;
+	sav_bar_hit    <= 0;
 
 	i_axis_rx_tready <= 1;
 
@@ -1049,6 +1136,9 @@ module xilinx_pcie_rx_buffer
 	// send the last word.
 	tlp_pass_drain <= ~o_axis_rx_tlast;
 
+	// The tlp_bar_hit is only valid during the tlp_pass signal.
+	if (tlp_pass) sav_bar_hit <= tlp_bar_hit;
+
 	if (fill>0 && o_axis_rx_tready && o_axis_rx_tvalid)
 	  pull_beat;
 	else if (fill>0 && !o_axis_rx_tvalid)
@@ -1058,6 +1148,7 @@ module xilinx_pcie_rx_buffer
 	   o_axis_rx_tlast  <= 0;
 	   o_axis_rx_tdata  <= 64'bx;
 	   o_axis_rx_tkeep  <= 8'bx;
+	   o_axis_rx_tuser  <= 22'b0;
 	end
 
 	if (i_axis_rx_tready & i_axis_rx_tvalid)

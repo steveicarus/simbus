@@ -50,7 +50,8 @@ module main;
      #(.dev_id("5555"),
        .ven_id("aaaa"),
        .subsys_id("1111"),
-       .subsys_ven_id("bbbb")
+       .subsys_ven_id("bbbb"),
+       .bar_0("FFFFF004")
        /* */)
    bus
      (/* */
