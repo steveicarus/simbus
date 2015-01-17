@@ -1132,18 +1132,28 @@ module xilinx_pcie_rx_buffer
 	// If we are in pass mode, then clock the TLP out to the
 	// destination as quickly as it will go.
 
-	// Set this flag so that we continue the pass until we
-	// send the last word.
-	tlp_pass_drain <= ~o_axis_rx_tlast;
+	if (o_axis_rx_tready && o_axis_rx_tvalid && o_axis_rx_tlast) begin
+	   // If we output the last word of the TLP, then the pass
+	   // is done and we can turn the tready back on.
+	   i_axis_rx_tready <= 1;
+	   tlp_pass_drain  <= 0;
+
+	end else begin
+	   // If this is NOT the last, then continue draining.
+	   tlp_pass_drain <= 1;
+	end
 
 	// The tlp_bar_hit is only valid during the tlp_pass signal.
 	if (tlp_pass) sav_bar_hit <= tlp_bar_hit;
 
 	if (fill>0 && o_axis_rx_tready && o_axis_rx_tvalid)
+	  // Data waiting, and current word is consumed...
 	  pull_beat;
 	else if (fill>0 && !o_axis_rx_tvalid)
+	  // Data waiting, and no current word driven...
 	  pull_beat;
-	else if (fill==0 && o_axis_rx_tready && o_axis_rx_tvalid) begin
+	else if (o_axis_rx_tready && o_axis_rx_tvalid && o_axis_rx_tlast) begin
+	   // Last word has been consumed.
 	   o_axis_rx_tvalid <= 0;
 	   o_axis_rx_tlast  <= 0;
 	   o_axis_rx_tdata  <= 64'bx;
@@ -1151,10 +1161,19 @@ module xilinx_pcie_rx_buffer
 	   o_axis_rx_tuser  <= 22'b0;
 	end
 
-	if (i_axis_rx_tready & i_axis_rx_tvalid)
-	  push_beat;
+	// In general, if we are passing the TLP, then push the TLP
+	// stream work onto the queue. If this is the last, then mark
+	// the input tready so that no new words come in until the
+	// drain completes.
+	if (i_axis_rx_tready & i_axis_rx_tvalid) begin
+	   push_beat;
+	   if (i_axis_rx_tlast)
+	     i_axis_rx_tready <= 0;
+	end
 
-     end else if (i_axis_rx_tready & i_axis_rx_tvalid) begin // if (tlp_pass)
+     end else if (i_axis_rx_tready & i_axis_rx_tvalid) begin
+	// Here, we don't know yet if the current TLP is to be dropped
+	// or passed. So keep saving it.
 	push_beat;
 
      end

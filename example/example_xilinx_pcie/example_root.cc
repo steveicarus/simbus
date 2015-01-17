@@ -117,7 +117,7 @@ int main(int argc, char*argv[])
       buf[3] = 0x87654321;
 
       simbus_pcie_tlp_write(bus, 0xaaaaa010, buf, 4, 0, 16);
-      simbus_pcie_tlp_wait(bus, 4, 0);
+	//simbus_pcie_tlp_wait(bus, 4, 0);
 
       printf("Read sample data back...\n");
       fflush(stdout);

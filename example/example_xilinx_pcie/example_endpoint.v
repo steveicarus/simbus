@@ -186,43 +186,46 @@ module device
    endfunction
 
    task complete_tlp_write32;
-      reg [31:2] addr, idx;
+      reg [31:0] addr, idx;
       reg [9:0]  ndata;
       begin
 	 ndata = tlp_buf[0][9:0];
-	 addr = tlp_buf[2][31:2];
+	 addr = tlp_buf[2][31:0];
+	 $display("%m: Write %0d words to addr=%h", ndata, addr);
 	 for (idx = 0 ; idx < ndata ; idx = idx+1)
-	   memory[addr+idx] = byte_swap(tlp_buf[3+idx]);
+	   memory[addr[11:2]+idx] = byte_swap(tlp_buf[3+idx]);
       end
    endtask
 
    task complete_tlp_write64;
-      reg [63:2] addr, idx;
+      reg [63:0] addr, idx;
       reg [9:0]  ndata;
       begin
 	 ndata = tlp_buf[0][9:0];
 	 addr[63:32] = tlp_buf[2];
-	 addr[31:2] = tlp_buf[3][31:2];
+	 addr[31:0] = tlp_buf[3][31:0];
+	 $display("%m: Write %0d words to addr=%h", ndata, addr);
 	 for (idx = 0 ; idx < ndata ; idx = idx+1)
-	   memory[addr+idx] = byte_swap(tlp_buf[4+idx]);
+	   memory[addr[11:2]+idx] = byte_swap(tlp_buf[4+idx]);
       end
    endtask
 
    task complete_tlp_read32;
-      reg [31:2] addr, idx;
+      reg [31:0] addr, idx;
       reg [9:0]  ndata;
       reg [7:0]  tag;
       begin
 	 ndata = tlp_buf[0][9:0];
-	 addr = tlp_buf[2][31:2];
+	 addr = tlp_buf[2][31:0];
 	 tag = tlp_buf[1][15:8];
 
+	 $display("%m: Read %0d words from addr=%h", ndata, addr);
 	 // Build a completion w/ data.
 	 otlp_buf[0] = {8'b010_01010, 14'h0, ndata};
 	 otlp_buf[1] = 0;
 	 otlp_buf[2] = {16'h00_00, tag, 8'h00};
 	 for (idx = 0 ; idx < ndata ; idx = idx+1)
-	   otlp_buf[3+idx] = byte_swap(memory[addr+idx]);
+	   otlp_buf[3+idx] = byte_swap(memory[addr[11:2]+idx]);
 
 	 otlp_cnt <= ndata + 3;
       end
