@@ -603,7 +603,8 @@ module xilinx_pcie_cfg_space
    // State for receiving a TLP.
    reg [31:0]  tlp [0:3];
    reg [7:0]   ntlp;
-   reg 	       tlp_is_config, tlp_is_skip, tlp_is_32addr, tlp_is_64addr;
+   reg 	       tlp_is_config, tlp_pass, tlp_is_32addr, tlp_is_64addr;
+   wire        tlp_pass_drain;
    reg [5:0]   tlp_bar_hit;
 
    // TREADY signal from the buffer. The flow control through this module
@@ -770,7 +771,7 @@ module xilinx_pcie_cfg_space
       if (user_reset) begin
 	 ntlp <= 0;
 	 tlp_is_config <= 0;
-	 tlp_is_skip   <= 0;
+	 tlp_pass      <= 0;
 	 tlp_is_32addr <= 0;
 	 tlp_is_64addr <= 0;
 	 tlp_bar_hit   <= 6'b000000;
@@ -798,7 +799,8 @@ module xilinx_pcie_cfg_space
 		 tlp_bar_hit[idx] <= 1;
 	    end
 	    tlp_is_32addr <= 0;
-	    tlp_is_skip <= 1;
+	    tlp_pass <= 1;
+	    ntlp = 0;
 	 end
 
       end else if (tlp_is_64addr) begin // if (user_reset)
@@ -814,11 +816,42 @@ module xilinx_pcie_cfg_space
 		tlp_bar_hit[idx] <= 1;
 	    end
 	    tlp_is_64addr <= 0;
-	    tlp_is_skip <= 1;
+	    tlp_pass <= 1;
+	    ntlp = 0;
 	 end
 
-      end else if ((tlp_is_config||~tlp_is_skip) && m_axis_rx_tready && m_axis_rx_tvalid) begin
-	 // If this TLP is known to be a TLP, or not otherwise identified...
+      end else if (tlp_pass | tlp_pass_drain) begin // if (tlp_is_64addr)
+	 // The buffer has received the tlp_pass flag, so reset the state
+	 // machine and wait for the TLP to complete.
+	 if (tlp_pass & tlp_pass_drain) begin
+	    tlp_pass    <= 0;
+	    tlp_bar_hit <= 6'b000000;
+	 end
+
+	 // NOTE: The buffer should be holding the tready low to prevent
+	 // new TLPs from starting while it is draining the curreht TLP.
+	 // That means we don't need to be looking at the input stream
+	 // while we are in pass mode.
+	 
+      end else if (tlp_is_config) begin // if (tlp_pass | tlp_pass_drain)
+	 // Collect the next word.
+	 collect_tlp_words;
+
+	 // If this is the last word of the config TLP, make the completion.
+	 if (m_axis_rx_tlast) begin
+	    // Now we have a Config TLP, process it by forming a completion.
+	    $display("%m: Got a Config TLP: ntlp=%0d", ntlp);
+	    make_completion;
+	   
+	    // Done with the TLP, clear the rx state machine
+	    ntlp = 0;
+	    tlp_is_config <= 0;
+	    tlp_pass      <= 0;
+	    tlp_bar_hit   <= 6'b000000;
+	 end // if (m_axis_rx_tlast)
+
+      end else if (m_axis_rx_tready && m_axis_rx_tvalid) begin
+	 // If this TLP is not yet identified...
 	 
 	 // Extract the bytes of the TLP from the word.
 	 collect_tlp_words;
@@ -827,40 +860,23 @@ module xilinx_pcie_cfg_space
 	 // a config. If it is, then set a flag so that we continue to
 	 // capture the tlp. Otherwise, set a different flag so that we
 	 // know to skip the rest of this TLP.
-	 if (! (tlp_is_config || tlp_is_skip)) begin
-	    $display("%m: First word of tlp is %h", tlp[0]);
-	    case (tlp[0][31:24])
-	      'b000_00100: tlp_is_config <= 1; // CfgRd0
-	      'b010_00100: tlp_is_config <= 1; // CfgWr0
-	      'b000_00101: tlp_is_config <= 1; // CfgRd1
-	      'b010_00101: tlp_is_config <= 1; // CfgWr1
-	      'b000_00000: tlp_is_32addr <= 1; // Rd32
-	      'b010_00000: tlp_is_32addr <= 1; // Wr32
-	      'b001_00000: tlp_is_64addr <= 1; // Rd64
-	      'b011_00000: tlp_is_64addr <= 1; // Wr64
-	      default:     tlp_is_skip   <= 1;
-	    endcase
-	 end
-
+	 $display("%m: First word of tlp is %h", tlp[0]);
+	 case (tlp[0][31:24])
+	   'b000_00100: tlp_is_config <= 1; // CfgRd0
+	   'b010_00100: tlp_is_config <= 1; // CfgWr0
+	   'b000_00101: tlp_is_config <= 1; // CfgRd1
+	   'b010_00101: tlp_is_config <= 1; // CfgWr1
+	   'b000_00000: tlp_is_32addr <= 1; // Rd32
+	   'b010_00000: tlp_is_32addr <= 1; // Wr32
+	   'b001_00000: tlp_is_64addr <= 1; // Rd64
+	   'b011_00000: tlp_is_64addr <= 1; // Wr64
+	   default:     tlp_pass   <= 1;
+	 endcase
+      
 	 if (m_axis_rx_tlast) begin
-	    // Now we have a Config TLP, process it by forming a completion.
-	    $display("%m: Got a TLP: ntlp=%0d", ntlp);
-	    make_completion;
-	   
-	    // Done with the TLP, clear the rx state machine
-	    ntlp = 0;
-	    tlp_is_config <= 0;
-	    tlp_is_skip   <= 0;
-	    tlp_bar_hit   <= 6'b000000;
+	    $display("%m: ERROR: First word is last word?");
+	    $finish;
 	 end
-
-      end else if (m_axis_rx_tready && m_axis_rx_tvalid && m_axis_rx_tlast) begin
-	 // This was not a config TLP, so now that it is done,
-	 // restart the state machine to watch for the next TLP.
-	 ntlp = 0;
-	 tlp_is_config <= 0;
-	 tlp_is_skip   <= 0;
-	 tlp_bar_hit   <= 6'b000000;
 
       end else begin
 	
@@ -962,7 +978,8 @@ module xilinx_pcie_cfg_space
      (.user_clk(user_clk),
       .user_reset(user_reset),
 
-      .tlp_pass(tlp_is_skip),
+      .tlp_pass(tlp_pass),
+      .tlp_pass_drain(tlp_pass_drain),
       .tlp_drop(tlp_is_config),
       .tlp_bar_hit(tlp_bar_hit),
 
@@ -1052,6 +1069,7 @@ module xilinx_pcie_rx_buffer
    input wire 	     user_reset,
 
    input wire 	     tlp_pass,
+   output reg 	     tlp_pass_drain,
    input wire 	     tlp_drop,
    input wire [5:0]  tlp_bar_hit,
 
@@ -1077,7 +1095,6 @@ module xilinx_pcie_rx_buffer
 
    reg [1:0] 	     ptr;
    reg [2:0] 	     fill;
-   reg 		     tlp_pass_drain;
    reg [5:0] 	     sav_bar_hit;
 
    task push_beat;
@@ -1175,6 +1192,10 @@ module xilinx_pcie_rx_buffer
 	// Here, we don't know yet if the current TLP is to be dropped
 	// or passed. So keep saving it.
 	push_beat;
+
+	// don't take in any more TLPs until we know what to do
+	// with the one we just captured.
+	if (i_axis_rx_tlast) i_axis_rx_tready <= 0;
 
      end
 
