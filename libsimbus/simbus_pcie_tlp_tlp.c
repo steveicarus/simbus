@@ -148,6 +148,7 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 	    uint64_t addr = bus->s_tlp_buf[2];
 	    int be0 = bus->s_tlp_buf[1] & 0x0f;
 	    int beN = (bus->s_tlp_buf[1] & 0xf0) >> 4;
+
 	    if (bus->write_fun)
 		  bus->write_fun (bus, bus->write_cookie, addr, bus->s_tlp_buf+3, ndata, be0, beN);
 	      /* No need for completions to writes */
@@ -175,6 +176,9 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 
 	    tlp = calloc(3+ndata, sizeof(uint32_t));
 
+	    tlp[0] = ndata;
+	    tlp[1] = bus->request_id<<16;
+	    tlp[2] = bus->s_tlp_buf[1] & 0xffff0000; /* Copy RID */
 	    if (bus->read_fun)
 		  bus->read_fun (bus, bus->read_cookie, addr, tlp+3, ndata, be0, beN);
 
@@ -193,6 +197,9 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 
 	    tlp = calloc(3+ndata, sizeof(uint32_t));
 
+	    tlp[0] = ndata;
+	    tlp[1] = bus->request_id<<16;
+	    tlp[2] = bus->s_tlp_buf[1] & 0xffff0000; /* Copy RID */
 	    if (bus->read_fun)
 		  bus->read_fun (bus, bus->read_cookie, addr, tlp+3, ndata, be0, beN);
 
