@@ -225,7 +225,7 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 
 	    tlp[0] = 0x4a000000 | ndata; /* CplD */
 	    tlp[1] = (bus->request_id<<16) | byte_count;
-	    tlp[2] = bus->s_tlp_buf[1] & 0xffff0000; /* Copy RID */
+	    tlp[2] = bus->s_tlp_buf[1] & 0xffffff00; /* Copy RID & tag */
 	    tlp[2] |= addr&0x0000007f;
 
 	    if (bus->read_fun)
