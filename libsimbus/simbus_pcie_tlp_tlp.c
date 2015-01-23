@@ -221,7 +221,7 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 	    uint32_t byte_count = (ndata * 4) & 0x0fff;
 
 	    tlp = calloc(3+ndata, sizeof(uint32_t));
-	    ntlp - ndata+3;
+	    ntlp = ndata+3;
 
 	    tlp[0] = 0x4a000000 | ndata; /* CplD */
 	    tlp[1] = (bus->request_id<<16) | byte_count;
@@ -233,7 +233,6 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 
       } else if ((tmp&0xff000000) == 0x40000000) { /* Read w/ 64bit address */
 
-	    uint32_t*tlp;
 	    size_t ndata = bus->s_tlp_buf[0] & 0x03ff;
 	    uint64_t addr = bus->s_tlp_buf[2];
 	    int be0 = bus->s_tlp_buf[1] & 0x0f;
