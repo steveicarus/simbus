@@ -25,6 +25,11 @@
  */
 # define MAX_TLP (1024+8)
 
+struct tlp_cell {
+      uint32_t*data;
+      size_t ndata;
+      struct tlp_cell*next;
+};
 
 struct simbus_pcie_tlp_s {
 	/* The name given in the simbus_pci_connect function. This is
@@ -68,6 +73,7 @@ struct simbus_pcie_tlp_s {
       uint64_t time_mant;
       int time_exp;
 
+      struct tlp_cell*tlp_out_list;
 
 	/* Common Interface signals -- out, except for the clk. */
       bus_bitval_t user_clk;

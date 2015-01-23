@@ -41,6 +41,8 @@ static void init_simbus_pcie_tlp(simbus_pcie_tlp_t bus)
       bus->time_mant = 0;
       bus->time_exp = 0;
 
+      bus->tlp_out_list = 0;
+
       bus->user_clk = BIT_1;
       bus->user_reset_out = BIT_0;
       bus->user_lnk_up = BIT_1;
@@ -210,8 +212,6 @@ static int send_ready_command(simbus_pcie_tlp_t bus)
 
 void __pcie_tlp_next_posedge(simbus_pcie_tlp_t bus)
 {
-      int idx;
-
 	/* If the clock is already high, wait for it to go low. */
       while (bus->user_clk == BIT_1) {
 	    send_ready_command(bus);

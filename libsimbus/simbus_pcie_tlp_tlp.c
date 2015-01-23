@@ -29,7 +29,7 @@
  * specification, with 32bit words. This function matches up the words
  * with the AXIS stream that connects to the Xilinx PCIe core.
  */
-void __pcie_tlp_send_tlp(simbus_pcie_tlp_t bus,
+static void do_send_tlp_raw(simbus_pcie_tlp_t bus,
 			    const uint32_t*data, size_t ndata)
 {
       while (ndata >= 1) {
@@ -90,6 +90,49 @@ void __pcie_tlp_send_tlp(simbus_pcie_tlp_t bus,
       }
 }
 
+void __pcie_tlp_send_tlp(simbus_pcie_tlp_t bus,
+			 const uint32_t*data, size_t ndata)
+{
+      size_t idx;
+
+      struct tlp_cell*cell = calloc(1, sizeof(struct tlp_cell));
+      cell->ndata = ndata;
+      cell->data = calloc(ndata, sizeof(uint32_t));
+      for (idx = 0 ; idx < ndata ; idx += 1)
+	    cell->data[idx] = data[idx];
+
+
+      if (bus->tlp_out_list == 0) {
+	      /* No current tlp out pending (meaning not recursed) so
+		 start the list and start processing. Note that the
+		 processing may generate new TLPs on the output queue,
+		 so be prepared for that. */
+	    bus->tlp_out_list = cell;
+	    cell->next = cell;
+
+	    while (bus->tlp_out_list) {
+		  struct tlp_cell*cur = bus->tlp_out_list->next;
+		  do_send_tlp_raw(bus, cur->data, cur->ndata);
+		  if (bus->tlp_out_list == cur) {
+			bus->tlp_out_list = 0;
+		  } else {
+			assert(bus->tlp_out_list->next == cur);
+			bus->tlp_out_list->next = cur->next;
+		  }
+		  free(cur->data);
+		  free(cur);
+	    }
+
+      } else {
+	      /* If we are recursing, then just push the TLP onto the
+		 end of a work queue. The root call will notice it and
+		 process it when it is done. */
+	    cell->next = bus->tlp_out_list->next;
+	    bus->tlp_out_list->next = cell;
+	    bus->tlp_out_list = cell;
+      }
+}
+
 static void crank_recv_tlp(simbus_pcie_tlp_t bus, uint32_t val)
 {
       if (bus->debug) {
@@ -125,6 +168,9 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 			  bus->s_tlp_buf[idx]);
 	    fflush(bus->debug);
       }
+
+      uint32_t*tlp = 0;
+      size_t ntlp = 0;
 
 	/* Dispatch the TLP based on the type. */
       assert(bus->s_tlp_cnt >= 1);
@@ -168,22 +214,22 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 
       } else if ((tmp&0xff000000) == 0x00000000) { /* Read w/ 32bit address */
 
-	    uint32_t*tlp;
 	    size_t ndata = bus->s_tlp_buf[0] & 0x03ff;
 	    uint64_t addr = bus->s_tlp_buf[2];
 	    int be0 = bus->s_tlp_buf[1] & 0x0f;
 	    int beN = (bus->s_tlp_buf[1] & 0xf0) >> 4;
+	    uint32_t byte_count = (ndata * 4) & 0x0fff;
 
 	    tlp = calloc(3+ndata, sizeof(uint32_t));
+	    ntlp - ndata+3;
 
-	    tlp[0] = ndata;
-	    tlp[1] = bus->request_id<<16;
+	    tlp[0] = 0x4a000000 | ndata; /* CplD */
+	    tlp[1] = (bus->request_id<<16) | byte_count;
 	    tlp[2] = bus->s_tlp_buf[1] & 0xffff0000; /* Copy RID */
+	    tlp[2] |= addr&0x0000007f;
+
 	    if (bus->read_fun)
 		  bus->read_fun (bus, bus->read_cookie, addr, tlp+3, ndata, be0, beN);
-
-	    __pcie_tlp_send_tlp(bus, tlp, 3+ndata);
-	    free(tlp);
 
       } else if ((tmp&0xff000000) == 0x40000000) { /* Read w/ 64bit address */
 
@@ -192,19 +238,20 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 	    uint64_t addr = bus->s_tlp_buf[2];
 	    int be0 = bus->s_tlp_buf[1] & 0x0f;
 	    int beN = (bus->s_tlp_buf[1] & 0xf0) >> 4;
+	    uint32_t byte_count = (ndata * 4) & 0x0fff;
 	    addr <<= 32;
 	    addr |= bus->s_tlp_buf[3];
 
 	    tlp = calloc(3+ndata, sizeof(uint32_t));
+	    ntlp = ndata+3;
 
-	    tlp[0] = ndata;
-	    tlp[1] = bus->request_id<<16;
-	    tlp[2] = bus->s_tlp_buf[1] & 0xffff0000; /* Copy RID */
+	    tlp[0] = 0x4a000000 | ndata; /* CplD */
+	    tlp[1] = (bus->request_id<<16) | byte_count;
+	    tlp[2] = bus->s_tlp_buf[1] & 0xffffff00; /* Copy RID & tag */
+	    tlp[2] |= addr&0x0000007f;
+
 	    if (bus->read_fun)
 		  bus->read_fun (bus, bus->read_cookie, addr, tlp+3, ndata, be0, beN);
-
-	    __pcie_tlp_send_tlp(bus, tlp, 3+ndata);
-	    free(tlp);
 
       } else if ((tmp&0xff000000) == 0x30000000) { /* Msg routed to root complex */
 
@@ -223,6 +270,11 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 
 	/* Now erase the buffer and make ready to receive more TLPs. */
       bus->s_tlp_cnt = 0;
+
+      if (tlp) {
+	    __pcie_tlp_send_tlp(bus, tlp, ntlp);
+	    free(tlp);
+      }
 }
 
 
