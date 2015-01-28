@@ -826,6 +826,7 @@ module xilinx_pcie_cfg_space
 	 if (tlp_pass & tlp_pass_drain) begin
 	    tlp_pass    <= 0;
 	    tlp_bar_hit <= 6'b000000;
+	    ntlp = 0;
 	 end
 
 	 // NOTE: The buffer should be holding the tready low to prevent
