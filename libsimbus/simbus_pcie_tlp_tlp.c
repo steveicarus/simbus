@@ -231,7 +231,7 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 	    if (bus->read_fun)
 		  bus->read_fun (bus, bus->read_cookie, addr, tlp+3, ndata, be0, beN);
 
-      } else if ((tmp&0xff000000) == 0x40000000) { /* Read w/ 64bit address */
+      } else if ((tmp&0xff000000) == 0x20000000) { /* Read w/ 64bit address */
 
 	    size_t ndata = bus->s_tlp_buf[0] & 0x03ff;
 	    uint64_t addr = bus->s_tlp_buf[2];
