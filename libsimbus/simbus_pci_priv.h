@@ -55,6 +55,7 @@ struct simbus_pci_s {
       bus_bitval_t out_par64;
 
 	/* values that I get back from the server */
+      bus_bitval_t pcixcap;
       bus_bitval_t pci_clk;
       bus_bitval_t pci_gnt_n;
       bus_bitval_t pci_inta_n[16];

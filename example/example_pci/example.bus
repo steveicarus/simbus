@@ -1,0 +1,22 @@
+
+bus {
+    protocol = "pci";
+
+    name = "primary";
+    pipe = "primary_pci";
+
+    host   15 "host";
+    device  0 "pcimem";
+}
+
+process {
+    name = "host";
+    exec = "./host pipe:primary_pci";
+    stdout = "-";
+}
+
+process {
+    name = "pcimem";
+    exec = "vvp -m../../vpi/simbus.vpi ../../pcimem/pcimem.out -lxt2 +simbus-pcimem-bus=pipe:primary_pci";
+    stdout = "pcimem.log";
+}

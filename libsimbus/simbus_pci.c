@@ -50,6 +50,7 @@ static void init_simbus_pci(struct simbus_pci_s*pci)
       pci->out_par = BIT_Z;
       pci->out_par64 = BIT_Z;
 
+      pci->pcixcap = BIT_X;
       pci->pci_clk = BIT_X;
       pci->pci_gnt_n = BIT_X;
       for (idx = 0 ; idx < 64 ; idx += 1)
@@ -187,6 +188,9 @@ static int send_ready_command(struct simbus_pci_s*pci)
 
 	    if (strcmp(argv[idx],"PCI_CLK") == 0) {
 		  pci->pci_clk = __char_to_bitval(*cp);
+
+	    } else if (strcmp(argv[idx],"PCIXCAP") == 0) {
+		  pci->pcixcap = __char_to_bitval(*cp);
 
 	    } else if (strcmp(argv[idx],"GNT#") == 0) {
 		  pci->pci_gnt_n = __char_to_bitval(*cp);

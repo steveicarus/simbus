@@ -96,13 +96,19 @@ EXTERN int simbus_pci_wait_break(simbus_pci_t bus);
  */
 EXTERN void simbus_pci_reset(simbus_pci_t bus, unsigned width, unsigned settle);
 
+/*
+ * The config read/write functions take as an argument the device and
+ * function number of the device being addressed. This macro assembles
+ * a device/function address from the individual numbers.
+ */
+# define SIMBUS_PCI_DFN(dev, fn) ((uint8_t)((((dev)*8)&0xf8) | ((fn)&0x07)))
 
 /*
  * Execute a PCI configuration read cycle and return the 32bit value
  * that was read. The address is the type-0 or type-1 address
  * according to PCI config space conventions.
  */
-EXTERN uint32_t simbus_pci_config_read(simbus_pci_t bus, uint64_t addr);
+EXTERN uint32_t simbus_pci_config_read(simbus_pci_t bus, uint8_t dfn, uint16_t dw_addr);
 
 /*
  * Execute a PCI configuration WRITE cycle to write the 32bit
@@ -110,7 +116,7 @@ EXTERN uint32_t simbus_pci_config_read(simbus_pci_t bus, uint64_t addr);
  * value. This mask follows the PCI conventions, so BEn==0 writes all
  * for bytes, and BEn==0xe enables only the least significant byte.
  */
-EXTERN void simbus_pci_config_write(simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn);
+EXTERN void simbus_pci_config_write(simbus_pci_t bus, uint8_t dfn, uint16_t dw_addr, uint32_t val, int BEn);
 
 /*
  * Write 32/64 bit values to the bus, enabled by the BEn, using PCI

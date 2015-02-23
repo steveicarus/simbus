@@ -35,6 +35,11 @@ example/example_axi4s/master
 example/example_axi4s/slave
 example/example_axi4s/*.log
 
+# example/example/pci/
+example/example_pci/*.log
+example/example_pci/host
+example/example_pci/memory.bin
+
 # example/example_xilinx_pcie/
 example/example_xilinx_pcie/*.fst
 example/example_xilinx_pcie/*.log

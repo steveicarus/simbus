@@ -44,7 +44,7 @@ typedef struct simbus_pci_memdev_s *simbus_pci_memdev_t;
  * places. The device should already have been mapped into the address
  * space by whatever BIOS is being used.
  */
-EXTERN simbus_pci_memdev_t simbus_pci_memdev_init(simbus_pci_t bus, uint64_t config);
+EXTERN simbus_pci_memdev_t simbus_pci_memdev_init(simbus_pci_t bus, uint8_t config);
 
 /*
  * Get the base address of the main memory. This is the address

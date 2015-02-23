@@ -22,8 +22,23 @@
 # include  <stdio.h>
 # include  <assert.h>
 
-uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
+static uint64_t make_type0_addr(uint8_t dfn, uint16_t dw_addr)
 {
+      uint64_t addr = dw_addr;
+      addr &= 0xfc;
+
+      addr |= (uint64_t)dfn << 8;
+
+      uint64_t dev = dfn / 8;
+      addr |= UINT64_C(0x10000) << dev;
+
+      return addr;
+}
+
+uint32_t simbus_pci_config_read(simbus_pci_t pci, uint8_t dfn, uint16_t dw_addr)
+{
+      uint64_t addr = make_type0_addr(dfn, dw_addr);
+
       uint32_t val = 0xffffffff, valx = 0;
       int rc = __generic_pci_read32(pci, addr, 0xfa, 0xf0, &val, &valx);
       if (rc < 0) {
@@ -36,9 +51,10 @@ uint32_t simbus_pci_config_read(simbus_pci_t pci, uint64_t addr)
 }
 
 
-void simbus_pci_config_write(simbus_pci_t pci, uint64_t addr, uint32_t val, int BEn)
+void simbus_pci_config_write(simbus_pci_t pci, uint8_t dfn, uint16_t dw_addr, uint32_t val, int BEn)
 {
       int rc;
+      uint64_t addr = make_type0_addr(dfn, dw_addr);
 
       rc = __generic_pci_write32(pci, addr, 0xfb, val, BEn);
       if (rc < 0) {

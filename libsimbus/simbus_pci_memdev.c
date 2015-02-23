@@ -31,7 +31,7 @@
 struct simbus_pci_memdev_s {
       simbus_pci_t bus;
 	/* Config space address for the device */
-      uint64_t config;
+      uint8_t dfn;
 	/* PCI Device ID */
       uint32_t devid;
       uint64_t base_memory;
@@ -48,31 +48,31 @@ static uint32_t m1readl(struct simbus_pci_memdev_s*xsp, uint64_t off)
       return simbus_pci_read32(xsp->bus, xsp->base_cntrl + off, 0);
 }
 
-simbus_pci_memdev_t simbus_pci_memdev_init(simbus_pci_t bus, uint64_t config)
+simbus_pci_memdev_t simbus_pci_memdev_init(simbus_pci_t bus, uint8_t dfn)
 {
       uint32_t val;
       struct simbus_pci_memdev_s*xsp = calloc(1, sizeof(struct simbus_pci_memdev_s));
 
       xsp->bus = bus;
-      xsp->config = config;
+      xsp->dfn = dfn;
 
 	/* We need the device ID to distinguish variants. */
-      xsp->devid = simbus_pci_config_read(xsp->bus, xsp->config + 0);
+      xsp->devid = simbus_pci_config_read(xsp->bus, xsp->dfn, 0);
 
       switch (xsp->devid) {
 
 	  case 0xffc112c5:
 	      /* BAR0 has low address bits */
-	    val = simbus_pci_config_read(xsp->bus, xsp->config+16);
+	    val = simbus_pci_config_read(xsp->bus, xsp->dfn, 16);
 	    xsp->base_memory = val & ~15;
 	      /* BAR1 has high address bits */
-	    val = simbus_pci_config_read(xsp->bus, xsp->config + 20);
+	    val = simbus_pci_config_read(xsp->bus, xsp->dfn, 20);
 	    xsp->base_memory |= ((uint64_t)val) << 32;
 	      /* BAR2 has base of control registers */
-	    val = simbus_pci_config_read(xsp->bus, xsp->config + 24);
+	    val = simbus_pci_config_read(xsp->bus, xsp->dfn, 24);
 	    xsp->base_cntrl = val & ~15;
 	      /* BAR3 has high address bits */
-	    val = simbus_pci_config_read(xsp->bus, xsp->config + 28);
+	    val = simbus_pci_config_read(xsp->bus, xsp->dfn, 28);
 	    xsp->base_cntrl |= ((uint64_t)val) << 32;
 	    break;
 
