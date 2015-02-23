@@ -26,6 +26,12 @@
  * simulation, you just need to connect your DUT to this slot and use
  * the PCI signals in their usual way.
  *
+ * NOTE: The PCIXCAP port is an OUTPUT. Simulations do not normally
+ * use the PCIXCAP signal (it is implemented via discretes and traces)
+ * but for some simulation purposes it may be useful to know what the
+ * simulation thinks the bus is. It will be 1 if PCI-X is enabled, and
+ * 0 otherwise.
+ *
  * **
  *
  * parameter name = "string"
@@ -37,30 +43,31 @@
 `timescale 1ps/1ps
 
 module pci_slot(// The bus supplies the clock and reset
-		output reg PCI_CLK,
-		output reg RESET_n,
+		output reg 	  PCI_CLK,
+		output reg 	  RESET_n,
 		// The bus implements IDSEL
-		output wire IDSEL,
+		output wire 	  IDSEL,
+		output reg 	  PCIXCAP,
 		// Arbiter signals
-		output reg GNT_n,
-		input wire REQ_n,
+		output reg 	  GNT_n,
+		input wire 	  REQ_n,
 		// Interrupt pins
-		input wire INTA_n,
-		input wire INTB_n,
-		input wire INTC_n,
-		input wire INTD_n,
+		input wire 	  INTA_n,
+		input wire 	  INTB_n,
+		input wire 	  INTC_n,
+		input wire 	  INTD_n,
 		// Other PCI signals
-		inout wire FRAME_n,
-		inout wire REQ64_n,
-		inout wire IRDY_n,
-		inout wire TRDY_n,
-		inout wire STOP_n,
-		inout wire DEVSEL_n,
-		inout wire ACK64_n,
-		inout wire [7:0] C_BE,
+		inout wire 	  FRAME_n,
+		inout wire 	  REQ64_n,
+		inout wire 	  IRDY_n,
+		inout wire 	  TRDY_n,
+		inout wire 	  STOP_n,
+		inout wire 	  DEVSEL_n,
+		inout wire 	  ACK64_n,
+		inout wire [7:0]  C_BE,
 		inout wire [63:0] AD,
-		inout wire  PAR,
-		inout wire PAR64);
+		inout wire 	  PAR,
+		inout wire 	  PAR64);
 
    // This is the name that I report to the bus server. The user
    // *must* override this, either by defparam or parameter override.
@@ -73,7 +80,7 @@ module pci_slot(// The bus supplies the clock and reset
 
    // These are values that the remote drives to the PCI port signals.
    // When the values are z, the remote is explicitly not driving.
-   reg 	      idsel_drv = 1'bz; 			   
+   reg 	      idsel_drv = 1'bz; 
    reg 	      gnt_n_drv = 1'bz;
    reg 	      frame_n_drv = 1'bz;
    reg        req64_n_drv = 1'bz;
@@ -198,6 +205,7 @@ module pci_slot(// The bus supplies the clock and reset
 	 deltatime = $simbus_until(bus,
 				   "PCI_CLK",PCI_CLK,
 				   "RESET#", RESET_n,
+				   "PCIXCAP",PCIXCAP,
 				   "GNT#",   gnt_n_drv,
 				   "IDSEL",  idsel_drv,
 				   "FRAME#", frame_n_drv,

@@ -84,6 +84,17 @@ PciProtocol::PciProtocol(struct bus_state*b)
       } else {
 	    gnt_linger_ = 16;
       }
+
+      string pcixcap_str = b->options["PCIXCAP"];
+      if (pcixcap_str == "") {
+	    pcixcap_ = BIT_0;
+      } else if (pcixcap_str == "yes") {
+	    pcixcap_ = BIT_1;
+      } else if (pcixcap_str == "no") {
+	    pcixcap_ = BIT_0;
+      } else {
+	    pcixcap_ = BIT_0;
+      }
 }
 
 PciProtocol::~PciProtocol()
@@ -114,6 +125,9 @@ void PciProtocol::trace_init()
       make_trace_("REQ#",    PT_BITS, 16);
       make_trace_("Bus grant",PT_STRING);
       make_trace_("Bus master",PT_STRING);
+      make_trace_("PCIXCAP", PT_STRING);
+
+      set_trace_("PCIXCAP", pcixcap_==BIT_1? "yes" : "no");
 }
 
 void PciProtocol::run_init()
@@ -127,6 +141,9 @@ void PciProtocol::run_init()
 		 ; dev != device_map().end() ; dev ++ ) {
 
 	    struct bus_device_plug&curdev = *(dev->second);
+
+	    curdev.send_signals["PCIXCAP"].resize(1);
+	    curdev.send_signals["PCIXCAP"][0] = pcixcap_;
 
 	    curdev.send_signals["PCI_CLK"].resize(1);
 	    curdev.send_signals["PCI_CLK"][0] = BIT_1;

@@ -529,6 +529,22 @@ void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64
 	/* Clock the Command and address */
       __pci_next_posedge(pci);
 
+	/* If PCI-X is enabled, then generate an ATTR cycle. This is
+	   generated before the IRDY# is made active so that it doesn't
+	   confuse PCI devices. */
+      if (pci->pcixcap == BIT_1) {
+	    uint32_t attr = 0;
+	    attr |= 0x000000; /* Assume Requestor bus is 0. */
+	    attr |= SIMBUS_PCI_DFN(pci->ident, 0) << 8;
+
+	    for (idx = 0 ; idx < 32 ; idx += 1) {
+		  pci->out_ad[idx] = (attr&1)? BIT_1 : BIT_0;
+		  addr >>= 1;
+	    }
+
+	    __pci_next_posedge(pci);
+      }
+
 	/* Stage the IRDY#. If this is a 32bit transaction, then at
 	   the same time withdraw the FRAME# signal. If we are
 	   requesting a 64bit transaction, then leave the FRAME#

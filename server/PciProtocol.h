@@ -62,6 +62,9 @@ class PciProtocol  : public protocol_t {
 	// Device that is master of the bus, if any.
       struct bus_device_plug*master_;
 
+	// PCI-X support status.
+      bit_state_t pcixcap_;
+
 	// These are the sampled REQ# inputs.
       std::valarray<bit_state_t> req_n_;
 };
