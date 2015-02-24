@@ -2,6 +2,11 @@
 bus {
     protocol = "pci";
 
+    # To turn this into a PCI-X bus, un-comment this line. Setting PCIXCAP to "yes"
+    # sets the PCIXCAP trace to all the slots to 1, and the host interprets this to
+    # mean it should run in PCI-X mode.
+    #PCIXCAP = "yes";
+
     name = "primary";
     pipe = "primary_pci";
 

@@ -32,6 +32,10 @@
  * simulation thinks the bus is. It will be 1 if PCI-X is enabled, and
  * 0 otherwise.
  *
+ * This port is controlled in the bus section of the server configuration
+ * file by the setting of the PCIXCAP variable. Set it to "no" to force
+ * this signal off, and "yes" to force it on. The entire bus shares
+ * the same PCIXCAP value.
  * **
  *
  * parameter name = "string"
