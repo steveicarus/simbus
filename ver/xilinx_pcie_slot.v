@@ -442,6 +442,11 @@ module xilinx_pcie_slot
 	// User gets port when it starts a TLP
 	tx_user_busy <= 1;
 
+     end else if (s_axis_tx_tvalid & s_axis_tx_tready & ~tx_cfg_gnt_int) begin
+	// User sneaks in another TLP before we can grant, so mark
+	// that the user is busy sending a TLP.
+	tx_user_busy <= 1;
+
      end else if (tx_cfg_req & tx_cfg_gnt & ~tx_user_busy) begin
 	// Cfg engine gets port if requested, and granted.
 	tx_cfg_gnt_int <= 1;
@@ -841,7 +846,7 @@ module xilinx_pcie_cfg_space
 	 // If this is the last word of the config TLP, make the completion.
 	 if (m_axis_rx_tlast) begin
 	    // Now we have a Config TLP, process it by forming a completion.
-	    $display("%m: Got a Config TLP: ntlp=%0d", ntlp);
+	    //$display("%m: Got a Config TLP: ntlp=%0d", ntlp);
 	    make_completion;
 	   
 	    // Done with the TLP, clear the rx state machine
@@ -861,7 +866,6 @@ module xilinx_pcie_cfg_space
 	 // a config. If it is, then set a flag so that we continue to
 	 // capture the tlp. Otherwise, set a different flag so that we
 	 // know to skip the rest of this TLP.
-	 $display("%m: First word of tlp is %h", tlp[0]);
 	 case (tlp[0][31:24])
 	   'b000_00100: tlp_is_config <= 1; // CfgRd0
 	   'b010_00100: tlp_is_config <= 1; // CfgWr0
@@ -871,11 +875,11 @@ module xilinx_pcie_cfg_space
 	   'b010_00000: tlp_is_32addr <= 1; // Wr32
 	   'b001_00000: tlp_is_64addr <= 1; // Rd64
 	   'b011_00000: tlp_is_64addr <= 1; // Wr64
-	   default:     tlp_pass   <= 1;
+	   default:     tlp_pass      <= 1;
 	 endcase
       
 	 if (m_axis_rx_tlast) begin
-	    $display("%m: ERROR: First word is last word?");
+	    $display("%m: ERROR: First word is last word? tlp[0] is %h", tlp[0]);
 	    $finish;
 	 end
 
