@@ -334,6 +334,8 @@ module xilinx_pcie_slot
    reg 	     trig;
 
    initial begin
+      $display("%m: xilinx_pcie_slot.v version: @XXXX@");
+
       // This connects to the bus and sends a message that logically
       // attaches the design to the system.
       bus = $simbus_connect(name);

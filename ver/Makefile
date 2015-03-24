@@ -20,7 +20,6 @@ uninstall:
 	rm -f $(DESTDIR)$(datadir)/cameralink_send.v
 	rm -f $(DESTDIR)$(datadir)/xilinx_pcie_slot.v
 
-
 $(datadir)/pci_slot.v: pci_slot.v
 	$(INSTALL_DATA) pci_slot.v $(DESTDIR)$(datadir)/pci_slot.v
 
@@ -40,7 +39,9 @@ $(datadir)/cameralink_recv.v: cameralink_recv.v
 	$(INSTALL_DATA) cameralink_recv.v $(DESTDIR)$(datadir)/cameralink_recv.v
 
 $(datadir)/xilinx_pcie_slot.v: xilinx_pcie_slot.v
-	$(INSTALL_DATA) xilinx_pcie_slot.v $(DESTDIR)$(datadir)/xilinx_pcie_slot.v
+	cat xilinx_pcie_slot.v | sed "s/@XXXX@/"`git describe --dirty`"/" > xilinx_pcie_slot.v,vers
+	$(INSTALL_DATA) xilinx_pcie_slot.v,vers $(DESTDIR)$(datadir)/xilinx_pcie_slot.v
+	rm -f xilinx_pcie_slot.v,vers
 
 installdirs: ../mkinstalldirs
 	$(srcdir)/../mkinstalldirs $(DESTDIR)$(datadir)
