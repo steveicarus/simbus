@@ -89,7 +89,7 @@ int simbus_pci_write32b(simbus_pci_t pci, uint64_t addr,
       __pci_request_bus(pci);
       pci->out_req_n = BIT_1;
 
-      __address_command(pci, addr, 0xf7, 0, 1);
+      __address_command(pci, addr, 0xf7, BEFn, 0, 1);
 
       __setup_for_write(pci, val[0], BEFn, 0);
 

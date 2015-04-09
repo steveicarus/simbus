@@ -476,7 +476,8 @@ void __pci_request_bus(simbus_pci_t pci)
 /*
  * Send the address and command...
  */
-void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64, int burst_flag)
+void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd,
+		       int BEn, int flag64, int burst_flag)
 {
       int idx;
       pci->out_req64_n = flag64? BIT_0 : BIT_1;
@@ -533,24 +534,47 @@ void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64
 	   generated before the IRDY# is made active so that it doesn't
 	   confuse PCI devices. */
       if (pci->pcixcap == BIT_1) {
-	    uint32_t attr = 0;
-	    attr |= 0x000000; /* Assume Requestor bus is 0. */
-	    attr |= SIMBUS_PCI_DFN(pci->ident, 0) << 8;
+	    uint32_t attr_a = 0;
+	    int attr_c = 0;
+	      /* Requester bus/device/function info. */
+	    attr_a |= 0x000000; /* Assume Requestor bus is 0. */
+	    attr_a |= SIMBUS_PCI_DFN(pci->ident, 0) << 8;
+
+	    attr_c = BEn&0x0f;
 
 	    for (idx = 0 ; idx < 32 ; idx += 1) {
-		  pci->out_ad[idx] = (attr&1)? BIT_1 : BIT_0;
+		  pci->out_ad[idx] = (attr_a&1)? BIT_1 : BIT_0;
 		  addr >>= 1;
 	    }
 
+	    pci->out_c_be[0] = attr_c&1? BIT_1 : BIT_0;
+	    pci->out_c_be[1] = attr_c&2? BIT_1 : BIT_0;
+	    pci->out_c_be[2] = attr_c&4? BIT_1 : BIT_0;
+	    pci->out_c_be[3] = attr_c&5? BIT_1 : BIT_0;
+
+	    __pci_next_posedge(pci);
+
+	      /* Throw in a turn-around cycle.
+		 NOTE: Is it right to have this turnaround for writes
+		 as well as reads? I think so, but this may need to be
+		 checked in the PCI-X spec. */
+	    pci->out_c_be[0] = BIT_1;
+	    pci->out_c_be[1] = BIT_1;
+	    pci->out_c_be[2] = BIT_1;
+	    pci->out_c_be[3] = BIT_1;
 	    __pci_next_posedge(pci);
       }
 
 	/* Stage the IRDY#. If this is a 32bit transaction, then at
-	   the same time withdraw the FRAME# signal. If we are
-	   requesting a 64bit transaction, then leave the FRAME#
-	   active in case the target acknowledges only 32bits, and
-	   this turns into a burst. */
-      if (pci->out_req64_n!=BIT_0 && burst_flag==0)
+	   the same time withdraw the FRAME# signal.
+
+	   If we are requesting a 64bit transaction, then leave the
+	   FRAME# active in case the target acknowledges only 32bits,
+	   and this turns into a burst.
+
+	   If we are PCI-X, then leave FRAME# low for the duration,
+	   because that is how PCI-X works, vs. PCI. */
+      if (pci->out_req64_n!=BIT_0 && burst_flag==0 && pci->pcixcap != BIT_1)
 	    pci->out_frame_n = BIT_1;
 
       pci->out_irdy_n  = BIT_0;
@@ -651,7 +675,7 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 
       pci->out_req_n = BIT_1;
 
-      __address_command(pci, addr, cmd, 0, 0);
+      __address_command(pci, addr, cmd, BEn, 0, 0);
 
 	/* Collect the BE# bits. */
       pci->out_c_be[0] = BEn&0x1? BIT_1 : BIT_0;
@@ -673,7 +697,12 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 	    return GPCI_MASTER_ABORT;
       }
 
-      pci->out_frame_n = BIT_1;
+	/* If this is not PCI-X, then make sire the frame is off while
+	   we have IRDY# active. This signals that there is only 1
+	   word, and not a burst. PCI-X signals bursts differently. */
+      if (pci->pcixcap != BIT_1)
+	    pci->out_frame_n = BIT_1;
+
       pci->out_req64_n = BIT_1;
 
       uint64_t val, valx;
@@ -691,6 +720,16 @@ int __generic_pci_read32(simbus_pci_t pci, uint64_t addr, int cmd,
 
       *result = val;
       *resultx= valx;
+
+	/* If this is PCI-X, then we need to finally raise IRDY# and
+	   FRAME# signals after a clock, then wait yet another clock
+	   to register the raised FRAME# and IRDY#. */
+      if (pci->pcixcap == BIT_1) {
+	    __pci_next_posedge(pci);
+	    pci->out_irdy_n = BIT_1;
+	    pci->out_frame_n = BIT_1;
+	    __pci_next_posedge(pci);
+      }
 
 	/* Release all the signals I've been driving. */
       __undrive_bus(pci);
@@ -765,7 +804,7 @@ int __generic_pci_write32(simbus_pci_t pci, uint64_t addr, int cmd,
 
       pci->out_req_n = BIT_1;
 
-      __address_command(pci, addr, cmd, 0, 0);
+      __address_command(pci, addr, cmd, BEn, 0, 0);
 
       __setup_for_write(pci, val, BEn, 0);
 

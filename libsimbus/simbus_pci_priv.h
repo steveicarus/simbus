@@ -111,7 +111,8 @@ extern void __pci_request_bus(simbus_pci_t pci);
  * needs 64bits then handle a DAC as well. If flag64!=0, then also
  * attempt to start a 64bit (data) transaction.
  */
-extern void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd, int flag64, int burst_flag);
+extern void __address_command(simbus_pci_t pci, uint64_t addr, unsigned cmd,
+			      int BEn, int flag64, int burst_flag);
 
 /*
  * Wait for the DEVSEL#. Return <0 if it doesn't arrive.

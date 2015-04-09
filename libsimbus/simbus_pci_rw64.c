@@ -36,7 +36,7 @@ uint64_t simbus_pci_read64(simbus_pci_t pci, uint64_t addr, int BEn)
 
 	    pci->out_req_n = BIT_1;
 
-	    __address_command(pci, addr, 0xf6, 1, 0);
+	    __address_command(pci, addr, 0xf6, BEn, 1, 0);
 
 	      /* Collect the BE# bits. */
 	    pci->out_c_be[0] = BEn&0x01? BIT_1 : BIT_0;
@@ -105,7 +105,7 @@ void simbus_pci_write64(simbus_pci_t pci, uint64_t addr, uint64_t val, int BEn)
 
       pci->out_req_n = BIT_1;
 
-      __address_command(pci, addr, 0xf7, 1, 0);
+      __address_command(pci, addr, 0xf7, BEn, 1, 0);
 
       __setup_for_write(pci, val, BEn, 1);
 
