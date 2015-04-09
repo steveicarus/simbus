@@ -21,6 +21,7 @@
 
 # include  <inttypes.h>
 # include  <stdio.h>
+# include  "simbus_base.h"
 
 #ifdef __cplusplus
 # define EXTERN extern "C"

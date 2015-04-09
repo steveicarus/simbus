@@ -9,6 +9,7 @@ autom4te.cache/*
 # libsimbus/
 libsimbus/*.a
 libsimbus/*.o
+libsimbus/simbus_version.c
 
 # server/
 server/simbus_version.cc
