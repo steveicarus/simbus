@@ -1088,13 +1088,12 @@ module xilinx_pcie_cfg_space
 	 bar_addr[bdx] = 0;
 	 if (rc <= 9) begin
 	    bar_map[rc] = bdx;
-	    bar_addr_mask[bdx][31:0] = {cfg_mem[rc][31:4], 4'b0000};
-	    if (cfg_mem[rc][2:0] == 2'b10) begin
-	       bar_addr_mask[bdx][63:32] = cfg_mem[rc+1];
+	    bar_addr_mask[bdx][63:32] = 32'hffffffff;
+	    bar_addr_mask[bdx][31: 0] = {cfg_mem[rc][31:4], 4'b0000};
+	    if (cfg_mem[rc][2:1] == 2'b10) begin
 	       bar_map[rc+1] = bdx | 'b1_000;
 	       rc = rc+2;
 	    end else begin
-	       bar_addr_mask[bdx][63:32] = 32'hffffffff;
 	       rc = rc+1;
 	    end
 	 end
