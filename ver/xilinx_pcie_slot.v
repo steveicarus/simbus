@@ -1009,30 +1009,70 @@ module xilinx_pcie_cfg_space
       integer rc, bdx;
       reg [15:0] val16;
       reg [31:0] val32;
+      reg 	 flag64;
 
       // Initialize the config space.
       rc = $sscanf(ven_id, "%h", val16);
       cfg_mem[0][15:0] = val16;
       rc = $sscanf(dev_id, "%h", val16);
       cfg_mem[0][31:16] = val16;
+
       rc = $sscanf(bar_0, "%h", val32);
       cfg_mem[4] = val32;
       bar_mask_reg[4] = val32 & 32'hfffffff0;
+      if (val32[2:1] == 2'b10) flag64 = 1;
+      else flag64 = 0;
+
       rc = $sscanf(bar_1, "%h", val32);
       cfg_mem[5] = val32;
-      bar_mask_reg[5] = val32 & 32'hfffffff0;
+      if (flag64) begin
+	 bar_mask_reg[5] = 32'hffffffff;
+	 flag64 = 0;
+      end else begin
+	 bar_mask_reg[5] = val32 & 32'hfffffff0;
+	 if (val32[2:1] == 2'b10) flag64 = 1;
+      end
+
       rc = $sscanf(bar_2, "%h", val32);
       cfg_mem[6] = val32;
-      bar_mask_reg[6] = val32 & 32'hfffffff0;
+      if (flag64) begin
+	 bar_mask_reg[6] = 32'hffffffff;
+	 flag64 = 0;
+      end else begin
+	 bar_mask_reg[6] = val32 & 32'hfffffff0;
+	 if (val32[2:1] == 2'b10) flag64 = 1;
+      end
+
       rc = $sscanf(bar_3, "%h", val32);
       cfg_mem[7] = val32;
-      bar_mask_reg[7] = val32 & 32'hfffffff0;
+      if (flag64) begin
+	 bar_mask_reg[7] = 32'hffffffff;
+	 flag64 = 0;
+      end else begin
+	 bar_mask_reg[7] = val32 & 32'hfffffff0;
+	 if (val32[2:1] == 2'b10) flag64 = 1;
+      end
+
       rc = $sscanf(bar_4, "%h", val32);
       cfg_mem[8] = val32;
-      bar_mask_reg[8] = val32 & 32'hfffffff0;
+      if (flag64) begin
+	 bar_mask_reg[8] = 32'hffffffff;
+	 flag64 = 0;
+      end else begin
+	 bar_mask_reg[8] = val32 & 32'hfffffff0;
+	 if (val32[2:1] == 2'b10) flag64 = 1;
+      end
+
       rc = $sscanf(bar_5, "%h", val32);
       cfg_mem[9] = val32;
-      bar_mask_reg[9] = val32 & 32'hfffffff0;
+      if (flag64) begin
+	 bar_mask_reg[9] = 32'hffffffff;
+	 flag64 = 0;
+      end else begin
+	 bar_mask_reg[9] = val32 & 32'hfffffff0;
+	 if (val32[2:1] == 2'b10) flag64 = 1;
+      end
+
       rc = $sscanf(subsys_ven_id, "%h", val16);
       cfg_mem[11][15:0] = val16;
       rc = $sscanf(subsys_id, "%h", val16);
