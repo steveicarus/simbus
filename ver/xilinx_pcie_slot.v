@@ -603,9 +603,13 @@ module xilinx_pcie_cfg_space
    // to the bar_addr that is applies to. The bar_map[x][3] bit means
    // the bar points to the high 32bits of a bar_addr, and bar_map[x][2:0]
    // points to the bar_addr that is the target.
+   // The bar_hit_mask is a mask of which BARs are "hit" if the BAR is
+   // addressed. This information winds up going into the tuser stream
+   // to indicate BAR decoding to the user.
    reg [63:0]  bar_addr[0:5];
    reg [63:0]  bar_addr_mask[0:5];
    reg [3:0]   bar_map[4:9];
+   reg [5:0]   bar_hit_mask[0:5];
 
    // State for receiving a TLP.
    reg [31:0]  tlp [0:3];
@@ -774,6 +778,7 @@ module xilinx_pcie_cfg_space
 
       reg  [3:0] idx;
       reg [63:0] tmp_addr;
+      reg [5:0]  tmp_bar_hit;
 
       if (user_reset) begin
 	 ntlp <= 0;
@@ -799,14 +804,16 @@ module xilinx_pcie_cfg_space
 	 if (ntlp >= 3) begin
 	    tmp_addr[63:32] = 0;
 	    tmp_addr[31: 0] = tlp[2];
+	    tmp_bar_hit = 0;
 	    for (idx = 0 ; idx < 6 ; idx = idx+1) begin
 	       //$display("%m: tmp_addr=%h, bar_addr[%0d]=%h, bar_addr_mask=%h",
 	       //	  tmp_addr, idx, bar_addr[idx], bar_addr_mask[idx]);
 	       if (bar_addr[idx] && (tmp_addr&bar_addr_mask[idx])==bar_addr[idx])
-		 tlp_bar_hit[idx] <= 1;
+		 tmp_bar_hit = tmp_bar_hit | bar_hit_mask[idx];
 	    end
 	    tlp_is_32addr <= 0;
 	    tlp_pass <= 1;
+	    tlp_bar_hit <= tmp_bar_hit;
 	    ntlp = 0;
 	 end
 
@@ -818,12 +825,14 @@ module xilinx_pcie_cfg_space
 	 if (ntlp >= 4) begin
 	    tmp_addr[63:32] = tlp[2];
 	    tmp_addr[31: 0] = tlp[3];
+	    tmp_bar_hit = 0;
 	    for (idx = 0 ; idx < 6 ; idx = idx+1) begin
 	      if (bar_addr[idx] && (tmp_addr&bar_addr_mask[idx])==bar_addr[idx])
-		tlp_bar_hit[idx] <= 1;
+		tmp_bar_hit = tmp_bar_hit | bar_hit_mask[idx];
 	    end
 	    tlp_is_64addr <= 0;
 	    tlp_pass <= 1;
+	    tlp_bar_hit <= tmp_bar_hit;
 	    ntlp = 0;
 	 end
 
@@ -1090,8 +1099,10 @@ module xilinx_pcie_cfg_space
 	    bar_map[rc] = bdx;
 	    bar_addr_mask[bdx][63:32] = 32'hffffffff;
 	    bar_addr_mask[bdx][31: 0] = {cfg_mem[rc][31:4], 4'b0000};
+	    bar_hit_mask[bdx][rc-4] = 1'b1;
 	    if (cfg_mem[rc][2:1] == 2'b10) begin
 	       bar_map[rc+1] = bdx | 'b1_000;
+	       bar_hit_mask[bdx][rc-4+1] = 1'b1;
 	       rc = rc+2;
 	    end else begin
 	       rc = rc+1;

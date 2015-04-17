@@ -51,7 +51,8 @@ module main;
        .ven_id("aaaa"),
        .subsys_id("1111"),
        .subsys_ven_id("bbbb"),
-       .bar_0("FFFFF004")
+       .bar_0("FFFFF004"),
+       .bar_1("FFFFFFFF")
        /* */)
    bus
      (/* */
