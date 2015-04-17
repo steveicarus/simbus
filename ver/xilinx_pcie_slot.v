@@ -1095,6 +1095,7 @@ module xilinx_pcie_cfg_space
       rc = 4;
       for (bdx = 0 ; bdx < 6 ; bdx = bdx+1) begin
 	 bar_addr[bdx] = 0;
+	 bar_hit_mask[bdx] = 6'b000000;
 	 if (rc <= 9) begin
 	    bar_map[rc] = bdx;
 	    bar_addr_mask[bdx][63:32] = 32'hffffffff;
