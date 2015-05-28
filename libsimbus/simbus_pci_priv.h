@@ -94,6 +94,12 @@ struct simbus_pci_s {
 };
 
 /*
+ * Return true if this pci bus is running in PCI-X mode.
+ */
+static inline int pcix_mode(simbus_pci_t pci)
+{ return pci->pcixcap == BIT_1; }
+
+/*
  * Run target state machine.
  */
 extern void __pci_target_state_machine(simbus_pci_t pci);
