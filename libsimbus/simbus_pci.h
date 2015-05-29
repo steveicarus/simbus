@@ -200,10 +200,13 @@ struct simbus_translation {
       uint64_t base;
       uint64_t mask;
       need32_fun_t need32;
-      need64_fun_t need64;
+      need64_fun_t reserved1;
       recv32_fun_t recv32;
-      recv64_fun_t recv64;
+      recv64_fun_t reserved2;
 };
+
+  /* Enable 64bit bus data cycles. (64bit addresses are always supported.) */
+# define SIMBUS_XLATE_FLAG64 0x0001
 
 EXTERN void simbus_pci_mem_xlate(simbus_pci_t bus, unsigned idx,
 				 const struct simbus_translation*drv);

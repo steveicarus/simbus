@@ -27,6 +27,14 @@
 # include  <stdio.h>
 # include  <assert.h>
 
+/*
+ * Return true if the frame master is requesting a 64bit cycle and the
+ * target device supports 64bit transactions.
+ */
+static inline int pci64_mode(simbus_pci_t pci, const struct simbus_translation*bar)
+{ return (bar->flags&SIMBUS_XLATE_FLAG64) && pci->pci_req64_n == BIT_0; }
+
+
 static int get_command(simbus_pci_t pci)
 {
       int rc = 0;
@@ -38,6 +46,18 @@ static int get_command(simbus_pci_t pci)
 	    rc |= 0x02;
       if (pci->pci_c_be[0] == BIT_1)
 	    rc |= 0x01;
+
+      return rc;
+}
+
+static uint64_t get_data64(simbus_pci_t pci)
+{
+      uint64_t rc = 0;
+      uint64_t mask = 1;
+      int idx;
+      for (idx = 0, mask=1 ; idx < 64 ; idx += 1, mask <<= 1) {
+	    if (pci->pci_ad[idx] == BIT_1) rc |= mask;
+      }
 
       return rc;
 }
@@ -106,15 +126,14 @@ static uint32_t get_xattr(simbus_pci_t pci)
       return rc;
 }
 
-static int get_c_be(simbus_pci_t pci)
+static int get_c_be(simbus_pci_t pci, int bytes)
 {
       int rc = 0;
       int mask = 1;
       int idx;
-      for (idx = 0 ; idx < 4 ; idx += 1, mask <<= 1) {
+      for (idx = 0 ; idx < bytes ; idx += 1, mask <<= 1) {
 	    if (pci->pci_c_be[idx] == BIT_1) rc |= mask;
       }
-
       return rc;
 }
 
@@ -240,10 +259,12 @@ static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translat
 {
       int idx;
       uint64_t addr = get_addr(pci);
-      uint32_t val = 0xffffffff;
+      uint32_t valL = 0xffffffff;
+      uint32_t valH = 0xffffffff;
       int byte_count = 0;
       int word_count = 0;
       int burst_len = 0;
+      int word_size = 4;
 
 	/* If this is a PCI-X bus, then there is an additional ATTR
 	   phase that contains the attribute word. */
@@ -254,13 +275,23 @@ static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translat
 	      /* byte count is included in attribute */
 	    byte_count = get_command(pci) << 8;
 	    byte_count |= attr & 0xff;
-	      /* word count is calculated from byte count and offset */
-	    word_count = (addr%4 + byte_count + 3) / 4;
+
+	      /* Decide if this is a 64bit or 32bit data cycle, and
+		 use that to calculate the word count. */
+	    if (pci64_mode(pci, bar) && (addr%4 + byte_count > 4)) {
+		  word_size = 8;
+		  word_count = (addr%8 + byte_count + 7) / 8;
+
+	    } else {
+		  word_size = 4;
+		  word_count = (addr%4 + byte_count + 3) / 4;
+	    }
       }
 
 	/* Emit DEVSEL# but drive TRDY# high to insert a turnaround
 	   cycle for the AD bus. */
       pci->out_devsel_n = BIT_0;
+      pci->out_ack64_n = word_size==8? BIT_0 : BIT_1;
       pci->out_stop_n = BIT_1;
       if (pcix_mode(pci)) __pci_next_posedge(pci);
       pci->out_trdy_n = BIT_1;
@@ -270,24 +301,33 @@ static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translat
       do {
 	      /* The C/BE# contains byte enables only if this is NOT
 		 PCI-X mode. */
-	    int BEn = pcix_mode(pci) ? 0 : get_c_be(pci);
-	    if (bar->need32)
-		  val = bar->need32(pci, addr&~3, BEn);
+	    int BEnL = pcix_mode(pci) ? 0 : get_c_be(pci, 4);
+	    int BEnH = 0;
+	    if (bar->need32) {
+		  valL = bar->need32(pci, addr&~3, BEnL);
+		  if (word_size==8)
+			valH = bar->need32(pci, (addr+4)&~3, BEnH);
+	    }
 
 	      /* Drive TRDY# and the AD. */
 	    pci->out_trdy_n = BIT_0;
 
-	    for (idx = 0 ; idx < 32 ; idx += 1, val >>= 1)
-		  pci->out_ad[idx] = (val&1) ? BIT_1 : BIT_0;
-	    for (idx = 32 ; idx < 64; idx += 1)
-		  pci->out_ad[idx] = BIT_Z;
+	    for (idx = 0 ; idx < 32 ; idx += 1, valL >>= 1)
+		  pci->out_ad[idx] = (valL&1) ? BIT_1 : BIT_0;
+	    if (word_size==8) {
+		  for (idx = 32 ; idx < 64 ; idx += 1, valH >>= 1)
+			pci->out_ad[idx] = (valH&1)? BIT_1 : BIT_0;
+	    } else {
+		  for (idx = 32 ; idx < 64; idx += 1)
+			pci->out_ad[idx] = BIT_Z;
+	    }
 
 	      /* Wait for the master to read the data. */
 	    do {
 		  __pci_next_posedge(pci);
 	    } while (pci->pci_irdy_n == BIT_1);
 
-	    addr += 4;
+	    addr += word_size;
 	    burst_len += 1;
 
 	    if (pcix_mode(pci) && burst_len == word_count)
@@ -301,6 +341,7 @@ static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translat
 
 	/* De-assert target signals. */
       pci->out_devsel_n = BIT_1;
+      pci->out_ack64_n  = BIT_1;
       pci->out_trdy_n = BIT_1;
       pci->out_stop_n = BIT_1;
 
@@ -315,6 +356,86 @@ static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translat
       pci->target_state = TARG_IDLE;
 }
 
+static void make_ben4x(int*first_ben, int*last_ben, uint64_t addr, int byte_count)
+{
+      switch (addr%4) {
+	  case 0:
+	    switch (byte_count) {
+		case 1:
+		  *first_ben = 0xe;
+		  break;
+		case 2:
+		  *first_ben = 0xc;
+		  break;
+		case 3:
+		  *first_ben = 0x8;
+		  break;
+		default:
+		  *first_ben = 0x0;
+	    }
+	    break;
+	  case 1:
+	    switch (byte_count) {
+		case 1:
+		 * first_ben = 0xd;
+		  break;
+		case 2:
+		  *first_ben = 0x9;
+		  break;
+		default:
+		  *first_ben = 0x1;
+		  break;
+	    }
+	    break;
+	  case 2:
+	    switch (byte_count) {
+		case 1:
+		  *first_ben = 0xb;
+		  break;
+		default:
+		  *first_ben = 0x3;
+		  break;
+	    }
+	    break;
+	  case 3:
+	    *first_ben = 0x7;
+	    break;
+      }
+
+      switch ((addr%4 + byte_count) % 4) {
+	  case 0:
+	    *last_ben = 0;
+	    break;
+	  case 1:
+	    *last_ben = 0xe;
+	    break;
+	  case 2:
+	    *last_ben = 0xc;
+	    break;
+	  case 3:
+	    *last_ben = 0x8;
+	    break;
+      }
+
+      *first_ben |= 0xf0;
+      *last_ben  |= 0xf0;
+}
+
+static void make_ben8x(int*first_ben, int*last_ben, uint64_t addr, int byte_count)
+{
+      int ben1 = (-1) << addr%8;
+      ben1 = 0xff & ~ben1;
+
+      int ben2 = (-1) << (addr+byte_count)%8;
+      ben2 = 0xff & ben2;
+
+      if (addr%8 + byte_count < 8)
+	    ben1 |= ben2;
+
+      *first_ben = ben1;
+      *last_ben = ben2;
+}
+
 static void do_target_memory_write(simbus_pci_t pci, const struct simbus_translation*bar)
 {
       uint64_t addr = get_addr(pci);
@@ -323,6 +444,7 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
       int burst_len = 0;
       int first_ben = 0;
       int last_ben = 0;
+      int word_size = 4;
 
 	/* If this is a PCI-X bus, then there is an additional ATTR
 	   phase that contains the attribute word. */
@@ -333,71 +455,30 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
 	      /* byte count is included in attribute */
 	    byte_count = get_command(pci) << 8;
 	    byte_count |= attr & 0xff;
-	      /* word count is calculated from byte count and offset */
-	    word_count = (addr%4 + byte_count + 3) / 4;
-	      /* Figure byte enables for the first and last dwords of
-		 a transfer. */
-	    switch (addr%4) {
-		case 0:
-		  switch (byte_count) {
-		      case 1:
-			first_ben = 0xe;
-			break;
-		      case 2:
-			first_ben = 0xc;
-			break;
-		      case 3:
-			first_ben = 0x8;
-			break;
-		      default:
-			first_ben = 0x0;
-		  }
-		  break;
-		case 1:
-		  switch (byte_count) {
-		      case 1:
-			first_ben = 0xd;
-			break;
-		      case 2:
-			first_ben = 0x9;
-			break;
-		      default:
-			first_ben = 0x1;
-			break;
-		  }
-		  break;
-		case 2:
-		  switch (byte_count) {
-		      case 1:
-			first_ben = 0xb;
-			break;
-		      default:
-			first_ben = 0x3;
-			break;
-		  }
-		  break;
-		case 3:
-		  first_ben = 0x7;
-		  break;
+
+	      /* Decide if this is a 64bit or 32bit data cycle, and
+		 use that to calculate the word count and byte enables
+		 that we want to use. */
+	    if (pci64_mode(pci, bar) && (addr%4 + byte_count > 4)) {
+
+		  word_size = 8;
+		  word_count = (addr%8 + byte_count + 7) / 8;
+		  make_ben8x(&first_ben, &last_ben, addr, byte_count);
+
+	    } else {
+
+		  word_size = 4;
+		  word_count = (addr%4 + byte_count + 3) / 4;
+		  make_ben4x(&first_ben, &last_ben, addr, byte_count);
 	    }
-	    switch ((addr%4 + byte_count) % 4) {
-		case 0:
-		  last_ben = 0;
-		  break;
-		case 1:
-		  last_ben = 0xe;
-		  break;
-		case 2:
-		  last_ben = 0xc;
-		  break;
-		case 3:
-		  last_ben = 0x8;
-		  break;
-	    }
+      } else {
+	    word_size = 4;
       }
+      
 
 	/* Emit DEVSEL# and TRDY# */
       pci->out_devsel_n = BIT_0;
+      pci->out_ack64_n = word_size==8? BIT_0 : BIT_1;
       pci->out_stop_n = BIT_1;
       if (pcix_mode(pci)) __pci_next_posedge(pci);
       pci->out_trdy_n = BIT_0;
@@ -416,12 +497,24 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
 			pcix_ben = last_ben;
 		  else
 			pcix_ben = 0;
-		  int BEn = pcix_mode(pci)? pcix_ben : get_c_be(pci);
-		  uint32_t val = get_addr32(pci);
-		  bar->recv32(pci, addr&~3, val, BEn);
+		  int BEn = pcix_mode(pci)? pcix_ben : get_c_be(pci, word_size);
+		  if (word_size==4) {
+			uint32_t val = get_addr32(pci);
+			bar->recv32(pci, addr&~3, val, BEn);
+		  } else {
+			assert(word_size==8);
+			uint64_t val = get_data64(pci);
+			uint32_t val1 = val & 0xffffffff;
+			val >>= 32;
+			uint32_t val2 = val & 0xffffffff;
+			int BEn1 = (BEn>>0)&15;
+			int BEn2 = (BEn>>4)&15;
+			bar->recv32(pci, (addr+0)&~3, val1, BEn1);
+			bar->recv32(pci, (addr+4)&~3, val2, BEn2);
+		  }
 	    }
 
-	    addr += 4;
+	    addr += word_size;
 	    burst_len += 1;
 
 	    if (pcix_mode(pci) && burst_len == word_count)
@@ -435,6 +528,7 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
 
 	/* De-assert target signals. */
       pci->out_devsel_n = BIT_1;
+      pci->out_ack64_n = BIT_1;
       pci->out_trdy_n = BIT_1;
       pci->out_stop_n = BIT_1;
 
@@ -442,6 +536,7 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
 
 	/* Release the bus and settle. */
       pci->out_devsel_n = BIT_Z;
+      pci->out_ack64_n = BIT_Z;
       pci->out_trdy_n   = BIT_Z;
       pci->out_stop_n   = BIT_Z;
 
