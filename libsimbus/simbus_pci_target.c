@@ -517,10 +517,23 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
 	    addr += word_size;
 	    burst_len += 1;
 
-	    if (pcix_mode(pci) && burst_len == word_count)
+	      /* If this is PCI-X, we know by word count when we are
+		 done, we don't need to rely on FRAME# or IRDY#. */
+	    if (pcix_mode(pci) && burst_len == word_count) {
+		  if (pci->pci_frame_n == BIT_0) {
+			fprintf(stderr, "simbus_pci ERROR: "
+				"FRAME# is lingering after burst!\n");
+		  }
 		  break;
+	    }
 
-      } while (pci->pci_frame_n == BIT_0);
+	      /* If this is PCI-X, then the frame can be inactive for
+		 the two last bursts, so allow for that. */
+	      /* Otherwise, continue while the frame is active. */
+      } while (pci->pci_frame_n == BIT_0
+	       || (pcix_mode(pci) && burst_len+1 == word_count)
+	       || (pcix_mode(pci) && burst_len+2 == word_count));
+
 
       if (pcix_mode(pci) && burst_len != word_count) {
 	    fprintf(stderr, "simbus_pci ERROR: Expected to write %d words, but wrote %d.\n", word_count, burst_len);
