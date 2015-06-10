@@ -428,6 +428,7 @@ static void make_ben8x(int*first_ben, int*last_ben, uint64_t addr, int byte_coun
 
       int ben2 = (-1) << (addr+byte_count)%8;
       ben2 = 0xff & ben2;
+      if (ben2 == 0xff) ben2 = 0;
 
       if (addr%8 + byte_count < 8)
 	    ben1 |= ben2;
@@ -520,7 +521,7 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
 	      /* If this is PCI-X, we know by word count when we are
 		 done, we don't need to rely on FRAME# or IRDY#. */
 	    if (pcix_mode(pci) && burst_len == word_count) {
-		  if (pci->pci_frame_n == BIT_0) {
+		  if (pci->pci_frame_n == BIT_0 && word_count>2) {
 			fprintf(stderr, "simbus_pci ERROR: "
 				"FRAME# is lingering after burst!\n");
 		  }
