@@ -23,6 +23,27 @@
 # include  <string.h>
 # include  <assert.h>
 
+static void byte_swap32(uint32_t*data, size_t ndata)
+{
+      while (ndata > 0) {
+	    uint32_t src = *data;
+	    uint32_t dst = src & 0xff;
+	    dst <<= 8;
+	    src >>= 8;
+	    dst |= src & 0xff;
+	    dst <<= 8;
+	    src >>= 8;
+	    dst |= src & 0xff;
+	    dst <<= 8;
+	    src >>= 8;
+	    dst |= src & 0xff;
+	    *data = dst;
+
+	    data += 1;
+	    ndata -= 1;
+      }
+}
+
 /*
  * this function transmits a TPL over the RX stream to the target
  * endpoint. The caller formats TLPs as described by the PCIe base
@@ -195,8 +216,10 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 	    int be0 = bus->s_tlp_buf[1] & 0x0f;
 	    int beN = (bus->s_tlp_buf[1] & 0xf0) >> 4;
 
-	    if (bus->write_fun)
+	    if (bus->write_fun) {
+		  byte_swap32(bus->s_tlp_buf+3, ndata);
 		  bus->write_fun (bus, bus->write_cookie, addr, bus->s_tlp_buf+3, ndata, be0, beN);
+	    }
 	      /* No need for completions to writes */
 
       } else if ((tmp&0xff000000) == 0x60000000) { /* Write w/ 64bit address */
@@ -208,8 +231,10 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 	    addr <<= 32;
 	    addr |= bus->s_tlp_buf[3];
 
-	    if (bus->write_fun)
+	    if (bus->write_fun) {
+		  byte_swap32(bus->s_tlp_buf+4, ndata);
 		  bus->write_fun (bus, bus->write_cookie, addr, bus->s_tlp_buf+4, ndata, be0, beN);
+	    }
 	      /* No need for completions to writes */
 
       } else if ((tmp&0xff000000) == 0x00000000) { /* Read w/ 32bit address */
@@ -228,8 +253,10 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 	    tlp[2] = bus->s_tlp_buf[1] & 0xffffff00; /* Copy RID & tag */
 	    tlp[2] |= addr&0x0000007f;
 
-	    if (bus->read_fun)
+	    if (bus->read_fun) {
 		  bus->read_fun (bus, bus->read_cookie, addr, tlp+3, ndata, be0, beN);
+		  byte_swap32(tlp+3, ndata);
+	    }
 
       } else if ((tmp&0xff000000) == 0x20000000) { /* Read w/ 64bit address */
 
@@ -249,8 +276,10 @@ static void complete_recv_tlp(simbus_pcie_tlp_t bus)
 	    tlp[2] = bus->s_tlp_buf[1] & 0xffffff00; /* Copy RID & tag */
 	    tlp[2] |= addr&0x0000007f;
 
-	    if (bus->read_fun)
+	    if (bus->read_fun) {
 		  bus->read_fun (bus, bus->read_cookie, addr, tlp+3, ndata, be0, beN);
+		  byte_swap32(tlp+3, ndata);
+	    }
 
       } else if ((tmp&0xff000000) == 0x30000000) { /* Msg routed to root complex */
 
