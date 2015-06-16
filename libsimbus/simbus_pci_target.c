@@ -510,8 +510,8 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
 			uint32_t val2 = val & 0xffffffff;
 			int BEn1 = (BEn>>0)&15;
 			int BEn2 = (BEn>>4)&15;
-			bar->recv32(pci, (addr+0)&~3, val1, BEn1);
-			bar->recv32(pci, (addr+4)&~3, val2, BEn2);
+			bar->recv32(pci, (addr&~7)+0, val1, BEn1);
+			bar->recv32(pci, (addr&~7)+4, val2, BEn2);
 		  }
 	    }
 
