@@ -34,6 +34,12 @@
 static inline int pci64_mode(simbus_pci_t pci, const struct simbus_translation*bar)
 { return (bar->flags&SIMBUS_XLATE_FLAG64) && pci->pci_req64_n == BIT_0; }
 
+static inline int pcix_split_completion_mode(simbus_pci_t pci, const struct simbus_translation*bar)
+{
+      if (!pcix_mode(pci)) return 0;
+      if (!(bar->flags&SIMBUS_XLATE_SPLIT_COMPLETIONS)) return 0;
+      return 1;
+}
 
 static int get_command(simbus_pci_t pci)
 {
@@ -255,6 +261,156 @@ static void do_target_config_write(simbus_pci_t pci)
       pci->target_state = TARG_IDLE;
 }
 
+static void do_target_memory_read_split(simbus_pci_t pci, const struct simbus_translation*bar, uint64_t addr, uint32_t attr, int byte_count)
+{
+      int idx;
+
+	/* Emit DEVSEL# but drive TRDY# high to insert a turnaround
+	   cycle for the AD bus. */
+      pci->out_devsel_n = BIT_0;
+      pci->out_ack64_n  = BIT_1;
+      pci->out_trdy_n   = BIT_1;
+      pci->out_stop_n   = BIT_1;
+      __pci_next_posedge(pci);
+
+	/* Emit the "Split Response" */
+      pci->out_devsel_n = BIT_1;
+      pci->out_trdy_n   = BIT_0;
+      pci->out_stop_n   = BIT_1;
+      for (idx = 0 ; idx < 64 ; idx += 1)
+	    pci->out_ad[idx] = BIT_1;
+
+      __pci_next_posedge(pci);
+
+	/* De-assert target signals. */
+      pci->out_devsel_n = BIT_1;
+      pci->out_ack64_n  = BIT_1;
+      pci->out_trdy_n = BIT_1;
+      pci->out_stop_n = BIT_1;
+
+	/* This is turnaround time for AD. */
+      for (idx = 0 ; idx < 64 ; idx += 1)
+	    pci->out_ad[idx] = BIT_Z;
+
+      __pci_next_posedge(pci);
+
+	/* Release the bus and settle. */
+      __undrive_bus(pci);
+      pci->target_state = TARG_IDLE;
+
+	/* ** Now send the Split Completion ** */
+
+	/* Arbitrate for the bus. I'm becomming the master. */
+      __pci_request_bus(pci);
+
+      pci->out_frame_n = BIT_0;
+
+	/* Emit the Address/command word */
+      for (idx = 0 ; idx <= 6 ; idx += 1)
+	    pci->out_ad[idx] = (addr&(1<<idx))? BIT_1 : BIT_0;
+      pci->out_ad[7] = BIT_0; /* Reserved Field */
+	/* Requestor tag/Bus/Device/Function information */
+      for (idx = 8 ; idx <= 28 ; idx += 1)
+	    pci->out_ad[idx] = (attr&(1<<idx))? BIT_1 : BIT_0;
+      pci->out_ad[29] = BIT_0; /* RO */
+      pci->out_ad[30] = BIT_0; /* Reserved */
+      pci->out_ad[31] = BIT_0; /* Reserved */
+
+	/* The Split Completion is 1100, repeated on both nibbles. */
+      pci->out_c_be[0] = BIT_0;
+      pci->out_c_be[1] = BIT_0;
+      pci->out_c_be[2] = BIT_1;
+      pci->out_c_be[3] = BIT_1;
+      pci->out_c_be[4] = BIT_0;
+      pci->out_c_be[5] = BIT_0;
+      pci->out_c_be[6] = BIT_1;
+      pci->out_c_be[7] = BIT_1;
+
+      __pci_next_posedge(pci);
+
+	/* Lower Byte Count */
+      for (idx = 0 ; idx <= 7 ; idx += 1)
+	    pci->out_ad[idx] = (byte_count&(1<<idx))? BIT_1 : BIT_0;
+
+      pci->out_ad[8]  = BIT_0; /* Assume function 0 */
+      pci->out_ad[9]  = BIT_0;
+      pci->out_ad[10] = BIT_0;
+      pci->out_ad[11] = pci->ident&1 ? BIT_1 : BIT_0;
+      pci->out_ad[12] = pci->ident&2 ? BIT_1 : BIT_0;
+      pci->out_ad[13] = pci->ident&4 ? BIT_1 : BIT_0;
+      pci->out_ad[14] = pci->ident&8 ? BIT_1 : BIT_0;
+      pci->out_ad[15] = pci->ident&16? BIT_1 : BIT_0;
+      pci->out_ad[16] = BIT_0; /* Assume bus 0 */
+      pci->out_ad[17] = BIT_0;
+      pci->out_ad[18] = BIT_0;
+      pci->out_ad[19] = BIT_0;
+      pci->out_ad[20] = BIT_0;
+      pci->out_ad[21] = BIT_0;
+      pci->out_ad[22] = BIT_0;
+      pci->out_ad[23] = BIT_0;
+      pci->out_ad[24] = BIT_0; /* Reserved */
+      pci->out_ad[25] = BIT_0;
+      pci->out_ad[26] = BIT_0;
+      pci->out_ad[27] = BIT_0;
+      pci->out_ad[28] = BIT_0;
+      pci->out_ad[29] = BIT_0; /* SCM */
+      pci->out_ad[30] = BIT_0; /* SCE */
+      pci->out_ad[31] = BIT_0; /* BCM */
+
+      pci->out_c_be[0] = (byte_count&0x100)? BIT_1 : BIT_0;
+      pci->out_c_be[1] = (byte_count&0x200)? BIT_1 : BIT_0;
+      pci->out_c_be[2] = (byte_count&0x400)? BIT_1 : BIT_0;
+      pci->out_c_be[3] = (byte_count&0x600)? BIT_1 : BIT_0;
+      pci->out_c_be[4] = BIT_1;
+      pci->out_c_be[5] = BIT_1;
+      pci->out_c_be[6] = BIT_1;
+      pci->out_c_be[7] = BIT_1;
+
+      __pci_next_posedge(pci);
+      pci->out_c_be[0] = BIT_1;
+      pci->out_c_be[1] = BIT_1;
+      pci->out_c_be[2] = BIT_1;
+      pci->out_c_be[3] = BIT_1;
+
+	/* Wait for DEVSEL# from the target. */
+      while (pci->pci_devsel_n != BIT_0) {
+	    __pci_next_posedge(pci);
+      }
+
+      int word_size = 4;
+      int word_count = (addr%word_size + byte_count + word_size-1) / word_size;
+      uint64_t use_addr = addr & ~(word_size-1);
+      while (word_count > 0) {
+	    uint32_t val;
+	    pci->out_irdy_n = BIT_0;
+	    pci->out_frame_n = (word_count <= 2)? BIT_1 : BIT_0;
+
+	    if (bar->need32) {
+		  val = bar->need32(pci, use_addr, 0);
+	    }
+
+	    for (idx = 0 ; idx < 32 ; idx += 1) {
+		  pci->out_ad[idx] = (val&1)? BIT_1 : BIT_0;
+		  val >>= 1;
+	    }
+
+	    __pci_next_posedge(pci);
+
+	    word_count -= 1;
+	    use_addr += word_size;
+      }
+
+      pci->out_frame_n = BIT_1;
+      pci->out_irdy_n  = BIT_1;
+      __pci_next_posedge(pci);
+
+	/* ** Done ** */
+
+	/* Release the bus and settle. */
+      __undrive_bus(pci);
+      pci->target_state = TARG_IDLE;
+}
+
 static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translation*bar)
 {
       int idx;
@@ -275,6 +431,13 @@ static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translat
 	      /* byte count is included in attribute */
 	    byte_count = get_command(pci) << 8;
 	    byte_count |= attr & 0xff;
+
+	      /* If this transation should be split, then handle the
+		 rest of it elsewhere. */
+	    if (pcix_split_completion_mode(pci, bar)) {
+		  do_target_memory_read_split(pci, bar, addr, attr, byte_count);
+		  return;
+	    }
 
 	      /* Decide if this is a 64bit or 32bit data cycle, and
 		 use that to calculate the word count. */
