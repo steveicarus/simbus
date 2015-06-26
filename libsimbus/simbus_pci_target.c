@@ -304,6 +304,7 @@ static void do_target_memory_read_split(simbus_pci_t pci, const struct simbus_tr
       __pci_request_bus(pci);
 
       pci->out_frame_n = BIT_0;
+      pci->out_req64_n = BIT_1;
 
 	/* Emit the Address/command word */
       for (idx = 0 ; idx <= 6 ; idx += 1)
@@ -379,11 +380,11 @@ static void do_target_memory_read_split(simbus_pci_t pci, const struct simbus_tr
 
       int word_size = 4;
       int word_count = (addr%word_size + byte_count + word_size-1) / word_size;
+      int words_counted = 0;
       uint64_t use_addr = addr & ~(word_size-1);
       while (word_count > 0) {
 	    uint32_t val;
 	    pci->out_irdy_n = BIT_0;
-	    pci->out_frame_n = (word_count <= 2)? BIT_1 : BIT_0;
 
 	    if (bar->need32) {
 		  val = bar->need32(pci, use_addr, 0);
@@ -398,7 +399,13 @@ static void do_target_memory_read_split(simbus_pci_t pci, const struct simbus_tr
 
 	    word_count -= 1;
 	    use_addr += word_size;
+	    words_counted += 1;
       }
+
+	/* If only 1 word is transferred, then hold the FRAME# and
+	   IRDY# for an extra clock, because I don't know why. */
+      if (words_counted == 1)
+	    __pci_next_posedge(pci);
 
       pci->out_frame_n = BIT_1;
       pci->out_irdy_n  = BIT_1;
@@ -409,6 +416,7 @@ static void do_target_memory_read_split(simbus_pci_t pci, const struct simbus_tr
 	/* Release the bus and settle. */
       __undrive_bus(pci);
       pci->target_state = TARG_IDLE;
+      __pci_next_posedge(pci);
 }
 
 static void do_target_memory_read(simbus_pci_t pci, const struct simbus_translation*bar)

@@ -781,6 +781,7 @@ void __undrive_bus(simbus_pci_t pci)
 
       pci->out_frame_n = BIT_Z;
       pci->out_req64_n = BIT_Z;
+      pci->out_ack64_n = BIT_Z;
       pci->out_irdy_n  = BIT_Z;
       pci->out_trdy_n  = BIT_Z;
       pci->out_stop_n  = BIT_Z;
