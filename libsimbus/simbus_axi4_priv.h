@@ -79,8 +79,7 @@ struct simbus_axi4_s {
       } slave;
 
 	/* Current simulation time. */
-      uint64_t time_mant;
-      int time_exp;
+      struct simbus_time_s bus_time;
 
 	/* Values that I writes to the server */
       bus_bitval_t areset_n;

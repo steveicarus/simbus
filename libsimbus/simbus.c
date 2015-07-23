@@ -26,6 +26,7 @@
 # include  <stdlib.h>
 # include  <string.h>
 # include  <limits.h>
+# include  <math.h>
 # include  <stdio.h>
 # include  <errno.h>
 # include  <assert.h>
@@ -258,24 +259,30 @@ int __simbus_server_send_recv(int server_fd, char*buf, size_t buf_size,
       return cur_argc;
 }
 
-void __parse_time_token(const char*token, uint64_t*time_mant, int*time_exp)
+void __parse_time_token(const char*token, struct simbus_time_s*timp)
 {
       char*cp;
 
       if (sizeof(uint64_t) <= sizeof(unsigned long)) {
-	    *time_mant = strtoul(token, &cp, 10);
+	    timp->time_mant = strtoul(token, &cp, 10);
       } else if (sizeof(uint64_t) <= sizeof(unsigned long long)) {
-	    *time_mant = strtoull(token, &cp, 10);
+	    timp->time_mant = strtoull(token, &cp, 10);
       } else {
-	    *time_mant = strtoull(token, &cp, 10);
+	    timp->time_mant = strtoull(token, &cp, 10);
 #if defined(ULLONG_MAX)
-	    assert(*time_mant < ULLONG_MAX);
+	    assert(timp->time_mant < ULLONG_MAX);
 #endif
       }
 
       assert(*cp == 'e');
       cp += 1;
-      *time_exp = strtol(cp, 0, 10);
+      timp->time_exp = strtol(cp, 0, 10);
+}
+
+double __time_as_double(const struct simbus_time_s*timp, int scale)
+{
+      double res = timp->time_mant;
+      return res * pow(10.0, timp->time_exp - scale);
 }
 
 size_t __ready_signal(char*dst, const char*name, const bus_bitval_t*val, size_t nval)

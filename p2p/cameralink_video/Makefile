@@ -15,7 +15,7 @@ uninstall:
 	rm -f $(DESTDIR)$(bindir)/cameralink_capture
 
 CFLAGS = -O -g -I../../libsimbus
-LIBS = -L../../libsimbus -lsimbus
+LIBS = -L../../libsimbus -lsimbus -lm
 
 O_CAM = camera.o camera_load.o
 

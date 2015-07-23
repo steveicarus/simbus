@@ -45,8 +45,7 @@ simbus_p2p_t simbus_p2p_connect(const char*server, const char*name,
       bus->fd = server_fd;
       bus->ident = ident;
 
-      bus->time_mant = 0;
-      bus->time_exp = 0;
+      init_simbus_time(&bus->bus_time);
 
       bus->clock = BIT_X;
       bus->clock_mode[0] = BIT_0;
@@ -195,7 +194,7 @@ static int send_ready_p2p(simbus_p2p_t bus)
 {
       char buf[4096];
 
-      snprintf(buf, sizeof(buf), "READY %" PRIu64 "e%d", bus->time_mant, bus->time_exp);
+      snprintf(buf, sizeof(buf), "READY %" PRIu64 "e%d", bus->bus_time.time_mant, bus->bus_time.time_exp);
 
       char*cp = buf + strlen(buf);
 
@@ -246,7 +245,7 @@ static int send_ready_p2p(simbus_p2p_t bus)
 
 	/* Parse the time token */
       assert(argc >= 1);
-      __parse_time_token(argv[1], &bus->time_mant, &bus->time_exp);
+      __parse_time_token(argv[1], &bus->bus_time);
 
       int idx;
       for (idx = 2 ; idx < argc ; idx += 1) {

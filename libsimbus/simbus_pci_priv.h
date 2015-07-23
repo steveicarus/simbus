@@ -36,8 +36,7 @@ struct simbus_pci_s {
       FILE*debug;
 
 	/* Current simulation time. */
-      uint64_t time_mant;
-      int time_exp;
+      struct simbus_time_s bus_time;
 
 	/* Values that I write to the server */
       bus_bitval_t out_reset_n;

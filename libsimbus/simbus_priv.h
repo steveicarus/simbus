@@ -70,7 +70,22 @@ extern int __simbus_server_send_recv(int server_fd, char*buf, size_t buf_size,
 				     int max_argc, char*argv[], FILE*debug);
 
 
-extern void __parse_time_token(const char*token, uint64_t*tile_mant, int*time_exp);
+/*
+ * Simbus times as understood by the server are (mant * (10**(texp))) seconds.
+ */
+struct simbus_time_s {
+      uint64_t time_mant;
+      int      time_exp;
+};
+
+static inline void init_simbus_time(struct simbus_time_s*timp)
+{
+      timp->time_mant = 0;
+      timp->time_exp = 0;
+}
+
+extern void __parse_time_token(const char*token, struct simbus_time_s*timp);
+extern double __time_as_double(const struct simbus_time_s*timp, int scale);
 
 /*
  * Draw out the signal values in the format for the "READY..."

@@ -70,8 +70,7 @@ struct simbus_pcie_tlp_s {
       FILE*debug;
 
 	/* Current simulation time. */
-      uint64_t time_mant;
-      int time_exp;
+      struct simbus_time_s bus_time;
 
       struct tlp_cell*tlp_out_list;
 

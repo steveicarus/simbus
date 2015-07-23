@@ -31,8 +31,7 @@ static void init_simbus_pci(struct simbus_pci_s*pci)
 {
       int idx;
       pci->debug = 0;
-      pci->time_mant = 0;
-      pci->time_exp = 0;
+      init_simbus_time(&pci->bus_time);
 
       pci->out_reset_n = BIT_1;
       pci->out_req_n = BIT_1;
@@ -85,7 +84,7 @@ static int send_ready_command(struct simbus_pci_s*pci)
 {
       int rc;
       char buf[4096];
-      snprintf(buf, sizeof(buf), "READY %" PRIu64 "e%d", pci->time_mant, pci->time_exp);
+      snprintf(buf, sizeof(buf), "READY %" PRIu64 "e%d", pci->bus_time.time_mant, pci->bus_time.time_exp);
 
       char*cp = buf + strlen(buf);
 
@@ -176,7 +175,7 @@ static int send_ready_command(struct simbus_pci_s*pci)
 
 	/* Parse the time token */
       assert(argc >= 1);
-      __parse_time_token(argv[1], &pci->time_mant, &pci->time_exp);
+      __parse_time_token(argv[1], &pci->bus_time);
 
 
       int idx;

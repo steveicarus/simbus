@@ -44,6 +44,14 @@ EXTERN simbus_pcie_tlp_t simbus_pcie_tlp_connect(const char*server, const char*n
  */
 EXTERN void simbus_pcie_tlp_debug(simbus_pcie_tlp_t bus, FILE*fd);
 
+EXTERN double simbus_pcie_tlp_time(simbus_pcie_tlp_t bus, int scale);
+
+static inline double simbus_pcie_tlp_time_ms(simbus_pcie_tlp_t bus)
+{ return simbus_pcie_tlp_time(bus, -3); }
+
+static inline double simbus_pcie_tlp_time_us(simbus_pcie_tlp_t bus)
+{ return simbus_pcie_tlp_time(bus, -9); }
+
 /*
  * Wait for the number of clocks, or until the enabled interupt
  * trips. The irq_mask points to a mask of enabled interrupts. If any

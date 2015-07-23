@@ -38,8 +38,7 @@
 static void init_simbus_pcie_tlp(simbus_pcie_tlp_t bus)
 {
       bus->debug = 0;
-      bus->time_mant = 0;
-      bus->time_exp = 0;
+      init_simbus_time(&bus->bus_time);
 
       bus->tlp_out_list = 0;
 
@@ -100,6 +99,11 @@ void simbus_pcie_tlp_debug(simbus_pcie_tlp_t bus, FILE*debug)
       bus->debug = debug;
 }
 
+double simbus_pcie_tlp_time(simbus_pcie_tlp_t bus, int scale)
+{
+      return __time_as_double(&bus->bus_time, scale);
+}
+
 void simbus_pcie_tlp_disconnect(simbus_pcie_tlp_t bus)
 {
       close(bus->fd);
@@ -124,7 +128,7 @@ static int send_ready_command(simbus_pcie_tlp_t bus)
 {
       int rc;
       char buf[4096];
-      snprintf(buf, sizeof(buf), "READY %" PRIu64 "e%d", bus->time_mant, bus->time_exp);
+      snprintf(buf, sizeof(buf), "READY %" PRIu64 "e%d", bus->bus_time.time_mant, bus->bus_time.time_exp);
 
       char*cp = buf + strlen(buf);
 
@@ -171,7 +175,7 @@ static int send_ready_command(simbus_pcie_tlp_t bus)
 
 	/* Parse the time token */
       assert(argc >= 1);
-      __parse_time_token(argv[1], &bus->time_mant, &bus->time_exp);
+      __parse_time_token(argv[1], &bus->bus_time);
 
 
       int idx;

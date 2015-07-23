@@ -31,8 +31,7 @@ struct simbus_p2p_s {
       unsigned ident;
 
 	/* Current simulation time. */
-      uint64_t time_mant;
-      int time_exp;
+      struct simbus_time_s bus_time;
 
       bus_bitval_t clock;
       bus_bitval_t clock_mode[2];

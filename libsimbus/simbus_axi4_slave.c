@@ -31,7 +31,7 @@ static int __axi4s_ready_command(simbus_axi4_t bus)
 {
       int idx;
       char buf[4096];
-      snprintf(buf, sizeof(buf), "READY %" PRIu64 "e%d", bus->time_mant, bus->time_exp);
+      snprintf(buf, sizeof(buf), "READY %" PRIu64 "e%d", bus->bus_time.time_mant, bus->bus_time.time_exp);
 
       char*cp = buf + strlen(buf);
 
@@ -110,7 +110,7 @@ static int __axi4s_ready_command(simbus_axi4_t bus)
       assert(strcmp(argv[0],"UNTIL")==0);
 
       assert(argc >= 1);
-      __parse_time_token(argv[1], &bus->time_mant, &bus->time_exp);
+      __parse_time_token(argv[1], &bus->bus_time);
 
       for (idx = 2 ; idx < argc ; idx += 1) {
 	    cp = strchr(argv[idx],'=');
