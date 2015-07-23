@@ -41,6 +41,8 @@ static inline int pcix_split_completion_mode(simbus_pci_t pci, const struct simb
       return 1;
 }
 
+# define SPLIT_COMPLETION_DELAY (10)
+
 static int get_command(simbus_pci_t pci)
 {
       int rc = 0;
@@ -297,6 +299,10 @@ static void do_target_memory_read_split(simbus_pci_t pci, const struct simbus_tr
 	/* Release the bus and settle. */
       __undrive_bus(pci);
       pci->target_state = TARG_IDLE;
+
+	/* Insert some delay to the split completion */
+      for (idx = 0 ; idx < SPLIT_COMPLETION_DELAY ; idx += 1)
+	    __pci_next_posedge(pci);
 
 	/* ** Now send the Split Completion ** */
 
