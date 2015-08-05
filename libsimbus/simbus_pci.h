@@ -38,6 +38,13 @@ typedef struct simbus_pci_s* simbus_pci_t;
 EXTERN simbus_pci_t simbus_pci_connect(const char*server, const char*name);
 
 /*
+ * For target memories, set the retry rate. If set to 0, retries are
+ * not issued. Otherwise, retries are issues randomly for 1 out of
+ * inv_rate requests.
+ */
+EXTERN void simbus_pci_retry_rate(simbus_pci_t pci, int inv_rate);
+
+/*
  * Set a log file for the pci interface. This causes detailed library
  * debug messages to that file. Turn debugging off by setting the file
  * to NIL
@@ -209,6 +216,8 @@ struct simbus_translation {
 # define SIMBUS_XLATE_FLAG64 0x0001
   /* Enable split completions for all PCI-X reads. */
 # define SIMBUS_XLATE_SPLIT_COMPLETIONS 0x0002
+  /* Enable rando target retries */
+# define SIMBUS_XLATE_RANDOM_RETRY_WRITE 0x0004
 
 EXTERN void simbus_pci_mem_xlate(simbus_pci_t bus, unsigned idx,
 				 const struct simbus_translation*drv);

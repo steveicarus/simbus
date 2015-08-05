@@ -20,6 +20,7 @@
  */
 
 # include  "simbus_priv.h"
+# include  <stdlib.h>
 
 # define TARGET_MEM_REGIONS 8
 
@@ -34,6 +35,12 @@ struct simbus_pci_s {
 
 	/* Debug output file. */
       FILE*debug;
+
+	/* Random number generator. */
+      char random_buf[256];
+      struct random_data random_state;
+
+      int retry_rate;
 
 	/* Current simulation time. */
       struct simbus_time_s bus_time;

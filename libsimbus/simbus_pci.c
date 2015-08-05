@@ -33,6 +33,10 @@ static void init_simbus_pci(struct simbus_pci_s*pci)
       pci->debug = 0;
       init_simbus_time(&pci->bus_time);
 
+      initstate_r(111, pci->random_buf, sizeof(pci->random_buf), &pci->random_state);
+
+      pci->retry_rate = 0;
+
       pci->out_reset_n = BIT_1;
       pci->out_req_n = BIT_1;
       pci->out_req64_n = BIT_Z;
@@ -290,6 +294,11 @@ simbus_pci_t simbus_pci_connect(const char*server, const char*name)
       pci->ident = ident;
 
       return pci;
+}
+
+void simbus_pci_retry_rate(simbus_pci_t pci, int rate)
+{
+      pci->retry_rate = rate;
 }
 
 void simbus_pci_debug(simbus_pci_t pci, FILE*debug)

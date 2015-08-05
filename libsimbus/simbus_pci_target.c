@@ -614,6 +614,56 @@ static void make_ben8x(int*first_ben, int*last_ben, uint64_t addr, int byte_coun
       *last_ben = ben2;
 }
 
+static void do_target_memory_write_retry(simbus_pci_t pci, const struct simbus_translation*bar)
+{
+      if (pcix_mode(pci))
+	    __pci_next_posedge(pci);
+
+	/* Emit DEVSEL# and STOP# */
+      pci->out_devsel_n = BIT_0;
+      pci->out_ack64_n = BIT_1;
+      pci->out_stop_n = BIT_1;
+
+      if (pcix_mode(pci))
+	    __pci_next_posedge(pci);
+      pci->out_trdy_n = BIT_1;
+      pci->out_stop_n = BIT_0;
+
+      __pci_next_posedge(pci);
+      pci->out_trdy_n = BIT_1;
+      pci->out_stop_n = BIT_1;
+
+      __pci_next_posedge(pci);
+
+	/* Release the bus and settle. */
+      pci->out_devsel_n = BIT_Z;
+      pci->out_ack64_n  = BIT_Z;
+      pci->out_trdy_n   = BIT_Z;
+      pci->out_stop_n   = BIT_Z;
+
+	/* Enforce a turnaround cycle. */
+      __pci_next_posedge(pci);
+
+      pci->target_state = TARG_IDLE;
+}
+
+static int choose_to_retry_w(simbus_pci_t pci, const struct simbus_translation*bar)
+{
+      if ((bar->flags & SIMBUS_XLATE_RANDOM_RETRY_WRITE) == 0)
+	    return 0;
+
+      if (pci->retry_rate <= 0)
+	    return 0;
+
+      int32_t val = 1;
+      random_r(&pci->random_state, &val);
+      val %= pci->retry_rate;
+      if (val == 0)
+	    return 1;
+      else
+	    return 0;
+}
+
 static void do_target_memory_write(simbus_pci_t pci, const struct simbus_translation*bar)
 {
       uint64_t addr = get_addr(pci);
@@ -623,6 +673,11 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
       int first_ben = 0;
       int last_ben = 0;
       int word_size = 4;
+
+      if (choose_to_retry_w(pci, bar)) {
+	    do_target_memory_write_retry(pci, bar);
+	    return;
+      }
 
 	/* If this is a PCI-X bus, then there is an additional ATTR
 	   phase that contains the attribute word. */
