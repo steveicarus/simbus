@@ -704,10 +704,23 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
 		  word_count = (addr%4 + byte_count + 3) / 4;
 		  make_ben4x(&first_ben, &last_ben, addr, byte_count);
 	    }
+
+	      /* Delay 0, 1, or 2 clocks to put the DEVSEL# into slot
+		 A, B, or C. Real targets would usually be consistent,
+		 but this makes sure the source can handle all the
+		 possible cases. */
+	    int32_t val = 1;
+	    random_r(&pci->random_state, &val);
+	    val %= 3;
+	    while (val > 0) {
+		  __pci_next_posedge(pci);
+		  val -= 1;
+	    }
+
       } else {
 	    word_size = 4;
       }
-      
+
 
 	/* Emit DEVSEL# and TRDY# */
       pci->out_devsel_n = BIT_0;
