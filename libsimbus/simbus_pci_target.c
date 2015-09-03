@@ -784,7 +784,7 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
       if (pcix_mode(pci) && burst_len != word_count) {
 	    fprintf(stderr, "simbus_pci ERROR: Expected to write %d words, but wrote %d.\n", word_count, burst_len);
       }
-
+#if 0
 	/* De-assert target signals. */
       pci->out_devsel_n = BIT_1;
       pci->out_ack64_n = BIT_1;
@@ -792,7 +792,7 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
       pci->out_stop_n = BIT_1;
 
       __pci_next_posedge(pci);
-
+#endif
 	/* Release the bus and settle. */
       pci->out_devsel_n = BIT_Z;
       pci->out_ack64_n = BIT_Z;
@@ -860,6 +860,7 @@ void __pci_target_state_machine(simbus_pci_t pci)
 			do_target_memory_write(pci, bar);
 
 		  } else {
+			printf("simbus_pci_target: TARG_IDLE: Skip command=0x%f addr=0x%016" PRIx64 " that doesn't apply to me.\n", command, get_addr(pci));
 			  /* Ignore any other cycles. */
 			pci->target_state = TARG_BUS_BUSY;
 		  }
@@ -896,6 +897,7 @@ void __pci_target_state_machine(simbus_pci_t pci)
 		  } else {
 			  /* Ignore any other cycles. */
 			pci->target_state = TARG_BUS_BUSY;
+			printf("simbus_pci_target: TARG_DAC: Skip command=0x%f addr=0x%016" PRIx64 " that doesn't apply to me.\n", command, get_addr(pci));
 		  }
 	    } else {
 		    /* FRAME# Went away after DAC? Release bus. */
