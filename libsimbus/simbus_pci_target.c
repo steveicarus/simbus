@@ -784,15 +784,7 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
       if (pcix_mode(pci) && burst_len != word_count) {
 	    fprintf(stderr, "simbus_pci ERROR: Expected to write %d words, but wrote %d.\n", word_count, burst_len);
       }
-#if 0
-	/* De-assert target signals. */
-      pci->out_devsel_n = BIT_1;
-      pci->out_ack64_n = BIT_1;
-      pci->out_trdy_n = BIT_1;
-      pci->out_stop_n = BIT_1;
 
-      __pci_next_posedge(pci);
-#endif
 	/* Release the bus and settle. */
       pci->out_devsel_n = BIT_Z;
       pci->out_ack64_n = BIT_Z;
