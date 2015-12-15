@@ -205,24 +205,6 @@ static uint32_t bar0_need32(simbus_pci_t bus, uint64_t addr, int BEn)
       return val;
 }
 
-static uint64_t bar0_need64(simbus_pci_t bus, uint64_t addr, int BEn)
-{
-      uint32_t use_addr = addr;
-      use_addr &= ~bar0_mask;
-      assert(use_addr < memory_size);
-      use_addr /= 4;
-
-      uint64_t val = memory_space[use_addr+1];
-      val <<= 32;
-      val |= memory_space[use_addr+0];
-#if 0
-      printf("Memory read64 from 0x%04" PRIx64 ": 0x%08" PRIx64 " (BE#=0x%x)\n",
-	     addr, val, BEn);
-      fflush(stdout);
-#endif
-      return val;
-}
-
 static void bar0_recv32(simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn)
 {
       uint32_t use_addr = addr;
@@ -243,35 +225,6 @@ static void bar0_recv32(simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn)
       memory_space[use_addr] = (val&be_mask) | (memory_space[use_addr]&~be_mask);
 }
 
-static void bar0_recv64(simbus_pci_t bus, uint64_t addr, uint64_t val, int BEn)
-{
-      uint32_t use_addr = addr;
-      use_addr &= ~bar0_mask;
-      assert(use_addr < memory_size);
-      use_addr /= 4;
-
-      uint32_t be0_mask = 0xffffffff;
-      if (BEn & 0x01) be0_mask &= 0xffffff00;
-      if (BEn & 0x02) be0_mask &= 0xffff00ff;
-      if (BEn & 0x04) be0_mask &= 0xff00ffff;
-      if (BEn & 0x08) be0_mask &= 0x00ffffff;
-      uint32_t val0 = val >>  0;
-
-      uint32_t be1_mask = 0xffffffff;
-      if (BEn & 0x10) be1_mask &= 0xffffff00;
-      if (BEn & 0x20) be1_mask &= 0xffff00ff;
-      if (BEn & 0x40) be1_mask &= 0xff00ffff;
-      if (BEn & 0x80) be1_mask &= 0x00ffffff;
-      uint32_t val1 = val >> 32;
-#if 0
-      printf("Memory write32 to 0x%04" PRIx64 ": 0x%08" PRIx64 " (BE#=0x%x)\n",
-	     addr, val, BEn);
-      fflush(stdout);
-#endif
-      memory_space[use_addr+0] = (val0&be0_mask) | (memory_space[use_addr+0]&~be0_mask);
-      memory_space[use_addr+1] = (val1&be1_mask) | (memory_space[use_addr+1]&~be1_mask);
-}
-
 /*
  * Reading BAR2 is idempotent.
  */
@@ -288,24 +241,6 @@ static uint32_t bar2_need32(simbus_pci_t bus, uint64_t addr, int BEn)
       fflush(stdout);
 
       return val;
-}
-
-static uint64_t bar2_need64(simbus_pci_t bus, uint64_t addr, int BEn)
-{
-      uint32_t use_addr = addr;
-      use_addr &= ~BAR2_MASK;
-      assert(use_addr < BAR2_WORDS);
-      use_addr /= 4;
-
-      uint64_t val = bar2_mem[use_addr+1];
-      val <<= 32;
-      val |= bar2_mem[use_addr+0];
-
-      printf("BAR2 read64 from 0x%04" PRIx64 ": 0x%08" PRIx64 " (BE#=0x%x)\n",
-	     addr, val, BEn);
-      fflush(stdout);
-
-      return 0;
 }
 
 /*
@@ -343,16 +278,6 @@ static void bar2_recv32(simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn)
 	  default:
 	    break;
       }
-}
-
-static void bar2_recv64(simbus_pci_t bus, uint64_t addr, uint64_t val, int BEn)
-{
-      int BEnL = (BEn>>0) & 0x0f;
-      int BEnH = (BEn>>4) & 0x0f;
-      uint32_t valL = (val>> 0) & 0xffffffff;
-      uint32_t valH = (val>>32) & 0xffffffff;
-      bar2_recv32(bus, addr+0, valL, BEnL);
-      bar2_recv32(bus, addr+4, valH, BEnH);
 }
 
 
@@ -413,9 +338,7 @@ static void config_recv32(simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn
 
       if (config_mem[1] & 0x0002) {
 	    bar0_map.need32 = &bar0_need32;
-	    bar0_map.need64 = &bar0_need64;
 	    bar0_map.recv32 = &bar0_recv32;
-	    bar0_map.recv64 = &bar0_recv64;
 	    bar0_map.base = config_mem[5];
 	    bar0_map.base <<= 32;
 	    bar0_map.base |= config_mem[4];
@@ -423,9 +346,7 @@ static void config_recv32(simbus_pci_t bus, uint64_t addr, uint32_t val, int BEn
 	    simbus_pci_mem_xlate(bus, 0, &bar0_map);
 
 	    bar2_map.need32 = &bar2_need32;
-	    bar2_map.need64 = &bar2_need64;
 	    bar2_map.recv32 = &bar2_recv32;
-	    bar2_map.recv64 = &bar2_recv64;
 	    bar2_map.base = config_mem[7];
 	    bar2_map.base <<= 32;
 	    bar2_map.base |= config_mem[6];
