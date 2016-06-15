@@ -216,8 +216,10 @@ struct simbus_translation {
 # define SIMBUS_XLATE_FLAG64 0x0001
   /* Enable split completions for all PCI-X reads. */
 # define SIMBUS_XLATE_SPLIT_COMPLETIONS 0x0002
-  /* Enable rando target retries */
+  /* Enable random target retries */
 # define SIMBUS_XLATE_RANDOM_RETRY_WRITE 0x0004
+  /* Enable random target retries */
+# define SIMBUS_XLATE_RANDOM_RETRY_READ 0x0008
 
 EXTERN void simbus_pci_mem_xlate(simbus_pci_t bus, unsigned idx,
 				 const struct simbus_translation*drv);
