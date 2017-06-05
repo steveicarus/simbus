@@ -179,7 +179,11 @@ static PLI_INT32 poll_for_simbus_bus(struct t_cb_data*cb)
 	    cb_time.type = vpiSuppressTime;
 	    cb_data.reason = cbReadWriteSynch;
 	    cb_data.cb_rtn = poll_for_simbus_bus;
+	    cb_data.obj = 0;
 	    cb_data.time   = &cb_time;
+	    cb_data.value = 0;
+	    cb_data.index = 0;
+	    cb_data.user_data = 0;
 	    vpi_register_cb(&cb_data);
       }
 
@@ -796,7 +800,11 @@ static PLI_INT32 simbus_poll_calltf(char*my_name)
 	    cb_time.type = vpiSuppressTime;
 	    cb_data.reason = cbReadWriteSynch;
 	    cb_data.cb_rtn = poll_for_simbus_bus;
+	    cb_data.obj = 0;
 	    cb_data.time   = &cb_time;
+	    cb_data.value = 0;
+	    cb_data.index = 0;
+	    cb_data.user_data = 0;
 	    vpi_register_cb(&cb_data);
 
 	    instance_table[bus].trig = trig;
