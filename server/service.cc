@@ -392,7 +392,9 @@ int service_run(void)
 	    }
 
 	      // Check to see if there are any busses that need
-	      // initialization, and are ready. If so, initialize them.
+	      // initialization, and are ready. If so, initialize
+	      // them.
+	    set <struct bus_state*> still_need_initialization;
 	    for (set<bus_state*>::iterator idx = need_initialization.begin()
 		       ; idx != need_initialization.end() ;  idx ++) {
 
@@ -411,9 +413,11 @@ int service_run(void)
 
 		  if (flag) {
 			bus->assembly_complete();
-			need_initialization.erase(idx);
+		  } else {
+			still_need_initialization.insert(bus);
 		  }
 	    }
+	    need_initialization = still_need_initialization;
 
 	    multimap<simtime_t, bus_state*> run;
 
