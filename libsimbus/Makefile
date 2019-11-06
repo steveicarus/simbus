@@ -46,6 +46,7 @@ L = simbus.o \
 	simbus_pcie_tlp_reset.o \
 	simbus_pcie_tlp_tlp.o \
 	simbus_pcie_tlp_write.o \
+	mt19937int.o \
 	simbus_version.o
 
 libsimbus.a: $L
@@ -57,11 +58,11 @@ simbus_axi4.o: simbus_axi4.c simbus_axi4.h simbus_axi4_common.h simbus_axi4_priv
 simbus_axi4_read.o: simbus_axi4_read.c simbus_axi4.h simbus_axi4_common.h simbus_axi4_priv.h simbus_priv.h
 simbus_axi4_slave.o: simbus_axi4_slave.c simbus_axi4s.h simbus_axi4_common.h simbus_axi4_priv.h simbus_priv.h
 simbus_axi4_write.o: simbus_axi4_write.c simbus_axi4.h simbus_axi4_common.h simbus_axi4_priv.h simbus_priv.h
-simbus_pci.o: simbus_pci.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
-simbus_pci_config.o: simbus_pci_config.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
-simbus_pci_rw32.o: simbus_pci_rw32.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
-simbus_pci_rw64.o: simbus_pci_rw64.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
-simbus_pci_target.o: simbus_pci_target.c simbus_pci.h simbus_pci_priv.h simbus_priv.h
+simbus_pci.o: simbus_pci.c simbus_pci.h simbus_pci_priv.h mt_priv.h simbus_priv.h
+simbus_pci_config.o: simbus_pci_config.c simbus_pci.h simbus_pci_priv.h mt_priv.h simbus_priv.h
+simbus_pci_rw32.o: simbus_pci_rw32.c simbus_pci.h simbus_pci_priv.h mt_priv.h simbus_priv.h
+simbus_pci_rw64.o: simbus_pci_rw64.c simbus_pci.h simbus_pci_priv.h mt_priv.h simbus_priv.h
+simbus_pci_target.o: simbus_pci_target.c simbus_pci.h simbus_pci_priv.h mt_priv.h simbus_priv.h
 simbus_p2p.o: simbus_p2p.c simbus_p2p.h simbus_p2p_priv.h simbus_priv.h
 simbus_pcie_tlp.o: simbus_pcie_tlp.c simbus_pcie_tlp.h simbus_pcie_tlp_priv.h simbus_priv.h
 simbus_pcie_tlp_cfg.o: simbus_pcie_tlp_cfg.c simbus_pcie_tlp.h simbus_pcie_tlp_priv.h simbus_priv.h
@@ -69,7 +70,7 @@ simbus_pcie_tlp_read.o: simbus_pcie_tlp_read.c simbus_pcie_tlp.h simbus_pcie_tlp
 simbus_pcie_tlp_reset.o: simbus_pcie_tlp_reset.c simbus_pcie_tlp.h simbus_pcie_tlp_priv.h simbus_priv.h
 simbus_pcie_tlp_tlp.o: simbus_pcie_tlp_tlp.c simbus_pcie_tlp.h simbus_pcie_tlp_priv.h simbus_priv.h
 simbus_pcie_tlp_write.o: simbus_pcie_tlp_write.c simbus_pcie_tlp.h simbus_pcie_tlp_priv.h simbus_priv.h
-
+mt19937int.o: mt19937int.c mt_priv.h
 simbus_version.o: simbus_version.c simbus_base.h
 
 version simbus_version.c: ./make_version.sh

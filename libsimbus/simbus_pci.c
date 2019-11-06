@@ -33,7 +33,7 @@ static void init_simbus_pci(struct simbus_pci_s*pci)
       pci->debug = 0;
       init_simbus_time(&pci->bus_time);
 
-      initstate_r(111, pci->random_buf, sizeof(pci->random_buf), &pci->random_state);
+      simbus_mt_sgenrand(&pci->random_state, 111);
 
       pci->retry_rate = 0;
 
