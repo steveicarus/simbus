@@ -31,11 +31,14 @@ using namespace std;
 protocol_t::protocol_t(struct bus_state*b)
 : bus_(b)
 {
-      srand48_r(1, &rand_state_);
+      rand_state_buf_ = new char[256];
+      memset(&rand_state_, 0, sizeof rand_state_);
+      initstate_r(1, rand_state_buf_, 256, &rand_state_);
 }
 
 protocol_t::~protocol_t()
 {
+      delete[]rand_state_buf_;
 }
 
 bus_device_map_t& protocol_t::device_map()

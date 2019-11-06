@@ -21,6 +21,7 @@
 
 # include  "priv.h"
 # include  "simtime.h"
+# include  <stdlib.h>
 struct bus_state;
 
 class protocol_t  {
@@ -73,8 +74,8 @@ class protocol_t  {
       void advance_time_(uint64_t mant, int exp);
 
       inline long lrand_(void) {
-	    long tmp;
-	    lrand48_r(&rand_state_, &tmp);
+	    int32_t tmp;
+	    random_r(&rand_state_, &tmp);
 	    return tmp;
       }
 
@@ -87,7 +88,8 @@ class protocol_t  {
       virtual void run_run() =0;
 
     private:
-      struct drand48_data rand_state_;
+      char*rand_state_buf_;
+      struct random_data rand_state_;
       struct bus_state*bus_;
 
       simtime_t time_;
