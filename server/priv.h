@@ -178,4 +178,5 @@ extern struct lxt2_wr_trace*service_lxt;
  */
 extern std::ofstream protocol_log;
 
+
 #endif

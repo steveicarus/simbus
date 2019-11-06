@@ -24,6 +24,10 @@
 # include  <stdlib.h>
 struct bus_state;
 
+extern "C" {
+# include  "mt_priv.h"
+}
+
 class protocol_t  {
 
     public:
@@ -74,8 +78,7 @@ class protocol_t  {
       void advance_time_(uint64_t mant, int exp);
 
       inline long lrand_(void) {
-	    int32_t tmp;
-	    random_r(&rand_state_, &tmp);
+	    unsigned long tmp = genrand(&rand_state_);
 	    return tmp;
       }
 
@@ -88,8 +91,7 @@ class protocol_t  {
       virtual void run_run() =0;
 
     private:
-      char*rand_state_buf_;
-      struct random_data rand_state_;
+      struct context_s rand_state_;
       struct bus_state*bus_;
 
       simtime_t time_;
