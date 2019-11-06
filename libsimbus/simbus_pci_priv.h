@@ -20,6 +20,7 @@
  */
 
 # include  "simbus_priv.h"
+# include  "mt_priv.h"
 # include  <stdlib.h>
 
 # define TARGET_MEM_REGIONS 8
@@ -37,8 +38,7 @@ struct simbus_pci_s {
       FILE*debug;
 
 	/* Random number generator. */
-      char random_buf[256];
-      struct random_data random_state;
+      struct simbus_mt_context_s random_state;
 
       int retry_rate;
 

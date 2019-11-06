@@ -664,8 +664,7 @@ static int choose_to_retry_w(simbus_pci_t pci, const struct simbus_translation*b
       if (pci->retry_rate <= 0)
 	    return 0;
 
-      int32_t val = 1;
-      random_r(&pci->random_state, &val);
+      int32_t val = simbus_mt_genrand(&pci->random_state);
       val %= pci->retry_rate;
       if (val == 0)
 	    return 1;
@@ -681,8 +680,7 @@ static int choose_to_retry_r(simbus_pci_t pci, const struct simbus_translation*b
       if (pci->retry_rate <= 0)
 	    return 0;
 
-      int32_t val = 1;
-      random_r(&pci->random_state, &val);
+      int32_t val = simbus_mt_genrand(&pci->random_state);
       val %= pci->retry_rate;
       if (val == 0)
 	    return 1;
@@ -735,8 +733,7 @@ static void do_target_memory_write(simbus_pci_t pci, const struct simbus_transla
 		 A, B, or C. Real targets would usually be consistent,
 		 but this makes sure the source can handle all the
 		 possible cases. */
-	    int32_t val = 1;
-	    random_r(&pci->random_state, &val);
+	    int32_t val = simbus_mt_genrand(&pci->random_state);
 	    val %= 3;
 	    while (val > 0) {
 		  __pci_next_posedge(pci);
